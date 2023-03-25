@@ -56,7 +56,7 @@ bot.on('chat', async (username, message) => {
 
     // Add information about other players
     Object.values(players).forEach((player) => {
-      if (player.username !== bot.username) {
+      if (player.username !== bot.username && player.entity) {
         const playerPosition = player.entity.position
         messages.push({
           role: 'assistant',
