@@ -6,7 +6,7 @@ A Minecraft chatbot powered by OpenAI's ChatGPT and integrated with Mineflayer.
 
 1. Make sure you have [Node.js](https://nodejs.org/) installed (version 14 or higher).
 
-2. Clone the repository and navigate to the project directory: `git clone https://github.com/yourusername/mineflayer-chatgpt.git
+2. Clone the repository and navigate to the project directory: `git clone https://github.com/JesseRWeigel/mineflayer-chatgpt.git
 cd mineflayer-chatgpt`
 
 3. Install the required dependencies: `npm install`
