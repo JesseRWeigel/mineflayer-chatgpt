@@ -16,7 +16,6 @@ const bot = mineflayer.createBot({
 })
 
 bot.on('kicked', console.log)
-bot.on('error', console.log)
 
 bot.on('spawn', () => {
   console.log('Chatbot spawned')
@@ -38,7 +37,11 @@ bot.on('chat', async (username, message) => {
 
     // Format the information as messages
     const messages = [
-      { role: 'system', content: 'You are a helpful assistant.' },
+      {
+        role: 'system',
+        content:
+          'You are an AI assistant that helps players in a Minecraft world. You have knowledge about the world, players, mobs, and your own status, and you can use this information to provide helpful responses. Remember to always answer questions within the context of Minecraft.',
+      },
       {
         role: 'assistant',
         content: `I am currently at position x: ${botPosition.x.toFixed(
@@ -89,6 +92,7 @@ bot.on('chat', async (username, message) => {
         model: 'gpt-3.5-turbo',
         messages: messages,
         temperature: 0.5,
+        max_tokens: 300,
       },
       {
         headers: {
