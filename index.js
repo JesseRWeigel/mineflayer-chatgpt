@@ -1,7 +1,7 @@
 const mineflayer = require('mineflayer')
 const dotenv = require('dotenv')
 const axios = require('axios')
-
+const Biome = require('prismarine-biome')
 dotenv.config()
 
 const openaiApiKey = process.env.OPENAI_API_KEY
@@ -25,6 +25,22 @@ bot.on('chat', async (username, message) => {
   if (username === bot.username) return
 
   console.log(`${username}: ${message}`)
+
+  if (message === '!location') {
+    const position = bot.entity.position
+    const biome = bot.world.getBiome(position.x, position.z)
+    const landmarks = bot.findBlocks({
+      matching: [BlockType.Monument, BlockType.Village],
+      maxDistance: 64,
+      count: 10,
+    })
+
+    const landmarkNames = landmarks.map((l) => l.name).join(', ')
+
+    bot.chat(
+      `You are at (${position.x}, ${position.y}, ${position.z}) in the ${Biome[biome]} biome. Nearby landmarks: ${landmarkNames}`
+    )
+  }
 
   try {
     // Collect information about the world, players, and mobs
@@ -89,7 +105,7 @@ bot.on('chat', async (username, message) => {
     const response = await axios.post(
       openaiApiUrl,
       {
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4',
         messages: messages,
         temperature: 0.5,
         max_tokens: 300,
