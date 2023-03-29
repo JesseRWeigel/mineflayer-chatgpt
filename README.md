@@ -32,14 +32,13 @@ The chatbot will now connect to the specified Minecraft server and start respond
 
 ## TODO
 
-[] Improve conversation and context: Enhance the bot's conversation skills by providing a more detailed context to the GPT-4 API, including the conversation history and relevant information about the player or the game.
+- [ ] Improve conversation and context: Enhance the bot's conversation skills by providing a more detailed context to the GPT-4 API, including the conversation history and relevant information about the player or the game.
 
-[] Add more commands: Expand the bot's capabilities by adding more commands that players can use. For example, you can add commands for crafting recipes, mining strategies, building ideas, and more. Use the GPT-4 API to generate helpful responses based on the command and context.
+- [ ] Add more commands: Expand the bot's capabilities by adding more commands that players can use. For example, you can add commands for crafting recipes, mining strategies, building ideas, and more. Use the GPT-4 API to generate helpful responses based on the command and context.
 
-[] Automate actions: Use Mineflayer to execute actions in the game based on the GPT-4 API responses. For example, if a player asks the bot to mine a specific resource, the bot can use Mineflayer to navigate to the resource and mine it.
+- [ ] Automate actions: Use Mineflayer to execute actions in the game based on the GPT-4 API responses. For example, if a player asks the bot to mine a specific resource, the bot can use Mineflayer to navigate to the resource and mine it.
 
-[] Improve error handling and logging: Add more robust error handling and logging to the bot to ensure it runs smoothly and can recover from unexpected
-issues.
+- [ ] Improve error handling and logging: Add more robust error handling and logging to the bot to ensure it runs smoothly and can recover from unexpected issues.
 
 ## Tags
 
