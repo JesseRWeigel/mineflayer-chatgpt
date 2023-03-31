@@ -21,6 +21,9 @@ bot.on('spawn', () => {
   console.log('Chatbot spawned')
 })
 
+// Store conversation history for different players
+const playerContexts = {}
+
 bot.on('chat', async (username, message) => {
   if (username === bot.username) return
 
@@ -41,6 +44,12 @@ bot.on('chat', async (username, message) => {
       `You are at (${position.x}, ${position.y}, ${position.z}) in the ${Biome[biome]} biome. Nearby landmarks: ${landmarkNames}`
     )
   }
+
+  // Retrieve or create the context for the player
+  if (!playerContexts[username]) {
+    playerContexts[username] = []
+  }
+  const context = playerContexts[username]
 
   try {
     // Collect information about the world, players, and mobs
@@ -100,13 +109,13 @@ bot.on('chat', async (username, message) => {
       })
     }
 
-    messages.push({ role: 'user', content: message })
+    context.push({ role: 'user', content: message })
 
     const response = await axios.post(
       openaiApiUrl,
       {
         model: 'gpt-4',
-        messages: messages,
+        messages: context,
         temperature: 0.5,
         max_tokens: 300,
       },
@@ -120,6 +129,10 @@ bot.on('chat', async (username, message) => {
 
     const chatReply = response.data.choices[0].message.content.trim()
     console.log(`Chatbot: ${chatReply}`)
+
+    // Add GPT-4's response to the context
+    context.push({ role: 'assistant', content: chatReply })
+
     bot.chat(chatReply)
   } catch (error) {
     console.error('Error getting response from OpenAI API:', error)
