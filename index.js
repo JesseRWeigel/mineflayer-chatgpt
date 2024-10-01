@@ -114,7 +114,7 @@ bot.on('chat', async (username, message) => {
     const response = await axios.post(
       openaiApiUrl,
       {
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: context,
         temperature: 0.5,
         max_tokens: 300,
