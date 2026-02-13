@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Atlas Viewer</title>
+  <style>
+    html { overflow: hidden; }
+    html, body { height: 100%; margin: 0; padding: 0; }
+    canvas { height: 100%; width: 100%; font-size: 0; margin: 0; padding: 0; }
+    #hud {
+      position: fixed; top: 10px; left: 10px;
+      color: #fff; font: bold 14px monospace;
+      z-index: 100; text-shadow: 1px 1px 3px #000;
+      pointer-events: none; line-height: 1.6;
+      white-space: pre;
+    }
+    #cam-btn {
+      position: fixed; bottom: 16px; right: 16px;
+      background: rgba(0,0,0,0.55); color: #fff;
+      border: 1px solid rgba(255,255,255,0.3); border-radius: 6px;
+      padding: 8px 16px; font: bold 13px monospace; cursor: pointer;
+      z-index: 100;
+    }
+    #cam-btn:hover { background: rgba(0,0,0,0.8); }
+  </style>
+</head>
+<body>
+  <div id="hud"></div>
+  <button id="cam-btn">Camera: Follow</button>
+
+  <!-- Pre-bundle: intercept THREE.OrbitControls + WebSocket position data -->
+  <script>
+    var capturedControls = null;
+    var capturedCamera = null;
+    var lastBotPos = null;
+    var lastBotYaw = 0;
+    var cameraMode = 'follow'; // 'follow' | 'first' | 'free'
+
+    // Intercept WebSocket to capture position packets from socket.io
+    var OrigWebSocket = window.WebSocket;
+    window.WebSocket = new Proxy(OrigWebSocket, {
+      construct: function(target, args) {
+        var ws = new target(args[0], args[1]);
+        ws.addEventListener('message', function(e) {
+          if (typeof e.data === 'string' && e.data.indexOf('"position"') !== -1) {
+            try {
+              var json = e.data.replace(/^\d+/, '');
+              var parsed = JSON.parse(json);
+              if (parsed[0] === 'position' && parsed[1] && parsed[1].pos) {
+                lastBotPos = parsed[1].pos;
+                lastBotYaw = parsed[1].yaw || 0;
+              }
+            } catch(ex) {}
+          }
+        });
+        return ws;
+      }
+    });
+
+    // Intercept THREE global then intercept OrbitControls constructor
+    Object.defineProperty(window, 'THREE', {
+      configurable: true,
+      enumerable: true,
+      set: function(val) {
+        // Replace with normal writable property
+        Object.defineProperty(window, 'THREE', {
+          value: val, writable: true, configurable: true, enumerable: true
+        });
+        // Watch for OrbitControls being added to THREE
+        var _pending = null;
+        Object.defineProperty(val, 'OrbitControls', {
+          configurable: true,
+          enumerable: true,
+          set: function(oc) {
+            _pending = oc;
+            // Replace with wrapper that captures instance
+            Object.defineProperty(val, 'OrbitControls', {
+              value: function PatchedOC(camera, domElement) {
+                capturedCamera = camera;
+                var ctrl = new oc(camera, domElement);
+                capturedControls = ctrl;
+                ctrl.minDistance = 3;
+                ctrl.maxDistance = 120;
+                ctrl.enableDamping = true;
+                ctrl.dampingFactor = 0.12;
+                return ctrl;
+              },
+              writable: true,
+              configurable: true
+            });
+          },
+          get: function() { return _pending; }
+        });
+      },
+      get: function() { return undefined; }
+    });
+  </script>
+
+  <!-- Load the prismarine-viewer webpack bundle (renderer, world, entities) -->
+  <script type="text/javascript" src="index.js"></script>
+
+  <!-- Post-bundle: follow camera logic -->
+  <script>
+    var FOLLOW_OFFSET_Y = 14;
+    var FOLLOW_OFFSET_BACK = 16;
+    var LERP_SPEED = 0.06;
+    var hud = document.getElementById('hud');
+    var camBtn = document.getElementById('cam-btn');
+
+    // Camera mode cycling
+    var modes = ['follow', 'first', 'free'];
+    var modeLabels = { follow: 'Follow', first: 'First Person', free: 'Free Orbit' };
+    camBtn.onclick = function() {
+      var idx = modes.indexOf(cameraMode);
+      cameraMode = modes[(idx + 1) % modes.length];
+      camBtn.textContent = 'Camera: ' + modeLabels[cameraMode];
+    };
+
+    // Auto-cycle timer (press C to toggle)
+    var autoCycle = false;
+    var cycleInterval = null;
+    document.addEventListener('keydown', function(e) {
+      if (e.key === 'c' || e.key === 'C') {
+        autoCycle = !autoCycle;
+        if (autoCycle) {
+          cycleInterval = setInterval(function() {
+            camBtn.click();
+          }, 20000);
+        } else {
+          clearInterval(cycleInterval);
+        }
+      }
+    });
+
+    // Follow camera loop
+    var _tmpVec = null;
+    function followTick() {
+      requestAnimationFrame(followTick);
+      if (!capturedControls || !capturedCamera || !lastBotPos) return;
+      if (!_tmpVec) _tmpVec = new THREE.Vector3();
+
+      if (cameraMode === 'follow') {
+        // Smooth orbit target to bot position
+        _tmpVec.set(lastBotPos.x, lastBotPos.y + 1.6, lastBotPos.z);
+        capturedControls.target.lerp(_tmpVec, LERP_SPEED);
+
+        // Position camera behind and above the bot
+        var yaw = lastBotYaw || 0;
+        var desiredX = lastBotPos.x - Math.sin(yaw) * FOLLOW_OFFSET_BACK;
+        var desiredY = lastBotPos.y + FOLLOW_OFFSET_Y;
+        var desiredZ = lastBotPos.z - Math.cos(yaw) * FOLLOW_OFFSET_BACK;
+        _tmpVec.set(desiredX, desiredY, desiredZ);
+        capturedCamera.position.lerp(_tmpVec, LERP_SPEED);
+
+        // Re-enable controls if they were killed by first-person mode
+        if (!capturedControls.enabled) capturedControls.enabled = true;
+
+      } else if (cameraMode === 'first') {
+        // First person: camera at bot eye level, looking where bot looks
+        var eyeY = lastBotPos.y + 1.62;
+        capturedCamera.position.set(lastBotPos.x, eyeY, lastBotPos.z);
+        var lookX = lastBotPos.x - Math.sin(lastBotYaw);
+        var lookZ = lastBotPos.z - Math.cos(lastBotYaw);
+        _tmpVec.set(lookX, eyeY, lookZ);
+        capturedControls.target.copy(_tmpVec);
+
+      } else if (cameraMode === 'free') {
+        // Free orbit: gentle follow, let user orbit freely
+        _tmpVec.set(lastBotPos.x, lastBotPos.y + 1.6, lastBotPos.z);
+        capturedControls.target.lerp(_tmpVec, 0.02);
+      }
+
+      // HUD update (safe text only, no HTML)
+      hud.textContent =
+        'Atlas @ ' + Math.round(lastBotPos.x) + ', ' +
+        Math.round(lastBotPos.y) + ', ' + Math.round(lastBotPos.z) +
+        '\nCamera: ' + modeLabels[cameraMode] +
+        (autoCycle ? ' [auto-cycle]' : '');
+    }
+    followTick();
+  </script>
+</body>
+</html>

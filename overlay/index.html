@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Atlas Stream Overlay</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: transparent;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: white;
+      width: 1920px;
+      height: 1080px;
+      overflow: hidden;
+    }
+
+    /* Top bar — thought bubble */
+    #thought-bar {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.7);
+      border: 2px solid rgba(255, 215, 0, 0.6);
+      border-radius: 16px;
+      padding: 12px 28px;
+      max-width: 800px;
+      text-align: center;
+      font-size: 22px;
+      font-style: italic;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+      transition: opacity 0.3s;
+    }
+
+    #thought-bar .label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #ffd700;
+      margin-bottom: 4px;
+    }
+
+    /* Bottom-left: health + hunger + position */
+    #stats-panel {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      background: rgba(0, 0, 0, 0.65);
+      border-radius: 12px;
+      padding: 14px 18px;
+      min-width: 260px;
+    }
+
+    .stat-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 6px;
+      font-size: 15px;
+    }
+
+    .stat-row:last-child { margin-bottom: 0; }
+
+    .stat-label {
+      width: 70px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #aaa;
+    }
+
+    .stat-bar {
+      flex: 1;
+      height: 14px;
+      background: rgba(255,255,255,0.1);
+      border-radius: 7px;
+      overflow: hidden;
+      margin-left: 8px;
+    }
+
+    .stat-fill {
+      height: 100%;
+      border-radius: 7px;
+      transition: width 0.5s ease;
+    }
+
+    .health-fill { background: linear-gradient(90deg, #ff4444, #ff6666); }
+    .hunger-fill { background: linear-gradient(90deg, #c87533, #e8a04a); }
+
+    .stat-value {
+      width: 50px;
+      text-align: right;
+      font-size: 14px;
+      margin-left: 8px;
+      font-weight: bold;
+    }
+
+    #position {
+      font-size: 12px;
+      color: #888;
+      margin-top: 6px;
+    }
+
+    #time-display {
+      font-size: 12px;
+      color: #aaa;
+    }
+
+    /* Action indicator */
+    #action-bar {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      border-radius: 10px;
+      padding: 8px 20px;
+      font-size: 14px;
+      color: #8cf;
+    }
+
+    #action-bar .action-name {
+      font-weight: bold;
+      color: #5ddfff;
+    }
+
+    /* Right side: chat feed */
+    #chat-panel {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 380px;
+      max-height: 300px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+
+    .chat-msg {
+      background: rgba(0, 0, 0, 0.55);
+      border-radius: 8px;
+      padding: 6px 12px;
+      margin-bottom: 4px;
+      font-size: 14px;
+      animation: slideIn 0.3s ease;
+      word-wrap: break-word;
+    }
+
+    .chat-msg .username { font-weight: bold; }
+    .chat-msg.paid { border-left: 3px solid #ffd700; }
+    .chat-msg.paid .username { color: #ffd700; }
+    .chat-msg.sub { border-left: 3px solid #a855f7; }
+    .chat-msg.sub .username { color: #a855f7; }
+    .chat-msg.free .username { color: #8cf; }
+
+    .tier-badge {
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 3px;
+      margin-right: 4px;
+      font-weight: bold;
+      display: inline-block;
+    }
+
+    .tier-badge.paid { background: #ffd700; color: #000; }
+    .tier-badge.sub { background: #a855f7; color: #fff; }
+
+    /* Inventory strip — top right */
+    #inventory-panel {
+      position: absolute;
+      top: 80px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.55);
+      border-radius: 10px;
+      padding: 10px 14px;
+      max-width: 280px;
+      font-size: 13px;
+    }
+
+    #inventory-panel .inv-title {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: #aaa;
+      margin-bottom: 4px;
+    }
+
+    #inventory-list {
+      color: #ccc;
+      line-height: 1.5;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(20px); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Thought bubble -->
+  <div id="thought-bar">
+    <div class="label">Atlas is thinking</div>
+    <div id="thought-text">Waking up...</div>
+  </div>
+
+  <!-- Stats -->
+  <div id="stats-panel">
+    <div class="stat-row">
+      <span class="stat-label">Health</span>
+      <div class="stat-bar"><div class="stat-fill health-fill" id="health-bar"></div></div>
+      <span class="stat-value" id="health-val">20/20</span>
+    </div>
+    <div class="stat-row">
+      <span class="stat-label">Hunger</span>
+      <div class="stat-bar"><div class="stat-fill hunger-fill" id="hunger-bar"></div></div>
+      <span class="stat-value" id="hunger-val">20/20</span>
+    </div>
+    <div id="position">0, 0, 0</div>
+    <div id="time-display">Daytime</div>
+  </div>
+
+  <!-- Action indicator -->
+  <div id="action-bar">
+    Now: <span class="action-name" id="action-text">idle</span>
+    <span id="action-result"></span>
+  </div>
+
+  <!-- Inventory -->
+  <div id="inventory-panel">
+    <div class="inv-title">Inventory</div>
+    <div id="inventory-list">Empty</div>
+  </div>
+
+  <!-- Chat feed -->
+  <div id="chat-panel"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+
+    const $ = (id) => document.getElementById(id);
+
+    socket.on('state', (state) => {
+      // Thought
+      $('thought-text').textContent = state.thought;
+
+      // Health & hunger
+      const hp = Math.max(0, Math.min(20, state.health));
+      const food = Math.max(0, Math.min(20, state.food));
+      $('health-bar').style.width = (hp / 20 * 100) + '%';
+      $('health-val').textContent = hp + '/20';
+      $('hunger-bar').style.width = (food / 20 * 100) + '%';
+      $('hunger-val').textContent = food + '/20';
+
+      // Position
+      const p = state.position;
+      $('position').textContent = p.x.toFixed(0) + ', ' + p.y.toFixed(0) + ', ' + p.z.toFixed(0);
+
+      // Time
+      $('time-display').textContent = state.time;
+
+      // Action
+      $('action-text').textContent = state.action;
+      $('action-result').textContent = state.actionResult ? ' — ' + state.actionResult : '';
+
+      // Inventory
+      if (state.inventory.length > 0) {
+        $('inventory-list').textContent = state.inventory.join(', ');
+      } else {
+        $('inventory-list').textContent = 'Empty';
+      }
+
+      // Chat — built safely with DOM methods
+      const chatPanel = $('chat-panel');
+      chatPanel.replaceChildren();
+      state.chatMessages.forEach((msg) => {
+        const div = document.createElement('div');
+        div.className = 'chat-msg ' + msg.tier;
+
+        if (msg.tier === 'paid' || msg.tier === 'sub') {
+          const badge = document.createElement('span');
+          badge.className = 'tier-badge ' + msg.tier;
+          badge.textContent = msg.tier.toUpperCase();
+          div.appendChild(badge);
+        }
+
+        const username = document.createElement('span');
+        username.className = 'username';
+        username.textContent = msg.username + ':';
+        div.appendChild(username);
+
+        div.appendChild(document.createTextNode(' ' + msg.message));
+        chatPanel.appendChild(div);
+      });
+      chatPanel.scrollTop = chatPanel.scrollHeight;
+    });
+
+    // TTS audio playback
+    let audioQueue = [];
+    let isPlaying = false;
+
+    socket.on('speak', (data) => {
+      audioQueue.push(data.url);
+      playNext();
+    });
+
+    function playNext() {
+      if (isPlaying || audioQueue.length === 0) return;
+      isPlaying = true;
+      const url = audioQueue.shift();
+      const audio = new Audio(url);
+      audio.volume = 0.85;
+      audio.onended = () => { isPlaying = false; playNext(); };
+      audio.onerror = () => { isPlaying = false; playNext(); };
+      audio.play().catch(() => { isPlaying = false; playNext(); });
+    }
+  </script>
+</body>
+</html>

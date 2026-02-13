@@ -1,2 +1,7 @@
 node_modules/
+dist/
 .env
+server/
+*.jar
+logs/
+memory.json
