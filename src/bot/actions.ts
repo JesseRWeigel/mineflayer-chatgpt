@@ -101,7 +101,7 @@ export async function executeAction(
         bot.chat(params.message || "Hey!");
         return `Replied: ${params.message}`;
       case "generate_skill": {
-        if (!params.task) return "generate_skill needs a 'task' param describing what to do.";
+        if (!params.task || !String(params.task).trim()) return "generate_skill needs a non-empty 'task' param.";
         const { generateSkill } = await import("../skills/generator.js");
         const name = await generateSkill(params.task as string);
         return `Generated skill '${name}'! I can now use it with invoke_skill.`;

@@ -1,4 +1,4 @@
-import fs from "node:fs";
+import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { Ollama } from "ollama";
@@ -26,24 +26,29 @@ TASK: TASK_DESCRIPTION
 Write ONLY the JavaScript function. No markdown, no explanation, no backticks.`;
 
 export async function saveGeneratedSkill(name: string, code: string): Promise<string> {
-  fs.mkdirSync(GENERATED_DIR, { recursive: true });
-  fs.writeFileSync(path.join(GENERATED_DIR, `${name}.js`), code, "utf-8");
+  await mkdir(GENERATED_DIR, { recursive: true });
+  await writeFile(path.join(GENERATED_DIR, `${name}.js`), code, "utf-8");
   console.log(`[Generator] Saved skill '${name}'`);
   return name;
 }
 
 export async function generateSkill(task: string): Promise<string> {
-  const skillName = task
+  const trimmedTask = task.trim();
+  if (!trimmedTask) {
+    throw new Error("Task description cannot be empty");
+  }
+
+  const skillName = trimmedTask
     .toLowerCase().replace(/[^a-z0-9 ]/g, "").trim()
     .split(/\s+/)
     .map((w, i) => i === 0 ? w : w[0].toUpperCase() + w.slice(1))
     .join("").slice(0, 40);
 
-  console.log(`[Generator] Writing '${skillName}' for: ${task}`);
+  console.log(`[Generator] Writing '${skillName}' for: ${trimmedTask}`);
 
   const prompt = GENERATION_PROMPT
     .replace("SKILL_NAME", skillName)
-    .replace("TASK_DESCRIPTION", task);
+    .replace("TASK_DESCRIPTION", trimmedTask);
 
   const response = await ollama.chat({
     model: config.ollama.model,
