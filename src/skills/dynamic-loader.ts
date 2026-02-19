@@ -43,6 +43,12 @@ export function loadDynamicSkills(): void {
 function buildDynamicSkill(name: string, filePath: string): Skill {
   const code = fs.readFileSync(filePath, "utf-8");
 
+  // Convention: the JS file must export an async function with the same name as the file.
+  // e.g., craftWoodenPickaxe.js must contain: async function craftWoodenPickaxe(bot) { ... }
+  if (!code.includes(`async function ${name}`) && !code.includes(`function ${name}`)) {
+    throw new Error(`File must contain a function named '${name}'`);
+  }
+
   return {
     name,
     description: `Dynamic skill: ${name}`,
@@ -52,17 +58,26 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
     async execute(bot, _params, signal, onProgress) {
       onProgress({ skillName: name, phase: "Running", progress: 0, message: name, active: true });
       try {
+        // NOTE: vm.createContext is NOT a security sandbox — skill files must be trusted.
+        // A malicious skill could escape via prototype chain. Only load skills from trusted sources.
         const ctx = vm.createContext({
           bot, Vec3,
           require: safeRequire,
           console, setTimeout, clearTimeout,
           setInterval, clearInterval, Promise, Math, JSON,
         });
-        // Define the function in the sandbox, then invoke it
-        await vm.runInContext(`${code}\n(async()=>{ await ${name}(bot); })()`, ctx, {
-          timeout: 60_000,
+        // Define the function in the sandbox, then invoke it.
+        // vm.runInContext's `timeout` option only covers synchronous code; the async
+        // wrapper returns a Promise immediately, so we race against an explicit timer.
+        const vmPromise = vm.runInContext(`${code}\n(async()=>{ await ${name}(bot); })()`, ctx, {
           filename: filePath,
-        });
+        }) as Promise<void>;
+
+        const timeoutPromise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error(`${name} timed out after 60s`)), 60_000)
+        );
+
+        await Promise.race([vmPromise, timeoutPromise]);
         onProgress({ skillName: name, phase: "Done", progress: 1, message: `${name} complete`, active: false });
         return { success: true, message: `${name} completed.` };
       } catch (err: any) {
