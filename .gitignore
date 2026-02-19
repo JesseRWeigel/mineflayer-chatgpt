@@ -6,3 +6,6 @@ server/
 logs/
 memory.json
 firebase-debug.log
+
+skills/voyager/*.js
+skills/generated/*.js
