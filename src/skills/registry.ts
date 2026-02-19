@@ -23,6 +23,11 @@ register(smeltOresSkill);
 register(goFishingSkill);
 register(buildBridgeSkill);
 
+// Dynamic skills are loaded lazily by calling loadDynamicSkills() from dynamic-loader.ts.
+// The import is intentionally kept out of this file to avoid circular module evaluation:
+// dynamic-loader.ts imports skillRegistry from this file, so registry.ts must not
+// import dynamic-loader.ts at module load time (TDZ / circular ref issue with tsx/Node ESM).
+
 /** Generate the SKILLS section for the LLM system prompt. */
 export function getSkillPromptLines(): string {
   const lines: string[] = [];

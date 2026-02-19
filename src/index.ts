@@ -2,6 +2,9 @@ import { createBot } from "./bot/index.js";
 import { createTwitchChat } from "./stream/twitch.js";
 import { startOverlay, addChatMessage } from "./stream/overlay.js";
 import { config } from "./config.js";
+import { loadDynamicSkills } from "./skills/dynamic-loader.js";
+
+loadDynamicSkills();
 
 const MAX_RESTARTS = 50;
 const RESTART_DELAY_MS = 10000;
