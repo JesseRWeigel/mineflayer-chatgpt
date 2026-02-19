@@ -100,6 +100,12 @@ export async function executeAction(
       case "respond_to_chat":
         bot.chat(params.message || "Hey!");
         return `Replied: ${params.message}`;
+      case "generate_skill": {
+        if (!params.task) return "generate_skill needs a 'task' param describing what to do.";
+        const { generateSkill } = await import("../skills/generator.js");
+        const name = await generateSkill(params.task as string);
+        return `Generated skill '${name}'! I can now use it with invoke_skill.`;
+      }
       default: {
         // Check if this is a registered skill
         const skill = skillRegistry.get(action);
