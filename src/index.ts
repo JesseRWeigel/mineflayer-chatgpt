@@ -46,7 +46,7 @@ async function startBot() {
   // Auto-restart on disconnect/kick/error
   return new Promise<void>((resolve) => {
     bot.on("kicked", (reason) => {
-      console.log(`[Bot] Kicked: ${reason}`);
+      console.log(`[Bot] Kicked: ${JSON.stringify(reason)}`);
       stop();
       twitch?.client.disconnect();
       resolve();

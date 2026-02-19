@@ -130,12 +130,15 @@ SKILL TIPS:
 
 export async function queryLLM(
   context: string,
-  recentMessages: LLMMessage[] = []
+  recentMessages: LLMMessage[] = [],
+  memoryContext: string = ""
 ): Promise<{ thought: string; action: string; params: Record<string, any>; goal?: string; goalSteps?: number }> {
+  // Prepend memory context to the user message if available
+  const memorySection = memoryContext ? `\n\nYOUR MEMORY (learn from this): ${memoryContext}\n` : "";
   const messages: LLMMessage[] = [
     { role: "system", content: SYSTEM_PROMPT },
     ...recentMessages,
-    { role: "user", content: `/no_think\n${context}` },
+    { role: "user", content: `/no_think\n${memorySection}${context}` },
   ];
 
   try {
@@ -150,6 +153,7 @@ export async function queryLLM(
 
     // Extract JSON from response — strip think tags, code fences, surrounding text
     let content = response.message.content.trim();
+    console.log(`[LLM] Raw response (${content.length} chars): ${content.slice(0, 300)}`);
     content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
     content = content.replace(/^```json?\s*/i, "").replace(/\s*```$/i, "");
 

@@ -5,3 +5,4 @@ server/
 *.jar
 logs/
 memory.json
+firebase-debug.log

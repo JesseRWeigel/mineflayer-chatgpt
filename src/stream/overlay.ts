@@ -43,6 +43,15 @@ export function startOverlay(port = 3001) {
     socket.emit("state", currentState);
   });
 
+  http.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.log(`[Overlay] Port ${port} in use, skipping overlay server`);
+      io = null;
+      return;
+    }
+    console.error("[Overlay] Server error:", err);
+  });
+
   http.listen(port, () => {
     console.log(`[Overlay] Stream overlay running at http://localhost:${port}`);
   });

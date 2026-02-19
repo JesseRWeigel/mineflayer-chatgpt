@@ -13,6 +13,7 @@ import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.j
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
+import { loadMemory, getMemoryContext, recordDeath } from "./memory.js";
 
 export interface ChatMessage {
   source: "minecraft" | "twitch" | "youtube";
@@ -28,6 +29,9 @@ export interface BotEvents {
 }
 
 export async function createBot(events: BotEvents) {
+  // Load memory at startup
+  loadMemory();
+
   console.log(
     `[Bot] Connecting to ${config.mc.host}:${config.mc.port} as ${config.mc.username}...`
   );
@@ -114,8 +118,9 @@ export async function createBot(events: BotEvents) {
 
       contextStr += "\n\nWhat should you do next? Respond with a JSON action.";
 
-      // Query LLM
-      const decision = await queryLLM(contextStr, recentHistory.slice(-6));
+      // Query LLM with memory context
+      const memoryCtx = getMemoryContext();
+      const decision = await queryLLM(contextStr, recentHistory.slice(-6), memoryCtx);
 
       // Filter thought for safety before showing on stream
       const thoughtFilter = filterContent(decision.thought);
@@ -223,6 +228,11 @@ export async function createBot(events: BotEvents) {
 
   // Handle death
   bot.on("death", () => {
+    const pos = bot.entity.position;
+    // Try to detect cause from recent events (simplified)
+    const cause = "unknown";
+    recordDeath(pos.x, pos.y, pos.z, cause);
+
     console.log("[Bot] I died! Respawning...");
     abortActiveSkill();
     recentHistory.push({
@@ -233,7 +243,7 @@ export async function createBot(events: BotEvents) {
 
   // Handle kicked
   bot.on("kicked", (reason) => {
-    console.log(`[Bot] Kicked: ${reason}`);
+    console.log(`[Bot] Kicked: ${JSON.stringify(reason)}`);
     if (decisionLoop) clearInterval(decisionLoop);
   });
 

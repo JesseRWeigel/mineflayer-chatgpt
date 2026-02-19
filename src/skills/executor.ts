@@ -2,11 +2,12 @@ import type { Bot } from "mineflayer";
 import type { Skill, SkillProgress, SkillResult } from "./types.js";
 import { gatherMaterials } from "./materials.js";
 import { updateOverlay } from "../stream/overlay.js";
-
+import { recordSkillAttempt } from "../bot/memory.js";
 let activeSkill: {
   skill: Skill;
   abortController: AbortController;
   promise: Promise<SkillResult>;
+  startTime: number;
 } | null = null;
 
 export function isSkillRunning(): boolean {
@@ -39,6 +40,7 @@ export async function runSkill(
 
   const abortController = new AbortController();
   const { signal } = abortController;
+  const startTime = Date.now();
 
   console.log(`[Skill] Starting "${skill.name}"`);
 
@@ -104,10 +106,14 @@ export async function runSkill(
     });
   });
 
-  activeSkill = { skill, abortController, promise: skillPromise };
+  activeSkill = { skill, abortController, promise: skillPromise, startTime };
 
   try {
     const result = await skillPromise;
+    const durationSeconds = (Date.now() - startTime) / 1000;
+
+    // Record skill attempt in memory
+    recordSkillAttempt(skill.name, result.success, durationSeconds, result.message);
 
     progress({
       skillName: skill.name,
@@ -120,6 +126,9 @@ export async function runSkill(
     console.log(`[Skill] "${skill.name}" finished: ${result.message}`);
     return result.message;
   } catch (err: any) {
+    const durationSeconds = (Date.now() - startTime) / 1000;
+    recordSkillAttempt(skill.name, false, durationSeconds, `Crashed: ${err.message}`);
+
     progress({ skillName: skill.name, phase: "Crashed", progress: 0, message: err.message, active: false });
     return `Skill ${skill.name} crashed: ${err.message}`;
   } finally {

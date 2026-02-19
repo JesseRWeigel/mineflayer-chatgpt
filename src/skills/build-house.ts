@@ -6,6 +6,7 @@ import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
+import { hasStructureNearby, addStructure } from "../bot/memory.js";
 
 /** All door types — any wood's door works interchangeably */
 const DOOR_TYPES = [
@@ -46,6 +47,14 @@ export const buildHouseSkill: Skill = {
       origin = lastBuildSite;
       console.log(`[Skill] Reusing previous build site at ${origin.x}, ${origin.y}, ${origin.z}`);
     } else {
+      // Check if there's already a house nearby before finding a new site
+      const botPos = bot.entity.position;
+      if (hasStructureNearby("house", botPos.x, botPos.y, botPos.z, 80)) {
+        return {
+          success: false,
+          message: "There's already a house within 80 blocks! I should explore elsewhere or visit my existing home.",
+        };
+      }
       origin = findBuildSite(bot, 7, 7);
     }
     if (!origin) {
@@ -283,12 +292,16 @@ export const buildHouseSkill: Skill = {
     } catch { /* ok */ }
 
     if (placed > total * 0.7) {
+      // Save house to memory
+      addStructure("house", origin.x, origin.y, origin.z, bp.name);
       return {
         success: true,
         message: `HOUSE BUILT! "${bp.name}" at ${origin.x}, ${origin.y}, ${origin.z}. Placed ${placed} blocks (${skipped} skipped). It's GORGEOUS. It's HOME.`,
         stats: { blocksPlaced: placed, blocksSkipped: skipped },
       };
     } else if (placed > 0) {
+      // Save house to memory (even if partial)
+      addStructure("house", origin.x, origin.y, origin.z, `${bp.name} (partial)`);
       return {
         success: true,
         message: `House partially built (${placed}/${total} blocks). It has... character. Maybe patch the holes later.`,
