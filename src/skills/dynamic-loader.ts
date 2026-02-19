@@ -43,11 +43,10 @@ export function loadDynamicSkills(): void {
 function buildDynamicSkill(name: string, filePath: string): Skill {
   const code = fs.readFileSync(filePath, "utf-8");
 
-  // Convention: the JS file must export an async function with the same name as the file.
-  // e.g., craftWoodenPickaxe.js must contain: async function craftWoodenPickaxe(bot) { ... }
-  if (!code.includes(`async function ${name}`) && !code.includes(`function ${name}`)) {
-    throw new Error(`File must contain a function named '${name}'`);
-  }
+  // Validate syntax at load time — throws SyntaxError for malformed JS before the
+  // skill ever reaches the registry.  This replaces the old fragile substring check
+  // (which failed for arrow functions and was fooled by comments).
+  new vm.Script(code);
 
   return {
     name,
@@ -66,10 +65,25 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
           console, setTimeout, clearTimeout,
           setInterval, clearInterval, Promise, Math, JSON,
         });
-        // Define the function in the sandbox, then invoke it.
+
+        // Run the definition to populate the context (does not invoke the function yet).
+        vm.runInContext(code, ctx, { filename: filePath });
+
+        // Runtime inspection: confirm the expected name is actually a callable function.
+        // This handles async functions, regular functions, arrow functions assigned to
+        // const/let/var, and any other declaration style — none of which a substring
+        // check could reliably catch.
+        if (typeof (ctx as any)[name] !== "function") {
+          return {
+            success: false,
+            message: `${name}: file must define a function named '${name}' (found: ${typeof (ctx as any)[name]})`,
+          };
+        }
+
+        // Invoke the already-defined function.
         // vm.runInContext's `timeout` option only covers synchronous code; the async
         // wrapper returns a Promise immediately, so we race against an explicit timer.
-        const vmPromise = vm.runInContext(`${code}\n(async()=>{ await ${name}(bot); })()`, ctx, {
+        const vmPromise = vm.runInContext(`(async()=>{ await ${name}(bot); })()`, ctx, {
           filename: filePath,
         }) as Promise<void>;
 
