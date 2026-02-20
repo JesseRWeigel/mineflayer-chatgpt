@@ -12,19 +12,40 @@ const ollama = new Ollama({ host: config.ollama.host });
 
 const GENERATION_PROMPT = `You are writing a Mineflayer bot skill in JavaScript.
 
-Rules:
+RULES:
 - Write ONE async function named exactly SKILL_NAME that takes a single bot parameter
-- Use only Mineflayer API: bot.findBlock, bot.dig, bot.equip, bot.craft, bot.chat, bot.pathfinder, bot.pvp, bot.inventory
-- For Vec3: const { Vec3 } = require('vec3');
-- For navigation ALWAYS use: const { goals } = require('mineflayer-pathfinder'); await bot.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
-  NEVER use bot.pathfinder.setGoal or bot.pathfinder.waitForGoal — those do not exist
+- Works with no arguments other than bot. Return nothing (void). Under 60 lines.
 - DO NOT use try/catch — let errors throw so the caller can detect failures
-- Works with no arguments other than bot
-- Return nothing (void), under 60 lines
+- NO markdown, NO backticks, NO explanation — ONLY the JavaScript function
+
+NAVIGATION (REQUIRED):
+  const { goals } = require('mineflayer-pathfinder');
+  await bot.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+  NEVER use bot.pathfinder.setGoal or bot.pathfinder.waitForGoal — those APIs do not exist
+
+INVENTORY API — CRITICAL:
+  bot.inventory.items()                              // items() is a FUNCTION, always call with ()
+  bot.inventory.items().find(i => i.name === 'x')   // correct
+  bot.inventory.items().filter(i => ...)             // correct
+  bot.inventory.items.find(...)                      // WRONG — crashes with "is not a function"
+
+CRAFTING API — CRITICAL:
+  const mcData = require('minecraft-data')(bot.version);
+  const item = mcData.itemsByName['wooden_pickaxe'];
+  const table = bot.findBlock({ matching: b => b.name === 'crafting_table', maxDistance: 16 });
+  const recipes = bot.recipesFor(item.id, null, 1, table);
+  if (recipes.length) await bot.craft(recipes[0], 1, table);
+  // NEVER call bot.craft('item_name') — first arg must be a recipe object, not a string
+
+EQUIP:
+  const item = bot.inventory.items().find(i => i.name === 'wooden_pickaxe');
+  if (item) await bot.equip(item, 'hand');  // always null-check before equip
+
+AVAILABLE GLOBALS: bot, Vec3 (from require('vec3')), mcData (pre-loaded with bot.version), require, console, Math, JSON, setTimeout
 
 TASK: TASK_DESCRIPTION
 
-Write ONLY the JavaScript function. No markdown, no explanation, no backticks.`;
+Write ONLY the JavaScript function:`;
 
 export async function saveGeneratedSkill(name: string, code: string): Promise<string> {
   await mkdir(GENERATED_DIR, { recursive: true });
