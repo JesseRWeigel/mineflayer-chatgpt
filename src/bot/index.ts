@@ -297,6 +297,21 @@ export async function createBot(events: BotEvents) {
   bot.on("chat", async (username, message) => {
     if (username === bot.username) return;
     console.log(`[MC Chat] ${username}: ${message}`);
+
+    // Eval commands (in-game skill testing): /eval <name> or /eval all [filter]
+    if (message.startsWith("/eval ") || message === "/eval") {
+      const parts = message.trim().split(/\s+/);
+      const { evalSkill, evalAll } = await import("../eval/runner.js");
+      if (parts[1] === "all") {
+        evalAll(bot, parts[2]).catch((e) => bot.chat(`[EVAL] Error: ${e.message}`));
+      } else if (parts[1]) {
+        evalSkill(bot, parts[1]).catch((e) => bot.chat(`[EVAL] Error: ${e.message}`));
+      } else {
+        bot.chat("[EVAL] Usage: /eval <skillname>  or  /eval all [filter]");
+      }
+      return;
+    }
+
     queueChat({
       source: "minecraft",
       username,
