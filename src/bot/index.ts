@@ -74,9 +74,17 @@ export async function createBot(events: BotEvents) {
   bot.loadPlugin(pvp.plugin);
   bot.loadPlugin(autoEat);
 
+  // Static skill names that can be called directly OR via invoke_skill — normalize both
+  const DIRECT_SKILL_NAMES = new Set([
+    "gather_wood", "mine_block", "craft_gear", "build_house", "strip_mine",
+    "smelt_ores", "go_fishing", "build_farm", "light_area", "build_bridge",
+  ]);
+
   // State
   const pendingChatMessages: ChatMessage[] = [];
   const recentHistory: LLMMessage[] = [];
+  // Maps canonical skill/action key → last failure message (cleared on success)
+  const recentFailures = new Map<string, string>();
   let isActing = false;
   let decisionLoop: ReturnType<typeof setInterval> | null = null;
   let lastAction = "";
@@ -134,11 +142,20 @@ export async function createBot(events: BotEvents) {
         goalStepsLeft = 0;
       }
 
-      // Stuck detection: if repeating the same action 3+ times, tell the LLM to change strategy
-      if (repeatCount >= 3) {
+      // Stuck detection: if repeating the same action 2+ times, tell the LLM to change strategy
+      if (repeatCount >= 2) {
         contextStr += `\n\nIMPORTANT: You've tried "${lastAction}" ${repeatCount} times in a row and it keeps failing. You MUST choose a COMPLETELY DIFFERENT action. Abandon your current goal and try something new.`;
         currentGoal = "";
         goalStepsLeft = 0;
+      }
+
+      // Recent failures: show the LLM exactly what failed and why so it stops retrying
+      // Strip the internal "skill:" prefix so the LLM sees the same name it would type
+      if (recentFailures.size > 0) {
+        const failLines = Array.from(recentFailures.entries())
+          .map(([k, v]) => `- ${k.replace(/^skill:/, "")}: ${v}`)
+          .join("\n");
+        contextStr += `\n\nSKILLS/ACTIONS THAT JUST FAILED (DO NOT RETRY THESE):\n${failLines}\nChoose a DIFFERENT action.`;
       }
 
       contextStr += "\n\nWhat should you do next? Respond with a JSON action.";
@@ -185,12 +202,21 @@ export async function createBot(events: BotEvents) {
         if (audioUrl) speakThought(audioUrl);
       }).catch(() => {});
 
-      // Track repeat actions for stuck detection
-      if (decision.action === lastAction) {
-        repeatCount++;
-      } else {
-        lastAction = decision.action;
-        repeatCount = 1;
+      // Normalize action key: invoke_skill:X and direct skill call X are the same thing
+      const actionKey =
+        decision.action === "invoke_skill" && decision.params?.skill
+          ? `skill:${decision.params.skill}`
+          : DIRECT_SKILL_NAMES.has(decision.action)
+          ? `skill:${decision.action}`
+          : decision.action;
+      // Don't let LLM-fallback `idle` breaks streak tracking for real skills
+      if (decision.action !== "idle" || decision.thought !== "Brain buffering...") {
+        if (actionKey === lastAction) {
+          repeatCount++;
+        } else {
+          lastAction = actionKey;
+          repeatCount = 1;
+        }
       }
 
       // Execute action
@@ -216,9 +242,20 @@ export async function createBot(events: BotEvents) {
         goalStepsLeft--;
       }
 
-      // If action failed, reduce goal commitment
-      if (result.includes("failed") || result.includes("No ") || result.includes("Stuck")) {
-        goalStepsLeft = Math.max(0, goalStepsLeft - 2);
+      // Track failures for skill-type actions only (idle/explore/go_to shouldn't pollute the list)
+      const isSkillAction =
+        DIRECT_SKILL_NAMES.has(decision.action) ||
+        decision.action === "invoke_skill" ||
+        decision.action === "neural_combat" ||
+        decision.action === "generate_skill";
+      if (isSkillAction) {
+        const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate/i.test(result);
+        if (!isSuccess) {
+          recentFailures.set(actionKey, result.slice(0, 120));
+          goalStepsLeft = Math.max(0, goalStepsLeft - 2);
+        } else {
+          recentFailures.delete(actionKey);
+        }
       }
 
       // Track history for context

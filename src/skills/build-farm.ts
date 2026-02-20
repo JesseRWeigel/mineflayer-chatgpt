@@ -88,6 +88,7 @@ export const buildFarmSkill: Skill = {
       const dirt = bot.findBlock({
         matching: (b) => {
           if (b.name !== "dirt" && b.name !== "grass_block") return false;
+          if (!b.position || !water.position) return false;
           return b.position.distanceTo(water.position) <= 5;
         },
         maxDistance: 20,

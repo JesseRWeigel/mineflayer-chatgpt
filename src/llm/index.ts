@@ -131,11 +131,18 @@ SKILL TIPS:
 - build_bridge: Bridge across water/gaps in the direction you're facing. Uses planks or cobblestone.
 
 DYNAMIC SKILLS (invoke with invoke_skill action):
-Available: ${getDynamicSkillNames().join(", ") || "none yet — use generate_skill to create some!"}
+${(() => {
+  const names = getDynamicSkillNames();
+  if (names.length === 0) return "Available: none yet — use generate_skill to create some!";
+  const shown = names.slice(0, 12).join(", ");
+  const extra = names.length > 12 ? ` ... and ${names.length - 12} more` : "";
+  return `Available (${names.length} total): ${shown}${extra}`;
+})()}
 
-- invoke_skill: Run a Voyager or generated skill by name. params: { "skill": string }
-- generate_skill: Write new code for a novel task you have no skill for yet. params: { "task": string }
-- neural_combat: Enter high-speed reactive combat mode. params: { "duration": number (1-10 seconds) }`;
+- invoke_skill: Run a dynamic skill by exact name. params: { "skill": string }
+- generate_skill: Write new JS code for a task you have no skill for. params: { "task": string }
+- neural_combat: Reactive combat burst at 20Hz. params: { "duration": number (1-10 seconds) }
+- NOTE: "thought" field is REQUIRED in every response. Always include it.`;
 }
 
 export async function queryLLM(
@@ -148,11 +155,11 @@ export async function queryLLM(
   const messages: LLMMessage[] = [
     { role: "system", content: buildSystemPrompt() },
     ...recentMessages,
-    { role: "user", content: `/no_think\n${memorySection}${context}` },
+    { role: "user", content: `${memorySection}${context}` },
   ];
 
   try {
-    const response = await ollama.chat({
+    let response = await ollama.chat({
       model: config.ollama.model,
       messages,
       options: {
@@ -160,6 +167,25 @@ export async function queryLLM(
         num_predict: 1024,
       },
     });
+
+    // Retry once on empty response — use a tiny fallback prompt without /no_think
+    if (!response.message.content.trim()) {
+      console.warn("[LLM] Empty response — retrying with fallback prompt...");
+      response = await ollama.chat({
+        model: config.ollama.model,
+        messages: [
+          {
+            role: "system",
+            content: `You are ${config.bot.name}, an AI playing Minecraft. Respond ONLY with valid JSON: {"thought":"...","action":"...","params":{}}`,
+          },
+          {
+            role: "user",
+            content: `Quick decision needed. Available actions: explore, gather_wood, craft_gear, mine_block, go_to, idle, chat.\nContext: ${context.slice(0, 500)}\nRespond with JSON only.`,
+          },
+        ],
+        options: { temperature: 0.6, num_predict: 256 },
+      });
+    }
 
     // Extract JSON from response — strip think tags, code fences, surrounding text
     let content = response.message.content.trim();
@@ -191,6 +217,24 @@ export async function queryLLM(
       return { thought: "Brain buffering...", action: "idle", params: {} };
     }
     const parsed = JSON.parse(jsonStr);
+
+    // Repair malformed format: {"invoke_skill": "name"} or {"invoke_skill": {"skill": "name"}}
+    // Model sometimes puts invoke_skill/generate_skill as a top-level key instead of in params
+    if (!parsed.action) {
+      if (parsed.invoke_skill !== undefined) {
+        parsed.action = "invoke_skill";
+        const v = parsed.invoke_skill;
+        parsed.params = { skill: typeof v === "string" ? v : (v?.skill ?? String(v)) };
+      } else if (parsed.generate_skill !== undefined) {
+        parsed.action = "generate_skill";
+        const v = parsed.generate_skill;
+        parsed.params = { task: typeof v === "string" ? v : (v?.task ?? String(v)) };
+      } else if (parsed.neural_combat !== undefined) {
+        parsed.action = "neural_combat";
+        parsed.params = { duration: parsed.neural_combat };
+      }
+    }
+
     return {
       thought: parsed.thought || "...",
       action: parsed.action || "idle",
