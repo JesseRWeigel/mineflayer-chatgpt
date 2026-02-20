@@ -86,7 +86,10 @@ export async function executeAction(
       case "mine_block":
         return await mineBlock(bot, params.blockType || "stone");
       case "go_to":
-        return await goTo(bot, params.x, params.y, params.z);
+      case "navigate":
+      case "navigate_to":
+      case "navigate_to_coordinates":
+        return await goTo(bot, params.x ?? params.coordinates?.[0], params.y ?? params.coordinates?.[1], params.z ?? params.coordinates?.[2]);
       case "explore":
         return await explore(bot, params.direction || "north");
       case "craft":
@@ -96,6 +99,9 @@ export async function executeAction(
       case "attack":
         return await attackNearest(bot);
       case "flee":
+      case "flee_to_safety":
+      case "prioritize_survival":
+      case "navigate_to_safe_location":
         return await flee(bot);
       case "build_shelter":
         return await buildShelter(bot);
@@ -124,7 +130,8 @@ export async function executeAction(
         if (!skill) return `Skill '${name}' not found. Try generate_skill to create it.`;
         return await runSkill(bot, skill, params);
       }
-      case "neural_combat": {
+      case "neural_combat":
+      case "neural_navigation": {
         const duration = (params.duration as number) || 5;
         return await runNeuralCombat(bot, duration);
       }
