@@ -8,7 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const OUTPUT_DIR = path.join(__dirname, "../skills/voyager");
 
 const API_URL =
-  "https://api.github.com/repos/MineDojo/Voyager/contents/voyager/skill_library/trial1/code";
+  "https://api.github.com/repos/MineDojo/Voyager/contents/skill_library/trial1/skill/code";
 
 async function download() {
   console.log("Fetching Voyager skill list...");
@@ -20,7 +20,7 @@ async function download() {
     console.error(`GitHub API error: ${res.status} ${res.statusText}`);
     console.log("Manual fallback:");
     console.log("  git clone https://github.com/MineDojo/Voyager /tmp/voyager");
-    console.log(`  cp /tmp/voyager/voyager/skill_library/trial1/code/*.js ${OUTPUT_DIR}/`);
+    console.log(`  cp /tmp/voyager/skill_library/trial1/skill/code/*.js ${OUTPUT_DIR}/`);
     process.exit(1);
   }
 
