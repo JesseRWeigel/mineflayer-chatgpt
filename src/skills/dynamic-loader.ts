@@ -179,6 +179,20 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
           setInterval, clearInterval, Promise, Math, JSON,
         });
 
+        // Shim bot.pathfinder.waitForGoal — the old pathfinder API used setGoal+waitForGoal but
+        // modern mineflayer-pathfinder only exposes goto().  Generated skills often use the old
+        // pattern.  Implementing waitForGoal as a timed wait gives the pathfinder a chance to
+        // make progress (setGoal starts movement; waitForGoal just waits) without crashing.
+        try {
+          vm.runInContext(
+            `if (bot.pathfinder && !bot.pathfinder.waitForGoal) {
+               bot.pathfinder.waitForGoal = (timeout) =>
+                 new Promise(r => setTimeout(r, typeof timeout === 'number' ? timeout : 4000));
+             }`,
+            ctx, { filename: "pathfinder-shim" }
+          );
+        } catch { /* ignore */ }
+
         // Null-safe equip wrapper — many Voyager skills call bot.equip(item) without null-checking.
         // If the bot lacks the expected tool the item lookup returns null/undefined and the raw
         // bot.equip call throws "Invalid item object in equip".  Silently skipping is the safest

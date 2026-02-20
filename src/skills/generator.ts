@@ -16,10 +16,11 @@ Rules:
 - Write ONE async function named exactly SKILL_NAME that takes a single bot parameter
 - Use only Mineflayer API: bot.findBlock, bot.dig, bot.equip, bot.craft, bot.chat, bot.pathfinder, bot.pvp, bot.inventory
 - For Vec3: const { Vec3 } = require('vec3');
-- For navigation: const goals = require('mineflayer-pathfinder').goals; bot.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
-- Handle errors with try/catch
+- For navigation ALWAYS use: const { goals } = require('mineflayer-pathfinder'); await bot.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+  NEVER use bot.pathfinder.setGoal or bot.pathfinder.waitForGoal — those do not exist
+- DO NOT use try/catch — let errors throw so the caller can detect failures
 - Works with no arguments other than bot
-- Return nothing (void), under 80 lines
+- Return nothing (void), under 60 lines
 
 TASK: TASK_DESCRIPTION
 
