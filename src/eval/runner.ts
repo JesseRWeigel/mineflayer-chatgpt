@@ -51,7 +51,7 @@ export async function evalAll(bot: Bot, filter?: string): Promise<EvalResult[]> 
     ? allNames.filter((n) => n.toLowerCase().includes(filter.toLowerCase()))
     : allNames;
 
-  bot.chat(`[EVAL] Starting ${toRun.length} skill evals${filter ? ` (filter: "${filter}")` : ""}...`);
+  bot.chat(`[EVAL] Starting ${toRun.length} skill evals${filter ? ` (filter: "${filter.slice(0, 40)}")` : ""}...`);
 
   const results: EvalResult[] = [];
   for (const name of toRun) {
@@ -65,7 +65,7 @@ export async function evalAll(bot: Bot, filter?: string): Promise<EvalResult[]> 
   bot.chat(`[EVAL] Summary: ${passed} passed, ${failed} failed of ${results.length} total`);
   if (failed > 0) {
     const failNames = results.filter((r) => !r.passed).map((r) => r.skill).join(", ");
-    bot.chat(`[EVAL] Failed: ${failNames.slice(0, 180)}`);
+    bot.chat(`[EVAL] Failed: ${failNames.slice(0, 164)}`);
   }
   return results;
 }
