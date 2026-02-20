@@ -88,8 +88,15 @@ export async function executeAction(
       case "go_to":
       case "navigate":
       case "navigate_to":
-      case "navigate_to_coordinates":
-        return await goTo(bot, params.x ?? params.coordinates?.[0], params.y ?? params.coordinates?.[1], params.z ?? params.coordinates?.[2]);
+      case "navigate_to_coordinates": {
+        // LLM often sends [x, z] (2 elements) or [x, y, z] — handle both
+        const coords = params.coordinates;
+        const nx = params.x ?? (coords && coords[0]);
+        // If only 2 coords given, treat as [x, z] and use bot's current Y
+        const ny = params.y ?? (coords && (coords.length >= 3 ? coords[1] : bot.entity.position.y));
+        const nz = params.z ?? (coords && (coords.length >= 3 ? coords[2] : coords[1]));
+        return await goTo(bot, nx, ny, nz);
+      }
       case "explore":
         return await explore(bot, params.direction || "north");
       case "craft":
