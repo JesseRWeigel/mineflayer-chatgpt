@@ -17,6 +17,16 @@ export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
   return moves;
 }
 
+/** Movement config for exploring — allows swimming unlike safeMoves */
+export function explorerMoves(bot: Bot): InstanceType<typeof Movements> {
+  const moves = new Movements(bot);
+  moves.canDig = false;
+  moves.allow1by1towers = false;
+  moves.allowFreeMotion = true;
+  moves.scafoldingBlocks = [];
+  return moves;
+}
+
 /**
  * Wraps pathfinder.goto with a timeout and stall detection.
  * - Times out after `timeoutMs` (default 15s)
@@ -199,53 +209,55 @@ async function goTo(bot: Bot, x: number, y: number, z: number): Promise<string> 
 async function explore(bot: Bot, direction: string): Promise<string> {
   const pos = bot.entity.position;
 
+  // Escape water first if bot is currently in it
+  const currentBlock = bot.blockAt(pos);
+  if (currentBlock?.name === "water") {
+    console.log("[Explore] Bot is in water — escaping first");
+    bot.pathfinder.setMovements(explorerMoves(bot));
+    try {
+      await safeGoto(bot, new goals.GoalY(Math.ceil(pos.y) + 4), 10000);
+    } catch {
+      // If Y escape fails, just try to move somewhere nearby
+      try {
+        await safeGoto(bot, new goals.GoalNear(pos.x + 5, pos.y, pos.z + 5, 3), 8000);
+      } catch { /* best effort */ }
+    }
+  }
+
   // If underground, prioritise getting back to the surface first.
-  // GoalY navigates purely by Y-axis — climbs up through caves/terrain.
-  if (pos.y < 60) {
-    bot.pathfinder.setMovements(safeMoves(bot));
-    await safeGoto(bot, new goals.GoalY(70), 30000);
+  if (bot.entity.position.y < 60) {
+    bot.pathfinder.setMovements(explorerMoves(bot));
+    try {
+      await safeGoto(bot, new goals.GoalY(70), 30000);
+    } catch { /* best effort */ }
   }
 
   // Shorter hops (20-40 blocks) — pathfinder can compute these reliably
+  const currentPos = bot.entity.position;
   const dist = 20 + Math.floor(Math.random() * 20);
-  // Add some randomness to prevent walking the exact same path
   const jitter = () => (Math.random() - 0.5) * 20;
   let target: Vec3;
 
   switch (direction) {
-    case "north":
-      target = pos.offset(jitter(), 0, -dist);
-      break;
-    case "south":
-      target = pos.offset(jitter(), 0, dist);
-      break;
-    case "east":
-      target = pos.offset(dist, 0, jitter());
-      break;
-    case "west":
-      target = pos.offset(-dist, 0, jitter());
-      break;
-    default:
-      target = pos.offset(dist, 0, jitter());
+    case "north": target = currentPos.offset(jitter(), 0, -dist); break;
+    case "south": target = currentPos.offset(jitter(), 0, dist); break;
+    case "east": target = currentPos.offset(dist, 0, jitter()); break;
+    case "west": target = currentPos.offset(-dist, 0, jitter()); break;
+    default: target = currentPos.offset(dist, 0, jitter());
   }
 
-  bot.pathfinder.setMovements(safeMoves(bot));
-  await safeGoto(bot, new goals.GoalNear(target.x, target.y, target.z, 5), 20000);
+  bot.pathfinder.setMovements(explorerMoves(bot));
+  try {
+    await safeGoto(bot, new goals.GoalNear(target.x, target.y, target.z, 5), 20000);
+  } catch {
+    // Non-fatal — report partial progress below
+  }
 
-  // Report what we can see now
+  // Report what we can see from wherever we ended up
   const logTypes = ["oak_log", "birch_log", "spruce_log", "jungle_log", "acacia_log", "dark_oak_log"];
-  const nearbyTree = bot.findBlock({
-    matching: (block) => logTypes.includes(block.name),
-    maxDistance: 32,
-  });
-  const nearbyOre = bot.findBlock({
-    matching: (block) => block.name.includes("ore"),
-    maxDistance: 16,
-  });
-  const nearbyWater = bot.findBlock({
-    matching: (block) => block.name === "water",
-    maxDistance: 16,
-  });
+  const nearbyTree = bot.findBlock({ matching: (b) => logTypes.includes(b.name), maxDistance: 32 });
+  const nearbyOre = bot.findBlock({ matching: (b) => b.name.includes("ore"), maxDistance: 16 });
+  const nearbyWater = bot.findBlock({ matching: (b) => b.name === "water", maxDistance: 16 });
 
   const notes: string[] = [];
   if (nearbyTree) notes.push("Found trees nearby!");
@@ -254,8 +266,8 @@ async function explore(bot: Bot, direction: string): Promise<string> {
   if (notes.length === 0) notes.push("Barren area — no trees or resources visible.");
 
   const biome = (bot.blockAt(bot.entity.position) as any)?.biome?.name || "unknown";
-
-  return `Explored ${direction} (~${dist} blocks). Now at ${bot.entity.position.x.toFixed(0)}, ${bot.entity.position.y.toFixed(0)}, ${bot.entity.position.z.toFixed(0)}. Biome: ${biome}. ${notes.join(" ")}`;
+  const newPos = bot.entity.position;
+  return `Explored ${direction} (~${dist} blocks). Now at ${newPos.x.toFixed(0)}, ${newPos.y.toFixed(0)}, ${newPos.z.toFixed(0)}. Biome: ${biome}. ${notes.join(" ")}`;
 }
 
 // Common crafting aliases — LLMs often use informal names
