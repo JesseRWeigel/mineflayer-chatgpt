@@ -1,5 +1,6 @@
 import type { Bot } from "mineflayer";
 import type { Entity } from "prismarine-entity";
+import { recordOre } from "./memory.js";
 
 export function getWorldContext(bot: Bot): string {
   const pos = bot.entity.position;
@@ -173,6 +174,9 @@ function getNearbyBlockTypes(bot: Bot): string[] {
         const block = bot.blockAt(pos.offset(dx, dy, dz));
         if (block && NOTABLE_BLOCKS.has(block.name)) {
           found.add(block.name);
+          if (block.name.includes("ore")) {
+            recordOre(block.name, pos.x + dx, pos.y + dy, pos.z + dz);
+          }
         }
       }
     }
