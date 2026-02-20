@@ -7,7 +7,8 @@ import { loadDynamicSkills } from "./skills/dynamic-loader.js";
 loadDynamicSkills();
 
 const MAX_RESTARTS = 50;
-const RESTART_DELAY_MS = 10000;
+const RESTART_DELAY_MS = 30000;
+const DUPLICATE_LOGIN_DELAY_MS = 60000;
 let restartCount = 0;
 let overlayStarted = false;
 
@@ -49,7 +50,9 @@ async function startBot() {
   // Auto-restart on disconnect/kick/error
   return new Promise<void>((resolve) => {
     bot.on("kicked", (reason) => {
-      console.log(`[Bot] Kicked: ${JSON.stringify(reason)}`);
+      const reasonStr = typeof reason === "string" ? reason : JSON.stringify(reason);
+      console.log(`[Bot] Kicked: ${reasonStr}`);
+      lastKickReason = reasonStr;
       stop();
       twitch?.client.disconnect();
       resolve();
@@ -83,8 +86,18 @@ async function startBot() {
   });
 }
 
+let lastKickReason = "";
+
+async function startBotTracked() {
+  // Wrap startBot to capture kick reason for smarter restart delay
+  return new Promise<void>((resolve, reject) => {
+    startBot().then(resolve).catch(reject);
+  });
+}
+
 async function main() {
   while (restartCount < MAX_RESTARTS) {
+    lastKickReason = "";
     try {
       await startBot();
     } catch (err) {
@@ -97,8 +110,12 @@ async function main() {
       process.exit(1);
     }
 
-    console.log(`[Main] Restarting in ${RESTART_DELAY_MS / 1000}s... (attempt ${restartCount}/${MAX_RESTARTS})`);
-    await new Promise((r) => setTimeout(r, RESTART_DELAY_MS));
+    // Use a longer delay for duplicate login kicks so the server session expires
+    const delay = lastKickReason.includes("duplicate_login") || lastKickReason.includes("You logged in from another location")
+      ? DUPLICATE_LOGIN_DELAY_MS
+      : RESTART_DELAY_MS;
+    console.log(`[Main] Restarting in ${delay / 1000}s... (attempt ${restartCount}/${MAX_RESTARTS})`);
+    await new Promise((r) => setTimeout(r, delay));
   }
 }
 
