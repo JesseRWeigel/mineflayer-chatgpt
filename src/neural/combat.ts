@@ -6,7 +6,7 @@ const TICK_MS = 50;
 const NEURAL_PORT = 12345;
 
 export async function runNeuralCombat(bot: Bot, durationSeconds: number): Promise<string> {
-  const duration = Math.min(Math.max(durationSeconds, 1), 30);
+  const duration = Math.min(Math.max(durationSeconds, 1), 10);
   const endTime = Date.now() + duration * 1000;
 
   const serverUp = await isNeuralServerRunning(NEURAL_PORT);

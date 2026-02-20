@@ -82,7 +82,9 @@ def handle_connection(conn, policy_fn):
 def main():
     args = parse_args()
     model = load_vpt_model() if args.model == "vpt" else None
-    policy = (lambda obs: heuristic_policy(obs)) if not model else (lambda obs: heuristic_policy(obs))  # extend for VPT later
+    if model:
+        log.warning("VPT model loaded but not yet wired into policy — using heuristic. Extend policy lambda to use model.")
+    policy = lambda obs: heuristic_policy(obs)  # TODO: replace with VPT inference when ready
 
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)

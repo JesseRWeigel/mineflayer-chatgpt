@@ -44,6 +44,10 @@ export async function generateSkill(task: string): Promise<string> {
     .map((w, i) => i === 0 ? w : w[0].toUpperCase() + w.slice(1))
     .join("").slice(0, 40);
 
+  if (!skillName) {
+    throw new Error("Task description produced an empty skill name (try using letters/numbers)");
+  }
+
   console.log(`[Generator] Writing '${skillName}' for: ${trimmedTask}`);
 
   const prompt = GENERATION_PROMPT
