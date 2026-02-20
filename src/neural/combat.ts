@@ -82,6 +82,7 @@ async function applyAction(bot: Bot, act: { action: string }): Promise<void> {
 }
 
 function pvpFallback(bot: Bot, duration: number): Promise<string> {
+  if (!(bot as any).pvp) return Promise.resolve("PVP plugin not loaded — cannot fall back.");
   const target = bot.nearestEntity(
     (e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16
   );
