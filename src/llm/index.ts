@@ -107,7 +107,7 @@ AVAILABLE ACTIONS:
 - explore: Walk in a direction to find new things. params: { "direction": "north"|"south"|"east"|"west" }
 - craft: Craft an item. params: { "item": string, "count": number }
 - eat: Eat food from inventory. params: {}
-- attack: Attack nearest hostile mob. params: {}
+- attack: Attack nearest mob. Use only when neural_combat is not suitable (e.g. passive animals). params: {}
 - flee: Run away from danger. params: {}
 - place_block: Place a block. params: { "blockType": string }
 - sleep: Use a nearby bed. params: {}
@@ -143,7 +143,6 @@ ${(() => {
 - invoke_skill: Run a dynamic skill by exact name. params: { "skill": string }
 - generate_skill: Write new JS code for a task you have no skill for. params: { "task": string }
 - neural_combat: PREFERRED combat action — 20Hz reactive combat against nearby hostiles. Use this whenever a hostile mob is within 8 blocks. params: { "duration": number (1-10 seconds, default 5) }
-- attack: Basic single attack. Only use if neural_combat is unavailable or no hostiles nearby.
 - NOTE: "thought" field is REQUIRED in every response. Always include it.`;
 }
 

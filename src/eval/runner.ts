@@ -1,6 +1,6 @@
 import type { Bot } from "mineflayer";
 import { skillRegistry } from "../skills/registry.js";
-import { runSkill } from "../skills/executor.js";
+import { runSkill, abortActiveSkill } from "../skills/executor.js";
 import { getDynamicSkillNames } from "../skills/dynamic-loader.js";
 
 const SUCCESS_PATTERNS = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|placed|fished|explored/i;
@@ -35,6 +35,7 @@ export async function evalSkill(bot: Bot, skillName: string): Promise<EvalResult
     bot.chat(`[EVAL] ${passed ? "PASS" : "FAIL"} ${skillName} (${(durationMs / 1000).toFixed(1)}s): ${resultMessage.slice(0, 80)}`);
     return { skill: skillName, passed, message: resultMessage, durationMs };
   } catch (err: any) {
+    abortActiveSkill(); // ensure executor clears activeSkill so next eval can run
     const durationMs = Date.now() - start;
     bot.chat(`[EVAL] FAIL ${skillName} (${(durationMs / 1000).toFixed(1)}s): ${err.message.slice(0, 80)}`);
     return { skill: skillName, passed: false, message: err.message, durationMs };
@@ -42,8 +43,9 @@ export async function evalSkill(bot: Bot, skillName: string): Promise<EvalResult
 }
 
 export async function evalAll(bot: Bot, filter?: string): Promise<EvalResult[]> {
+  // Only registered skills (gather_wood is an action, not a registered skill)
   const staticNames = [
-    "gather_wood", "craft_gear", "build_house", "build_farm",
+    "craft_gear", "build_house", "build_farm",
     "strip_mine", "smelt_ores", "go_fishing", "build_bridge", "light_area",
   ];
   const allNames = [...staticNames, ...getDynamicSkillNames()];

@@ -41,7 +41,8 @@ EQUIP:
   const item = bot.inventory.items().find(i => i.name === 'wooden_pickaxe');
   if (item) await bot.equip(item, 'hand');  // always null-check before equip
 
-AVAILABLE GLOBALS: bot, Vec3 (from require('vec3')), mcData (pre-loaded with bot.version), require, console, Math, JSON, setTimeout
+AVAILABLE GLOBALS: bot, Vec3 (from require('vec3')), require, console, Math, JSON, setTimeout
+  Note: for minecraft-data, use require('minecraft-data')(bot.version) as shown in the CRAFTING API example above
 
 TASK: TASK_DESCRIPTION
 

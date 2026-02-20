@@ -267,7 +267,7 @@ export async function createBot(events: BotEvents) {
         decision.action === "generate_skill" ||
         decision.action === "explore";
       if (isSkillAction) {
-        const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate/i.test(result);
+        const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished/i.test(result);
         if (!isSuccess) {
           recentFailures.set(actionKey, result.slice(0, 120));
           goalStepsLeft = Math.max(0, goalStepsLeft - 2);
