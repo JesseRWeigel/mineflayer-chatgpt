@@ -14,6 +14,8 @@ import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
 import { loadMemory, getMemoryContext, recordDeath } from "./memory.js";
+import { spawn } from "node:child_process";
+import { isNeuralServerRunning } from "../neural/bridge.js";
 
 export interface ChatMessage {
   source: "minecraft" | "twitch" | "youtube";
@@ -28,7 +30,30 @@ export interface BotEvents {
   onChat: (message: string) => void;
 }
 
+async function ensureNeuralServer(): Promise<void> {
+  if (await isNeuralServerRunning()) {
+    console.log("[Bot] Neural server already running.");
+    return;
+  }
+  console.log("[Bot] Starting neural server...");
+  const proc = spawn("python3", ["neural_server.py"], { stdio: "pipe" });
+  proc.stdout?.on("data", (d) => console.log(`[Neural] ${d.toString().trim()}`));
+  proc.stderr?.on("data", (d) => console.log(`[Neural] ${d.toString().trim()}`));
+  proc.on("exit", (code) => console.log(`[Neural] Server exited (${code})`));
+
+  for (let i = 0; i < 6; i++) {
+    await new Promise((r) => setTimeout(r, 500));
+    if (await isNeuralServerRunning()) {
+      console.log("[Bot] Neural server ready.");
+      return;
+    }
+  }
+  console.warn("[Bot] Neural server timed out — combat fallback active.");
+}
+
 export async function createBot(events: BotEvents) {
+  ensureNeuralServer().catch((e) => console.warn("[Bot] Neural spawn error:", e));
+
   // Load memory at startup
   loadMemory();
 

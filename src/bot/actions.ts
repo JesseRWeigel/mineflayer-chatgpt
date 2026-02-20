@@ -5,6 +5,7 @@ import { Vec3 } from "vec3";
 import { isHostile } from "./perception.js";
 import { skillRegistry } from "../skills/registry.js";
 import { runSkill } from "../skills/executor.js";
+import { runNeuralCombat } from "../neural/combat.js";
 
 /** Create safe movement defaults — no digging, no block placement, just walk/jump */
 export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
@@ -112,6 +113,10 @@ export async function executeAction(
         const skill = skillRegistry.get(name);
         if (!skill) return `Skill '${name}' not found. Try generate_skill to create it.`;
         return await runSkill(bot, skill, params);
+      }
+      case "neural_combat": {
+        const duration = (params.duration as number) || 5;
+        return await runNeuralCombat(bot, duration);
       }
       default: {
         // Check if this is a registered skill
