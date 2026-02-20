@@ -210,14 +210,19 @@ async function mineBlock(bot: Bot, blockType: string): Promise<string> {
 }
 
 async function goTo(bot: Bot, x: number, y: number, z: number): Promise<string> {
+  // Default missing coordinates to bot's current position
+  const cx = isFinite(x) ? x : bot.entity.position.x;
+  const cy = isFinite(y) ? y : bot.entity.position.y;
+  const cz = isFinite(z) ? z : bot.entity.position.z;
+
   // Reject unreasonable distances — LLM often hallucinates coordinates
-  const dist = bot.entity.position.distanceTo(new Vec3(x, y, z));
+  const dist = bot.entity.position.distanceTo(new Vec3(cx, cy, cz));
   if (dist > 200) return `That's ${dist.toFixed(0)} blocks away — too far! Try explore instead for shorter trips.`;
   if (dist < 2) return "Already here!";
 
   bot.pathfinder.setMovements(safeMoves(bot));
-  await safeGoto(bot, new goals.GoalNear(x, y, z, 2));
-  return `Arrived at ${x}, ${y}, ${z}.`;
+  await safeGoto(bot, new goals.GoalNear(cx, cy, cz, 2));
+  return `Arrived at ${cx.toFixed(0)}, ${cy.toFixed(0)}, ${cz.toFixed(0)}.`;
 }
 
 async function explore(bot: Bot, direction: string): Promise<string> {
