@@ -1,0 +1,98 @@
+import net from "node:net";
+import { isHostile } from "../bot/perception.js";
+import type { Bot } from "mineflayer";
+
+export interface NeuralObservation {
+  bot_health: number;
+  bot_food: number;
+  bot_pos: [number, number, number];
+  nearest_hostile: { type: string; distance: number; angle: number; health: number } | null;
+  all_entities: Array<{ type: string; distance: number; angle: number }>;
+  has_sword: boolean;
+  has_shield: boolean;
+  has_bow: boolean;
+}
+
+export interface NeuralAction {
+  action: "attack" | "strafe_left" | "strafe_right" | "flee" | "use_item" | "idle";
+  confidence: number;
+}
+
+export function buildObservation(bot: Bot): NeuralObservation {
+  const pos = bot.entity.position;
+  const items = bot.inventory.items().map((i) => i.name);
+  let nearestHostile: NeuralObservation["nearest_hostile"] = null;
+  const allEntities: NeuralObservation["all_entities"] = [];
+
+  for (const entity of Object.values(bot.entities)) {
+    if (entity === bot.entity) continue;
+    const dist = pos.distanceTo(entity.position);
+    if (dist > 16) continue;
+
+    const dx = entity.position.x - pos.x;
+    const dz = entity.position.z - pos.z;
+    const entityAngleDeg = Math.atan2(dz, dx) * (180 / Math.PI);
+    const botYawDeg = (bot.entity.yaw * 180) / Math.PI;
+    let relAngle = Math.abs(entityAngleDeg - botYawDeg) % 360;
+    if (relAngle > 180) relAngle = 360 - relAngle;
+
+    const type = entity.name || (entity as any).mobType || "unknown";
+    allEntities.push({ type, distance: dist, angle: relAngle });
+
+    if (isHostile(entity)) {
+      if (!nearestHostile || dist < nearestHostile.distance) {
+        nearestHostile = { type, distance: dist, angle: relAngle, health: (entity as any).health ?? 20 };
+      }
+    }
+  }
+
+  return {
+    bot_health: bot.health,
+    bot_food: bot.food,
+    bot_pos: [pos.x, pos.y, pos.z],
+    nearest_hostile: nearestHostile,
+    all_entities: allEntities,
+    has_sword: items.some((n) => n.includes("sword")),
+    has_shield: items.includes("shield"),
+    has_bow: items.includes("bow"),
+  };
+}
+
+export function queryNeural(obs: NeuralObservation, port = 12345, host = "127.0.0.1"): Promise<NeuralAction> {
+  return new Promise((resolve, reject) => {
+    const client = new net.Socket();
+    const timeout = setTimeout(() => {
+      client.destroy();
+      reject(new Error("Neural server timeout"));
+    }, 500);
+
+    client.connect(port, host, () => client.write(JSON.stringify(obs) + "\n"));
+
+    let buf = "";
+    client.on("data", (chunk) => {
+      buf += chunk.toString();
+      const nl = buf.indexOf("\n");
+      if (nl !== -1) {
+        clearTimeout(timeout);
+        client.destroy();
+        try { resolve(JSON.parse(buf.slice(0, nl))); }
+        catch { reject(new Error(`Bad response: ${buf}`)); }
+      }
+    });
+
+    client.on("error", (err) => { clearTimeout(timeout); reject(err); });
+  });
+}
+
+export async function isNeuralServerRunning(port = 12345): Promise<boolean> {
+  try {
+    await queryNeural({
+      bot_health: 20, bot_food: 20, bot_pos: [0, 64, 0],
+      nearest_hostile: null, all_entities: [],
+      has_sword: false, has_shield: false, has_bow: false,
+    }, port);
+    return true;
+  } catch {
+    return false;
+  }
+}
