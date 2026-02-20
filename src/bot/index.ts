@@ -1,13 +1,13 @@
 import mineflayer from "mineflayer";
 import pathfinderPkg from "mineflayer-pathfinder";
-const { pathfinder, goals: pfGoals, Movements: PfMovements } = pathfinderPkg;
+const { pathfinder } = pathfinderPkg;
 import pvpPkg from "mineflayer-pvp";
 const pvp = pvpPkg;
 import { loader as autoEat } from "mineflayer-auto-eat";
 import { config } from "../config.js";
 import { queryLLM, chatWithLLM, type LLMMessage } from "../llm/index.js";
 import { getWorldContext } from "./perception.js";
-import { executeAction, explorerMoves, safeGoto } from "./actions.js";
+import { executeAction } from "./actions.js";
 import { startViewer } from "../stream/viewer.js";
 import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
@@ -165,32 +165,35 @@ export async function createBot(events: BotEvents) {
 
       // Safety override: if the bot is deep underground, skip the LLM and escape to surface.
       // Pathfinding failures underground flood recentFailures and the LLM never self-rescues.
-      if (bot.entity.position.y < 55) {
+      // Emergency escape: bot is inside solid rock (actually buried, not just in a cave)
+      const feetBlock = bot.blockAt(bot.entity.position);
+      const isInsideSolid = feetBlock && feetBlock.name !== "air" && feetBlock.name !== "cave_air"
+        && feetBlock.name !== "water" && feetBlock.diggable && bot.entity.position.y < 55;
+      if (isInsideSolid) {
         const underY = bot.entity.position.y.toFixed(1);
-        console.log(`[Bot] Underground at Y=${underY} — attempting surface escape`);
-        // Try /tp first (works if bot has OP), then fall back to pathfinder with digging
+        console.log(`[Bot] Buried in ${feetBlock?.name} at Y=${underY} — attempting escape`);
         const tx = Math.floor(bot.entity.position.x);
         const tz = Math.floor(bot.entity.position.z);
+        // Try /tp first (works if bot has OP)
         bot.chat(`/tp ${tx} 80 ${tz}`);
         await new Promise(r => setTimeout(r, 2000));
         if (bot.entity.position.y >= 55) {
-          // Teleport worked — set spawnpoint so future spawns stay on surface
           bot.chat(`/spawnpoint ${config.mc.username} ${tx} 80 ${tz}`);
           console.log(`[Bot] Teleported to Y=${bot.entity.position.y.toFixed(1)}`);
           return;
         }
-        // Teleport failed (not OP) — use pathfinder with digging to escape
-        console.log("[Bot] /tp failed — using pathfinder to dig to surface");
-        try {
-          const digMoves = new PfMovements(bot);
-          digMoves.canDig = true;
-          digMoves.allowFreeMotion = true;
-          bot.pathfinder.setMovements(digMoves);
-          await safeGoto(bot, new pfGoals.GoalY(64), 30000);
-          console.log(`[Bot] Escaped to Y=${bot.entity.position.y.toFixed(1)}`);
-        } catch (e) {
-          console.warn(`[Bot] Surface escape failed: ${e}`);
+        // Dig one block up and jump — repeat up to 5 times
+        console.log("[Bot] /tp failed — digging up");
+        for (let i = 0; i < 5; i++) {
+          const pos = bot.entity.position;
+          const above = bot.blockAt(pos.offset(0, 1, 0));
+          if (!above || !above.diggable || above.name === "air") break;
+          try { await bot.dig(above); } catch { break; }
+          bot.setControlState("jump", true);
+          await new Promise(r => setTimeout(r, 500));
+          bot.setControlState("jump", false);
         }
+        console.log(`[Bot] Now at Y=${bot.entity.position.y.toFixed(1)}`);
         return;
       }
 

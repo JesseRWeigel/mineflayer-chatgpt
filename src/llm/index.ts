@@ -194,18 +194,33 @@ export async function queryLLM(
     content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
     content = content.replace(/^```json?\s*/i, "").replace(/\s*```$/i, "");
 
-    // Find the JSON object in the response (model may add text before/after)
+    // Extract the FIRST complete JSON object using brace counting
+    // (greedy regex like /\{[\s\S]*\}/ would grab everything up to the LAST brace,
+    // swallowing text the model appended after the JSON and causing parse failures)
     let jsonStr = "";
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[0];
-    } else {
-      // Try to salvage truncated JSON (missing closing braces)
-      const partialMatch = content.match(/\{[\s\S]+/);
-      if (partialMatch) {
-        // Count opening vs closing braces and add missing ones
-        let s = partialMatch[0];
-        // Remove any trailing incomplete key/value
+    const startIdx = content.indexOf("{");
+    if (startIdx !== -1) {
+      let depth = 0;
+      let inString = false;
+      let escaped = false;
+      let endIdx = -1;
+      for (let i = startIdx; i < content.length; i++) {
+        const ch = content[i];
+        if (escaped) { escaped = false; continue; }
+        if (ch === "\\" && inString) { escaped = true; continue; }
+        if (ch === '"') { inString = !inString; continue; }
+        if (inString) continue;
+        if (ch === "{") depth++;
+        else if (ch === "}") {
+          depth--;
+          if (depth === 0) { endIdx = i; break; }
+        }
+      }
+      if (endIdx !== -1) {
+        jsonStr = content.slice(startIdx, endIdx + 1);
+      } else {
+        // Truncated JSON — try to salvage by adding missing closing braces
+        let s = content.slice(startIdx);
         s = s.replace(/,?\s*"[^"]*"?\s*:?\s*[^,}\]]*$/, "");
         const opens = (s.match(/\{/g) || []).length;
         const closes = (s.match(/\}/g) || []).length;
