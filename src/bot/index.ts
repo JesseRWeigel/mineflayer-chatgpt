@@ -115,6 +115,11 @@ export async function createBot(events: BotEvents) {
       const worldContext = getWorldContext(bot);
       let contextStr = `CURRENT STATE:\n${worldContext}`;
 
+      // Goal persistence: tell the LLM what it was working on
+      const hasUrgentChat = pendingChatMessages.some(
+        (m) => "tier" in m && (m as any).tier === "paid"
+      );
+
       // Add pending chat messages
       if (pendingChatMessages.length > 0) {
         const chatStr = pendingChatMessages
@@ -123,11 +128,6 @@ export async function createBot(events: BotEvents) {
         contextStr += `\n\nMESSAGES FROM PLAYERS/VIEWERS:\n${chatStr}`;
         pendingChatMessages.length = 0; // Clear after including
       }
-
-      // Goal persistence: tell the LLM what it was working on
-      const hasUrgentChat = pendingChatMessages.some(
-        (m) => "tier" in m && (m as any).tier === "paid"
-      );
       const isEmergency = bot.health <= 6 || hasUrgentChat;
 
       if (currentGoal && goalStepsLeft > 0 && !isEmergency) {
@@ -261,7 +261,8 @@ export async function createBot(events: BotEvents) {
         DIRECT_SKILL_NAMES.has(decision.action) ||
         decision.action === "invoke_skill" ||
         decision.action === "neural_combat" ||
-        decision.action === "generate_skill";
+        decision.action === "generate_skill" ||
+        decision.action === "explore";
       if (isSkillAction) {
         const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate/i.test(result);
         if (!isSuccess) {
@@ -334,9 +335,9 @@ export async function createBot(events: BotEvents) {
 
     // Set server gamerules (requires bot to be an operator — /op AIBot)
     setTimeout(() => {
-      bot.chat("/difficulty peaceful");
       bot.chat("/gamerule keepInventory true");
-      console.log("[Bot] Sent gamerule commands (peaceful + keepInventory)");
+      bot.chat("/gamerule doMobSpawning true");
+      console.log("[Bot] Sent gamerule commands (keepInventory + mob spawning enabled)");
     }, 1000);
 
     // Start browser viewer on port 3000
