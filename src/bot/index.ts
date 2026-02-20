@@ -15,6 +15,9 @@ import { filterContent, filterChatMessage, filterViewerMessage } from "../safety
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
 import { loadMemory, getMemoryContext, recordDeath } from "./memory.js";
 import { spawn } from "node:child_process";
+import path from "path";
+import { fileURLToPath } from "url";
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { isNeuralServerRunning } from "../neural/bridge.js";
 
 export interface ChatMessage {
@@ -36,7 +39,7 @@ async function ensureNeuralServer(): Promise<void> {
     return;
   }
   console.log("[Bot] Starting neural server...");
-  const proc = spawn("python3", ["neural_server.py"], { stdio: "pipe" });
+  const proc = spawn("python3", [path.resolve(__dirname, "../../neural_server.py")], { stdio: "pipe" });
   proc.stdout?.on("data", (d) => console.log(`[Neural] ${d.toString().trim()}`));
   proc.stderr?.on("data", (d) => console.log(`[Neural] ${d.toString().trim()}`));
   proc.on("exit", (code) => console.log(`[Neural] Server exited (${code})`));
@@ -256,7 +259,7 @@ export async function createBot(events: BotEvents) {
         goalStepsLeft--;
       }
 
-      // Track failures for skill-type actions only (idle/explore/go_to shouldn't pollute the list)
+      // Track failures for skill-type actions only (go_to/idle shouldn't pollute the list)
       const isSkillAction =
         DIRECT_SKILL_NAMES.has(decision.action) ||
         decision.action === "invoke_skill" ||
