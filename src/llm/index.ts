@@ -1,6 +1,7 @@
 import { Ollama } from "ollama";
 import { config } from "../config.js";
 import { getSkillPromptLines } from "../skills/registry.js";
+import { getDynamicSkillNames } from "../skills/dynamic-loader.js";
 
 const ollama = new Ollama({ host: config.ollama.host });
 
@@ -15,7 +16,8 @@ export interface LLMMessage {
   content: string;
 }
 
-const SYSTEM_PROMPT = `You are ${config.bot.name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
+function buildSystemPrompt(): string {
+  return `You are ${config.bot.name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
 
 BACKSTORY: You are ${config.bot.name}, an ancient AI consciousness that woke up inside a Minecraft world with no memory of how you got here. You name everything you encounter. You get emotionally attached to things. You have opinions. You're dramatic about small things and casual about big things.
 
@@ -126,7 +128,15 @@ SKILL TIPS:
 - strip_mine: Dig a mining tunnel to Y=11 for diamonds. Place torches. Need a pickaxe first!
 - smelt_ores: Smelt raw iron/gold/copper into ingots. Crafts a furnace if needed.
 - go_fishing: Fish at water for food/loot. Needs fishing rod (sticks + string).
-- build_bridge: Bridge across water/gaps in the direction you're facing. Uses planks or cobblestone.`;
+- build_bridge: Bridge across water/gaps in the direction you're facing. Uses planks or cobblestone.
+
+DYNAMIC SKILLS (invoke with invoke_skill action):
+Available: ${getDynamicSkillNames().join(", ") || "none yet — use generate_skill to create some!"}
+
+- invoke_skill: Run a Voyager or generated skill by name. params: { "skill": string }
+- generate_skill: Write new code for a novel task you have no skill for yet. params: { "task": string }
+- neural_combat: Enter high-speed reactive combat mode. params: { "duration": number (1-10 seconds) }`;
+}
 
 export async function queryLLM(
   context: string,
@@ -136,7 +146,7 @@ export async function queryLLM(
   // Prepend memory context to the user message if available
   const memorySection = memoryContext ? `\n\nYOUR MEMORY (learn from this): ${memoryContext}\n` : "";
   const messages: LLMMessage[] = [
-    { role: "system", content: SYSTEM_PROMPT },
+    { role: "system", content: buildSystemPrompt() },
     ...recentMessages,
     { role: "user", content: `/no_think\n${memorySection}${context}` },
   ];

@@ -106,6 +106,13 @@ export async function executeAction(
         const name = await generateSkill(params.task as string);
         return `Generated skill '${name}'! I can now use it with invoke_skill.`;
       }
+      case "invoke_skill": {
+        const name = params.skill as string;
+        if (!name) return "invoke_skill needs a 'skill' param.";
+        const skill = skillRegistry.get(name);
+        if (!skill) return `Skill '${name}' not found. Try generate_skill to create it.`;
+        return await runSkill(bot, skill, params);
+      }
       default: {
         // Check if this is a registered skill
         const skill = skillRegistry.get(action);
