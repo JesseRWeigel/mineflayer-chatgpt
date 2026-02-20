@@ -160,6 +160,20 @@ export async function createBot(events: BotEvents) {
 
       contextStr += "\n\nWhat should you do next? Respond with a JSON action.";
 
+      // Safety override: if the bot is deep underground, skip the LLM and escape to surface.
+      // Pathfinding failures underground flood recentFailures and the LLM never self-rescues.
+      if (bot.entity.position.y < 55) {
+        const underY = bot.entity.position.y.toFixed(1);
+        console.log(`[Bot] Underground at Y=${underY} — teleporting to surface`);
+        // Bot has OP (sends gamerule commands at startup), so /tp works.
+        const tx = Math.floor(bot.entity.position.x);
+        const tz = Math.floor(bot.entity.position.z);
+        bot.chat(`/tp ${tx} 80 ${tz}`);
+        await new Promise(r => setTimeout(r, 2000));
+        console.log(`[Bot] Now at Y=${bot.entity.position.y.toFixed(1)}`);
+        return;
+      }
+
       // Query LLM with memory context
       const memoryCtx = getMemoryContext();
       const decision = await queryLLM(contextStr, recentHistory.slice(-6), memoryCtx);

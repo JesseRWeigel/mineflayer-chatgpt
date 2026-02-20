@@ -198,6 +198,14 @@ async function goTo(bot: Bot, x: number, y: number, z: number): Promise<string> 
 
 async function explore(bot: Bot, direction: string): Promise<string> {
   const pos = bot.entity.position;
+
+  // If underground, prioritise getting back to the surface first.
+  // GoalY navigates purely by Y-axis — climbs up through caves/terrain.
+  if (pos.y < 60) {
+    bot.pathfinder.setMovements(safeMoves(bot));
+    await safeGoto(bot, new goals.GoalY(70), 30000);
+  }
+
   // Shorter hops (20-40 blocks) — pathfinder can compute these reliably
   const dist = 20 + Math.floor(Math.random() * 20);
   // Add some randomness to prevent walking the exact same path
