@@ -17,10 +17,14 @@ RULES:
 - Works with no arguments other than bot. Return nothing (void). Under 60 lines.
 - DO NOT use try/catch — let errors throw so the caller can detect failures
 - NO markdown, NO backticks, NO explanation — ONLY the JavaScript function
+- NO while(true) or any infinite loops — the skill MUST complete and return
+- ALL require() calls must be INSIDE the function body (not at the top/file level)
 
-NAVIGATION (REQUIRED):
-  const { goals } = require('mineflayer-pathfinder');
-  await bot.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+NAVIGATION — require goals INSIDE the function:
+  async function SKILL_NAME(bot) {
+    const { goals } = require('mineflayer-pathfinder');
+    await bot.pathfinder.goto(new goals.GoalNear(x, y, z, 2));
+  }
   NEVER use bot.pathfinder.setGoal or bot.pathfinder.waitForGoal — those APIs do not exist
 
 INVENTORY API — CRITICAL:
@@ -29,20 +33,30 @@ INVENTORY API — CRITICAL:
   bot.inventory.items().filter(i => ...)             // correct
   bot.inventory.items.find(...)                      // WRONG — crashes with "is not a function"
 
-CRAFTING API — CRITICAL:
+CRAFTING API — CRITICAL (ONLY use bot.recipesFor):
   const mcData = require('minecraft-data')(bot.version);
-  const item = mcData.itemsByName['wooden_pickaxe'];
+  const item = mcData.itemsByName['wooden_pickaxe'];         // use itemsByName[] only
   const table = bot.findBlock({ matching: b => b.name === 'crafting_table', maxDistance: 16 });
-  const recipes = bot.recipesFor(item.id, null, 1, table);
+  const recipes = bot.recipesFor(item.id, null, 1, table);   // use recipesFor()
   if (recipes.length) await bot.craft(recipes[0], 1, table);
   // NEVER call bot.craft('item_name') — first arg must be a recipe object, not a string
+  // NEVER use mcData.recipesByName — does NOT exist in the API
+  // NEVER use mcData.findRecipes — does NOT exist in the API
+  // NEVER use bot.canCraft — does NOT exist in the API
+
+BLOCK PLACEMENT — CRITICAL:
+  // CORRECT pattern — use bot.placeBlock(referenceBlock, faceVector):
+  const refBlock = bot.blockAt(bot.entity.position.offset(0, -1, 0));
+  if (refBlock) await bot.placeBlock(refBlock, new Vec3(0, 1, 0));
+  // NEVER use bot.place(...) — does NOT exist
+  // NEVER use bot.build(...) — does NOT exist
 
 EQUIP:
   const item = bot.inventory.items().find(i => i.name === 'wooden_pickaxe');
   if (item) await bot.equip(item, 'hand');  // always null-check before equip
 
 AVAILABLE GLOBALS: bot, Vec3 (from require('vec3')), require, console, Math, JSON, setTimeout
-  Note: for minecraft-data, use require('minecraft-data')(bot.version) as shown in the CRAFTING API example above
+  Note: for minecraft-data, use require('minecraft-data')(bot.version) as shown above
 
 TASK: TASK_DESCRIPTION
 

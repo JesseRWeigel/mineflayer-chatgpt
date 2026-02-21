@@ -165,6 +165,18 @@ export async function createBot(events: BotEvents) {
 
       // Safety override: if the bot is deep underground, skip the LLM and escape to surface.
       // Pathfinding failures underground flood recentFailures and the LLM never self-rescues.
+      // Safety override: if bot is in water, use the explore action (which has robust water escape)
+      // This runs BEFORE the LLM since the LLM can't self-rescue without knowing it's in water
+      const waterFeet = bot.blockAt(bot.entity.position);
+      const waterHead = bot.blockAt(bot.entity.position.offset(0, 1, 0));
+      if (waterFeet?.name === "water" || waterHead?.name === "water") {
+        console.log("[Bot] In water — triggering explore to escape to land");
+        // explore() already has robust water escape: GoalY to surface, then GoalNear to shore
+        const escapeDir = ["north", "south", "east", "west"][Math.floor(Math.random() * 4)];
+        await executeAction(bot, "explore", { direction: escapeDir });
+        return;
+      }
+
       // Emergency escape: bot is inside solid rock (actually buried, not just in a cave)
       const feetBlock = bot.blockAt(bot.entity.position);
       const isInsideSolid = feetBlock && feetBlock.name !== "air" && feetBlock.name !== "cave_air"

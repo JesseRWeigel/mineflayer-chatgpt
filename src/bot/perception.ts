@@ -71,6 +71,15 @@ export function getWorldContext(bot: Bot): string {
     );
   }
 
+  // Water/ocean detection
+  const feetBlock = bot.blockAt(pos);
+  const headBlock = bot.blockAt(pos.offset(0, 1, 0));
+  if (feetBlock?.name === "water" || headBlock?.name === "water") {
+    parts.push(
+      "ALERT: Bot is IN WATER (ocean/river/lake). Use the 'explore' action to escape to dry land IMMEDIATELY — do NOT craft, build, or idle while underwater."
+    );
+  }
+
   return parts.join("\n");
 }
 

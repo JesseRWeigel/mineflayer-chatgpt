@@ -119,6 +119,12 @@ async function main() {
   }
 }
 
+// Catch unhandled promise rejections (e.g. from Twitch client, WebSocket, TCP) so they
+// don't crash the entire process — log and let the main restart loop handle recovery.
+process.on("unhandledRejection", (reason) => {
+  console.error("[Main] Unhandled rejection (caught — process kept alive):", reason);
+});
+
 main().catch((err) => {
   console.error("[Main] Fatal error:", err);
   process.exit(1);
