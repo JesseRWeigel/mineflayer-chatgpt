@@ -165,28 +165,23 @@ export async function createBot(events: BotEvents) {
 
       // Safety override: if the bot is deep underground, skip the LLM and escape to surface.
       // Pathfinding failures underground flood recentFailures and the LLM never self-rescues.
-      // Safety override: if bot is in water, use /tp to find dry land.
-      // setControlState("jump") does not reliably swim in Mineflayer, so we use teleportation.
+      // Safety override: if bot is in water, try /tp to land, or ask user for help.
       const waterFeet = bot.blockAt(bot.entity.position);
       const waterHead = bot.blockAt(bot.entity.position.offset(0, 1, 0));
       if (waterFeet?.name === "water" || waterHead?.name === "water") {
         const wx = Math.floor(bot.entity.position.x);
         const wz = Math.floor(bot.entity.position.z);
-        console.log(`[Bot] In water at ${wx},${wz} — scanning for land via /tp`);
+        const wy = bot.entity.position.y.toFixed(1);
+        console.log(`[Bot] In water at ${wx},${wy},${wz} — attempting /tp escape`);
 
-        // Try teleporting in expanding offsets until we find dry land
-        const offsets = [
-          [0, 300], [300, 0], [0, -300], [-300, 0],
-          [300, 300], [-300, 300], [300, -300], [-300, -300],
-          [0, 600], [600, 0], [0, -600], [-600, 0],
-        ];
+        // Try a few /tp attempts (spacing them out to avoid AFK kick)
+        const offsets = [[0, 300], [300, 0], [0, -300], [-300, 0]];
         let foundLand = false;
         for (const [dx, dz] of offsets) {
           bot.chat(`/tp ${wx + dx} 80 ${wz + dz}`);
-          await new Promise((r) => setTimeout(r, 2500)); // wait for tp + fall
+          await new Promise((r) => setTimeout(r, 3000));
           const fb = bot.blockAt(bot.entity.position);
           if (fb?.name !== "water" && fb?.name !== "air") {
-            // Landed on solid ground
             const lx = Math.floor(bot.entity.position.x);
             const ly = Math.floor(bot.entity.position.y);
             const lz = Math.floor(bot.entity.position.z);
@@ -196,7 +191,24 @@ export async function createBot(events: BotEvents) {
             break;
           }
         }
-        if (!foundLand) console.warn("[Bot] Could not find land in 12 teleport attempts");
+
+        if (!foundLand) {
+          // /tp likely failed (bot not OP) — ask user in chat and try pathfinder
+          console.warn("[Bot] /tp failed — bot may not be OP. Asking for help.");
+          bot.chat("I'm stuck in the ocean! Please /tp me to dry land, or run: /op " + config.mc.username);
+          // Try pathfinder as a last resort (may work if near shore)
+          const { explorerMoves: em, safeGoto: sg } = await import("./actions.js");
+          const pfPkg = await import("mineflayer-pathfinder");
+          const pfGoals = (pfPkg as any).goals || (pfPkg.default as any).goals;
+          bot.pathfinder.setMovements(em(bot));
+          try {
+            await sg(bot, new pfGoals.GoalY(64), 30000);
+          } catch { /* best effort */ }
+          try {
+            const p = bot.entity.position;
+            await sg(bot, new pfGoals.GoalNear(p.x + 200, 64, p.z, 5), 60000);
+          } catch { /* best effort */ }
+        }
         return;
       }
 
@@ -406,11 +418,40 @@ export async function createBot(events: BotEvents) {
   bot.once("spawn", () => {
     console.log("[Bot] Spawned! Starting decision loop...");
 
-    // Set server gamerules (requires bot to be an operator — /op AIBot)
-    setTimeout(() => {
+    // Set server gamerules and anchor spawnpoint on dry land (bot is OP level 4)
+    setTimeout(async () => {
       bot.chat("/gamerule keepInventory true");
       bot.chat("/gamerule doMobSpawning true");
       console.log("[Bot] Sent gamerule commands (keepInventory + mob spawning enabled)");
+
+      // If spawned in water, /tp to land and lock spawnpoint there
+      const spawnFeet = bot.blockAt(bot.entity.position);
+      if (spawnFeet?.name === "water") {
+        console.log("[Bot] Spawned in water — using /tp to find land");
+        const sx = Math.floor(bot.entity.position.x);
+        const sz = Math.floor(bot.entity.position.z);
+        const dirs = [[0, 300], [300, 0], [0, -300], [-300, 0], [300, 300], [-300, 300]];
+        for (const [dx, dz] of dirs) {
+          bot.chat(`/tp ${sx + dx} 80 ${sz + dz}`);
+          await new Promise((r) => setTimeout(r, 3000));
+          const fb = bot.blockAt(bot.entity.position);
+          if (fb && fb.name !== "water" && fb.name !== "air") {
+            const lx = Math.floor(bot.entity.position.x);
+            const ly = Math.floor(bot.entity.position.y);
+            const lz = Math.floor(bot.entity.position.z);
+            bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+            console.log(`[Bot] Spawnpoint set to land at ${lx},${ly},${lz}`);
+            break;
+          }
+        }
+      } else {
+        // Already on land — lock spawnpoint here so deaths don't respawn in ocean
+        const lx = Math.floor(bot.entity.position.x);
+        const ly = Math.floor(bot.entity.position.y);
+        const lz = Math.floor(bot.entity.position.z);
+        bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+        console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
+      }
     }, 1000);
 
     // Start browser viewer on port 3000
