@@ -165,21 +165,39 @@ export async function createBot(events: BotEvents) {
 
       // Safety override: if the bot is deep underground, skip the LLM and escape to surface.
       // Pathfinding failures underground flood recentFailures and the LLM never self-rescues.
-      // Safety override: if bot is TRULY submerged (both head AND feet in water), swim up.
-      // Surface-floating (feet=water, head=air) is handled by the LLM via perception alert.
+      // Safety override: if bot is in water, use /tp to find dry land.
+      // setControlState("jump") does not reliably swim in Mineflayer, so we use teleportation.
       const waterFeet = bot.blockAt(bot.entity.position);
       const waterHead = bot.blockAt(bot.entity.position.offset(0, 1, 0));
-      const trulySubmerged = waterFeet?.name === "water" && waterHead?.name === "water";
-      if (trulySubmerged) {
-        console.log("[Bot] Submerged — holding jump to surface");
-        bot.setControlState("jump", true);
-        for (let i = 0; i < 40; i++) {
-          await new Promise((r) => setTimeout(r, 500));
-          const hb = bot.blockAt(bot.entity.position.offset(0, 1, 0));
-          if (hb?.name !== "water") break; // head is out of water = surfaced
+      if (waterFeet?.name === "water" || waterHead?.name === "water") {
+        const wx = Math.floor(bot.entity.position.x);
+        const wz = Math.floor(bot.entity.position.z);
+        console.log(`[Bot] In water at ${wx},${wz} — scanning for land via /tp`);
+
+        // Try teleporting in expanding offsets until we find dry land
+        const offsets = [
+          [0, 300], [300, 0], [0, -300], [-300, 0],
+          [300, 300], [-300, 300], [300, -300], [-300, -300],
+          [0, 600], [600, 0], [0, -600], [-600, 0],
+        ];
+        let foundLand = false;
+        for (const [dx, dz] of offsets) {
+          bot.chat(`/tp ${wx + dx} 80 ${wz + dz}`);
+          await new Promise((r) => setTimeout(r, 2500)); // wait for tp + fall
+          const fb = bot.blockAt(bot.entity.position);
+          if (fb?.name !== "water" && fb?.name !== "air") {
+            // Landed on solid ground
+            const lx = Math.floor(bot.entity.position.x);
+            const ly = Math.floor(bot.entity.position.y);
+            const lz = Math.floor(bot.entity.position.z);
+            console.log(`[Bot] Found land at ${lx},${ly},${lz} — setting spawnpoint`);
+            bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+            foundLand = true;
+            break;
+          }
         }
-        bot.clearControlStates();
-        return; // Let LLM take over — perception now shows the water alert
+        if (!foundLand) console.warn("[Bot] Could not find land in 12 teleport attempts");
+        return;
       }
 
       // Emergency escape: bot is inside solid rock (actually buried, not just in a cave)

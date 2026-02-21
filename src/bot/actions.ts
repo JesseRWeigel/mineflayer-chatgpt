@@ -228,33 +228,22 @@ async function goTo(bot: Bot, x: number, y: number, z: number): Promise<string> 
 async function explore(bot: Bot, direction: string): Promise<string> {
   const pos = bot.entity.position;
 
-  // Escape water — swim up if submerged, then paddle to shore
+  // If in water, use pathfinder with free motion to navigate to surface/shore
   const currentBlock = bot.blockAt(pos);
   const headBlock = bot.blockAt(pos.offset(0, 1, 0));
   if (currentBlock?.name === "water" || headBlock?.name === "water") {
-    console.log("[Explore] Bot is in water — swimming to shore");
-    // Surface first if head is still underwater
-    if (headBlock?.name === "water") {
-      bot.setControlState("jump", true);
-      for (let i = 0; i < 40; i++) {
-        await new Promise((r) => setTimeout(r, 500));
-        const hb = bot.blockAt(bot.entity.position.offset(0, 1, 0));
-        if (hb?.name !== "water") break;
-      }
-      bot.clearControlStates();
+    console.log("[Explore] Bot is in water — attempting pathfinder escape");
+    bot.pathfinder.setMovements(explorerMoves(bot));
+    try {
+      // Try to reach a high Y to surface
+      await safeGoto(bot, new goals.GoalY(70), 30000);
+    } catch {
+      // If that fails, try moving laterally to find shore
+      try {
+        const p = bot.entity.position;
+        await safeGoto(bot, new goals.GoalNear(p.x + 100, p.y, p.z, 5), 30000);
+      } catch { /* best effort */ }
     }
-    // Swim toward shore — try up to 3 minutes
-    const angle = Math.random() * Math.PI * 2;
-    bot.entity.yaw = angle;
-    bot.setControlState("forward", true);
-    bot.setControlState("jump", true);
-    for (let i = 0; i < 360; i++) { // up to 3 minutes
-      await new Promise((r) => setTimeout(r, 500));
-      const groundBlock = bot.blockAt(bot.entity.position.offset(0, -1, 0));
-      // On solid non-water ground = reached shore
-      if (groundBlock && groundBlock.name !== "water" && groundBlock.name !== "air") break;
-    }
-    bot.clearControlStates();
   }
 
   // If underground, prioritise getting back to the surface first.
