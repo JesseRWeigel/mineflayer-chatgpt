@@ -165,16 +165,21 @@ export async function createBot(events: BotEvents) {
 
       // Safety override: if the bot is deep underground, skip the LLM and escape to surface.
       // Pathfinding failures underground flood recentFailures and the LLM never self-rescues.
-      // Safety override: if bot is in water, use the explore action (which has robust water escape)
-      // This runs BEFORE the LLM since the LLM can't self-rescue without knowing it's in water
+      // Safety override: if bot is TRULY submerged (both head AND feet in water), swim up.
+      // Surface-floating (feet=water, head=air) is handled by the LLM via perception alert.
       const waterFeet = bot.blockAt(bot.entity.position);
       const waterHead = bot.blockAt(bot.entity.position.offset(0, 1, 0));
-      if (waterFeet?.name === "water" || waterHead?.name === "water") {
-        console.log("[Bot] In water — triggering explore to escape to land");
-        // explore() already has robust water escape: GoalY to surface, then GoalNear to shore
-        const escapeDir = ["north", "south", "east", "west"][Math.floor(Math.random() * 4)];
-        await executeAction(bot, "explore", { direction: escapeDir });
-        return;
+      const trulySubmerged = waterFeet?.name === "water" && waterHead?.name === "water";
+      if (trulySubmerged) {
+        console.log("[Bot] Submerged — holding jump to surface");
+        bot.setControlState("jump", true);
+        for (let i = 0; i < 40; i++) {
+          await new Promise((r) => setTimeout(r, 500));
+          const hb = bot.blockAt(bot.entity.position.offset(0, 1, 0));
+          if (hb?.name !== "water") break; // head is out of water = surfaced
+        }
+        bot.clearControlStates();
+        return; // Let LLM take over — perception now shows the water alert
       }
 
       // Emergency escape: bot is inside solid rock (actually buried, not just in a cave)

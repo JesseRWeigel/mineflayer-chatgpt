@@ -228,19 +228,33 @@ async function goTo(bot: Bot, x: number, y: number, z: number): Promise<string> 
 async function explore(bot: Bot, direction: string): Promise<string> {
   const pos = bot.entity.position;
 
-  // Escape water first if bot is currently in it
+  // Escape water — swim up if submerged, then paddle to shore
   const currentBlock = bot.blockAt(pos);
-  if (currentBlock?.name === "water") {
-    console.log("[Explore] Bot is in water — escaping first");
-    bot.pathfinder.setMovements(explorerMoves(bot));
-    try {
-      await safeGoto(bot, new goals.GoalY(Math.ceil(pos.y) + 4), 10000);
-    } catch {
-      // If Y escape fails, just try to move somewhere nearby
-      try {
-        await safeGoto(bot, new goals.GoalNear(pos.x + 5, pos.y, pos.z + 5, 3), 8000);
-      } catch { /* best effort */ }
+  const headBlock = bot.blockAt(pos.offset(0, 1, 0));
+  if (currentBlock?.name === "water" || headBlock?.name === "water") {
+    console.log("[Explore] Bot is in water — swimming to shore");
+    // Surface first if head is still underwater
+    if (headBlock?.name === "water") {
+      bot.setControlState("jump", true);
+      for (let i = 0; i < 40; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        const hb = bot.blockAt(bot.entity.position.offset(0, 1, 0));
+        if (hb?.name !== "water") break;
+      }
+      bot.clearControlStates();
     }
+    // Swim toward shore — try up to 3 minutes
+    const angle = Math.random() * Math.PI * 2;
+    bot.entity.yaw = angle;
+    bot.setControlState("forward", true);
+    bot.setControlState("jump", true);
+    for (let i = 0; i < 360; i++) { // up to 3 minutes
+      await new Promise((r) => setTimeout(r, 500));
+      const groundBlock = bot.blockAt(bot.entity.position.offset(0, -1, 0));
+      // On solid non-water ground = reached shore
+      if (groundBlock && groundBlock.name !== "water" && groundBlock.name !== "air") break;
+    }
+    bot.clearControlStates();
   }
 
   // If underground, prioritise getting back to the surface first.
