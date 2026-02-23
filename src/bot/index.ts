@@ -13,7 +13,8 @@ import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.j
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
-import { loadMemory, getMemoryContext, recordDeath, getSeasonGoal, setSeasonGoal, clearSeasonGoal } from "./memory.js";
+import { BotMemoryStore } from "./memory.js";
+import { BotRoleConfig, ATLAS_CONFIG } from "./role.js";
 import { spawn } from "node:child_process";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -54,20 +55,21 @@ async function ensureNeuralServer(): Promise<void> {
   console.warn("[Bot] Neural server timed out — combat fallback active.");
 }
 
-export async function createBot(events: BotEvents) {
+export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = ATLAS_CONFIG) {
   ensureNeuralServer().catch((e) => console.warn("[Bot] Neural spawn error:", e));
 
   // Load memory at startup
-  loadMemory();
+  const memStore = new BotMemoryStore(roleConfig.memoryFile);
+  memStore.load();
 
   console.log(
-    `[Bot] Connecting to ${config.mc.host}:${config.mc.port} as ${config.mc.username}...`
+    `[Bot] Connecting to ${config.mc.host}:${config.mc.port} as ${roleConfig.username}...`
   );
 
   const bot = mineflayer.createBot({
     host: config.mc.host,
     port: config.mc.port,
-    username: config.mc.username,
+    username: roleConfig.username,
     version: config.mc.version,
     auth: config.mc.auth,
   });
@@ -191,7 +193,7 @@ export async function createBot(events: BotEvents) {
             const ly = Math.floor(bot.entity.position.y);
             const lz = Math.floor(bot.entity.position.z);
             console.log(`[Bot] Found land at ${lx},${ly},${lz} — setting spawnpoint`);
-            bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+            bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
             foundLand = true;
             break;
           }
@@ -200,7 +202,7 @@ export async function createBot(events: BotEvents) {
         if (!foundLand) {
           // /tp likely failed (bot not OP) — ask user in chat and try pathfinder
           console.warn("[Bot] /tp failed — bot may not be OP. Asking for help.");
-          bot.chat("I'm stuck in the ocean! Please /tp me to dry land, or run: /op " + config.mc.username);
+          bot.chat("I'm stuck in the ocean! Please /tp me to dry land, or run: /op " + roleConfig.username);
           // Try pathfinder as a last resort (may work if near shore)
           const { explorerMoves: em, safeGoto: sg } = await import("./actions.js");
           const pfPkg = await import("mineflayer-pathfinder");
@@ -230,7 +232,7 @@ export async function createBot(events: BotEvents) {
         bot.chat(`/tp ${tx} 80 ${tz}`);
         await new Promise(r => setTimeout(r, 2000));
         if (bot.entity.position.y >= 55) {
-          bot.chat(`/spawnpoint ${config.mc.username} ${tx} 80 ${tz}`);
+          bot.chat(`/spawnpoint ${roleConfig.username} ${tx} 80 ${tz}`);
           console.log(`[Bot] Teleported to Y=${bot.entity.position.y.toFixed(1)}`);
           return;
         }
@@ -250,8 +252,12 @@ export async function createBot(events: BotEvents) {
       }
 
       // Query LLM with memory context
-      const memoryCtx = getMemoryContext();
-      const decision = await queryLLM(contextStr, recentHistory.slice(-6), memoryCtx);
+      const memoryCtx = memStore.getMemoryContext();
+      const decision = await queryLLM(contextStr, recentHistory.slice(-6), memoryCtx, {
+        name: roleConfig.name,
+        personality: roleConfig.personality,
+        seasonGoal: memStore.getSeasonGoal(),
+      });
 
       // Filter thought for safety before showing on stream
       const thoughtFilter = filterContent(decision.thought);
@@ -414,13 +420,13 @@ export async function createBot(events: BotEvents) {
       const sub = parts[1]?.toLowerCase();
       if (sub === "set" && parts.length > 2) {
         const newGoal = parts.slice(2).join(" ");
-        setSeasonGoal(newGoal);
+        memStore.setSeasonGoal(newGoal);
         bot.chat(`Mission accepted: "${newGoal}"`);
       } else if (sub === "clear") {
-        clearSeasonGoal();
+        memStore.clearSeasonGoal();
         bot.chat("Season goal cleared. Going freeform.");
       } else if (sub === "show" || !sub) {
-        const current = getSeasonGoal();
+        const current = memStore.getSeasonGoal();
         bot.chat(current ? `Current mission: "${current}"` : "No season goal set. Use !goal set <text>");
       } else {
         bot.chat("Usage: !goal set <text> | !goal clear | !goal show");
@@ -442,7 +448,7 @@ export async function createBot(events: BotEvents) {
     const pos = bot.entity.position;
     // Try to detect cause from recent events (simplified)
     const cause = "unknown";
-    recordDeath(pos.x, pos.y, pos.z, cause);
+    memStore.recordDeath(pos.x, pos.y, pos.z, cause);
 
     console.log("[Bot] I died! Respawning...");
     abortActiveSkill();
@@ -507,7 +513,7 @@ export async function createBot(events: BotEvents) {
           const lx = Math.floor(bot.entity.position.x);
           const ly = Math.floor(bot.entity.position.y);
           const lz = Math.floor(bot.entity.position.z);
-          bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+          bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
           console.log(`[Bot] Spawnpoint set to land at ${lx},${ly},${lz}`);
           foundLand = true;
           break;
@@ -530,7 +536,7 @@ export async function createBot(events: BotEvents) {
         const sx = Math.floor(pos.x);
         const sz = Math.floor(pos.z);
         console.log(`[Bot] Underground at Y=${pos.y.toFixed(0)} — /tp to surface with slow_falling`);
-        bot.chat(`/effect give ${config.mc.username} slow_falling 60 1`);
+        bot.chat(`/effect give ${roleConfig.username} slow_falling 60 1`);
         await new Promise((r) => setTimeout(r, 500));
         bot.chat(`/tp ${sx} 200 ${sz}`);
         // Wait for landing (slow_falling is slow — poll onGround)
@@ -546,7 +552,7 @@ export async function createBot(events: BotEvents) {
     const lx = Math.floor(bot.entity.position.x);
     const ly = Math.floor(bot.entity.position.y);
     const lz = Math.floor(bot.entity.position.z);
-    bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+    bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
     console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
     spawnSafetyRunning = false;
   }
@@ -562,8 +568,8 @@ export async function createBot(events: BotEvents) {
   bot.once("spawn", () => {
     console.log("[Bot] Spawned! Starting decision loop...");
 
-    // Start browser viewer on port 3000
-    startViewer(bot, 3000);
+    // Start browser viewer on roleConfig viewer port
+    startViewer(bot, roleConfig.viewerPort);
 
     // Give pathfinder more time to compute paths (default ~5s is too short with canDig=false)
     bot.pathfinder.thinkTimeout = 10000;
@@ -588,7 +594,7 @@ export async function createBot(events: BotEvents) {
         position: { x: bot.entity.position.x, y: bot.entity.position.y, z: bot.entity.position.z },
         time: (bot.time.timeOfDay < 13000 || bot.time.timeOfDay > 23000) ? "Daytime" : "Nighttime",
         inventory: bot.inventory.items().map((i) => `${i.name}x${i.count}`),
-        seasonGoal: getSeasonGoal() ?? undefined,
+        seasonGoal: memStore.getSeasonGoal() ?? undefined,
       };
       if (isSkillRunning()) {
         (overlayData as any).action = `[SKILL] ${getActiveSkillName()}`;

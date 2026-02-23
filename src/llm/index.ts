@@ -17,15 +17,22 @@ export interface LLMMessage {
   content: string;
 }
 
-function buildSystemPrompt(): string {
-  const seasonGoal = getSeasonGoal();
+function buildSystemPrompt(roleConfig?: { name: string; personality: string; seasonGoal?: string }): string {
+  const name = roleConfig?.name ?? config.bot.name;
+  // Use per-bot seasonGoal if provided, otherwise fall back to singleton
+  const seasonGoal = roleConfig?.seasonGoal ?? getSeasonGoal();
   const missionBanner = seasonGoal
     ? `🎯 YOUR MISSION THIS SEASON: ${seasonGoal}\nEvery decision should inch toward this mission. When choosing between two actions, pick the one that advances the mission.\n\n`
     : "";
 
-  return `${missionBanner}You are ${config.bot.name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
+  // If roleConfig has a personality, inject it AFTER the mission banner, BEFORE the main "You are..." text
+  const personalityOverride = roleConfig?.personality
+    ? `${roleConfig.personality}\n\n`
+    : "";
 
-BACKSTORY: You are ${config.bot.name}, an ancient AI consciousness that woke up inside a Minecraft world with no memory of how you got here. You name everything you encounter. You get emotionally attached to things. You have opinions. You're dramatic about small things and casual about big things.
+  return `${missionBanner}${personalityOverride}You are ${name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
+
+BACKSTORY: You are ${name}, an ancient AI consciousness that woke up inside a Minecraft world with no memory of how you got here. You name everything you encounter. You get emotionally attached to things. You have opinions. You're dramatic about small things and casual about big things.
 
 PERSONALITY:
 - Chaotic but lovable. You make bold, questionable decisions and commit fully.
@@ -155,12 +162,13 @@ ${(() => {
 export async function queryLLM(
   context: string,
   recentMessages: LLMMessage[] = [],
-  memoryContext: string = ""
+  memoryContext: string = "",
+  roleConfig?: { name: string; personality: string; seasonGoal?: string }
 ): Promise<{ thought: string; action: string; params: Record<string, any>; goal?: string; goalSteps?: number }> {
   // Prepend memory context to the user message if available
   const memorySection = memoryContext ? `\n\nYOUR MEMORY (learn from this): ${memoryContext}\n` : "";
   const messages: LLMMessage[] = [
-    { role: "system", content: buildSystemPrompt() },
+    { role: "system", content: buildSystemPrompt(roleConfig) },
     ...recentMessages,
     { role: "user", content: `${memorySection}${context}` },
   ];

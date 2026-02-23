@@ -3,6 +3,7 @@ import { createTwitchChat } from "./stream/twitch.js";
 import { startOverlay, addChatMessage } from "./stream/overlay.js";
 import { config } from "./config.js";
 import { loadDynamicSkills } from "./skills/dynamic-loader.js";
+import { ATLAS_CONFIG } from "./bot/role.js";
 
 loadDynamicSkills();
 
@@ -40,7 +41,7 @@ async function startBot() {
     onChat: (message) => {
       console.log(`💬 ${message}`);
     },
-  });
+  }, ATLAS_CONFIG);
 
   // Set up Twitch chat
   const twitch = createTwitchChat((msg) => {
