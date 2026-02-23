@@ -382,8 +382,14 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         decision.action === "invoke_skill" ||
         decision.action === "neural_combat" ||
         decision.action === "generate_skill" ||
-        decision.action === "explore";
+        decision.action === "explore" ||
+        decision.action === "craft";
       const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished/i.test(result);
+
+      // go_to "Already here!" is a soft-loop — blacklist this destination so the bot moves on
+      if (decision.action === "go_to" && result === "Already here!") {
+        recentFailures.set(`go_to:${decision.params?.x},${decision.params?.z}`, "Already at this location — pick a different destination or use explore");
+      }
       lastActionWasSuccess = isSuccess;
       if (isSkillAction) {
         if (!isSuccess) {
