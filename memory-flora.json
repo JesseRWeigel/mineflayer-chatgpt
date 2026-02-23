@@ -542,13 +542,6 @@
       "timestamp": "2026-02-23T22:46:36.446Z"
     },
     {
-      "skill": "build_farm",
-      "success": false,
-      "durationSeconds": 0.015,
-      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
-      "timestamp": "2026-02-23T22:46:38.401Z"
-    },
-    {
       "skill": "killFourSheep",
       "success": true,
       "durationSeconds": 0.078,
@@ -561,13 +554,6 @@
       "durationSeconds": 0.08,
       "notes": "killFourSheep completed.",
       "timestamp": "2026-02-23T22:46:44.680Z"
-    },
-    {
-      "skill": "build_farm",
-      "success": false,
-      "durationSeconds": 0.013,
-      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
-      "timestamp": "2026-02-23T22:46:55.167Z"
     },
     {
       "skill": "killFourSheep",
