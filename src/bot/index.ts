@@ -73,6 +73,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     username: roleConfig.username,
     version: config.mc.version,
     auth: config.mc.auth,
+    // Increase keepalive timeout from 30s → 120s so heavy skill execution
+    // (pathfinding, vm evaluation) doesn't cause disconnects
+    checkTimeoutInterval: 120_000,
   });
 
   // Load plugins

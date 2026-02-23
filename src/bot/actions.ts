@@ -134,7 +134,14 @@ export async function executeAction(
         const name = params.skill as string;
         if (!name) return "invoke_skill needs a 'skill' param.";
         const skill = skillRegistry.get(name);
-        if (!skill) return `Skill '${name}' not found. Try generate_skill to create it.`;
+        if (!skill) {
+          // Fallback: if the skill name is actually a built-in action, execute it directly
+          const BUILTIN_ACTIONS = new Set(["gather_wood","mine_block","go_to","explore","craft","eat","attack","flee","build_shelter","place_block","sleep","idle","chat"]);
+          if (BUILTIN_ACTIONS.has(name)) {
+            return await executeAction(bot, name, params);
+          }
+          return `Skill '${name}' not found. Try generate_skill to create it.`;
+        }
         return await runSkill(bot, skill, params);
       }
       case "neural_combat":
