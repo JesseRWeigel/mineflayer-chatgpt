@@ -161,8 +161,10 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         goalStepsLeft = 0;
       } else if (repeatCount >= 3 && lastActionWasSuccess) {
         contextStr += `\n\nVARIETY CHECK: You've successfully done "${lastAction.replace(/^skill:/, "")}" ${repeatCount} times in a row. Great work — but you're in a rut! Move on to your next goal. Pick a DIFFERENT action that advances your overall progress.`;
-        if (repeatCount >= 5) {
-          // Hard enforcement: temporarily block this action to force diversification
+        if (repeatCount >= 5 && lastAction !== "explore" && lastAction !== "gather_wood") {
+          // Hard enforcement: temporarily block this action to force diversification.
+          // Exclude explore/gather_wood — these are navigation primitives that may need many
+          // iterations and should never be permanently blocked by the variety check.
           recentFailures.set(lastAction, `Repeated ${repeatCount} times successfully — time to move on to something else`);
         }
       }
@@ -550,17 +552,15 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     await new Promise((r) => setTimeout(r, 800));
 
     // If a safe spawn location is configured, always TP there and set spawnpoint.
-    // Uses slow_falling to land safely at the exact ground level (Y is ignored — we drop from 200).
+    // TP to Y=80 (just above typical forest floor ~Y=64) — bot falls < 1s, ~6 blocks = 1.5 hearts.
     if (roleConfig.safeSpawn) {
       const { x, z } = roleConfig.safeSpawn;
-      console.log(`[Bot] safeSpawn configured — teleporting to ${x},200,${z} with slow_falling`);
-      bot.chat(`/effect give ${roleConfig.username} slow_falling 120 1`);
-      await new Promise((r) => setTimeout(r, 500));
-      bot.chat(`/tp ${x} 200 ${z}`);
-      // Wait for landing — slow_falling makes this take up to ~20s from Y=200
-      const landDeadline = Date.now() + 30_000;
+      console.log(`[Bot] safeSpawn configured — teleporting to ${x},80,${z}`);
+      bot.chat(`/tp ${x} 80 ${z}`);
+      // Wait for landing (falling from Y=80 to Y~64 takes < 2 seconds)
+      const landDeadline = Date.now() + 8_000;
       while (!bot.entity.onGround && Date.now() < landDeadline) {
-        await new Promise((r) => setTimeout(r, 300));
+        await new Promise((r) => setTimeout(r, 200));
       }
       const lx = Math.floor(bot.entity.position.x);
       const ly = Math.floor(bot.entity.position.y);
