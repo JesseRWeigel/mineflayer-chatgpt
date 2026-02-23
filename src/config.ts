@@ -26,4 +26,7 @@ export const config = {
     ),
     chatCooldownMs: parseInt(process.env.BOT_CHAT_COOLDOWN_MS || "3000"),
   },
+  multiBot: {
+    enabled: process.env.ENABLE_MULTI_BOT === "true",
+  },
 };

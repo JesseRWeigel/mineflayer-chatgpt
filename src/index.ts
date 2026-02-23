@@ -3,77 +3,74 @@ import { createTwitchChat } from "./stream/twitch.js";
 import { startOverlay, addChatMessage } from "./stream/overlay.js";
 import { config } from "./config.js";
 import { loadDynamicSkills } from "./skills/dynamic-loader.js";
-import { ATLAS_CONFIG } from "./bot/role.js";
+import { ATLAS_CONFIG, FLORA_CONFIG, BotRoleConfig } from "./bot/role.js";
 
 loadDynamicSkills();
 
 const MAX_RESTARTS = 50;
 const RESTART_DELAY_MS = 30000;
 const DUPLICATE_LOGIN_DELAY_MS = 60000;
-let restartCount = 0;
-let overlayStarted = false;
 
-async function startBot() {
-  console.log(`\n=== Minecraft AI Streamer (restart #${restartCount}) ===`);
-  console.log(`Bot name: ${config.bot.name}`);
-  const fastLabel = config.ollama.fastModel !== config.ollama.model ? ` (fast decisions: ${config.ollama.fastModel})` : "";
+// Catch unhandled promise rejections (e.g. from Twitch client, WebSocket, TCP) so they
+// don't crash the entire process — log and let the main restart loop handle recovery.
+process.on("unhandledRejection", (reason) => {
+  console.error("[Main] Unhandled rejection (caught — process kept alive):", reason);
+});
+
+async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlayStarted: { value: boolean }): Promise<string> {
+  console.log(`\n=== ${roleConfig.name} (${roleConfig.role}) (restart #${restartCount}) ===`);
+  const fastLabel = config.ollama.fastModel !== config.ollama.model
+    ? ` (fast decisions: ${config.ollama.fastModel})` : "";
   console.log(`LLM: ${config.ollama.model}${fastLabel} @ ${config.ollama.host}`);
-  console.log(
-    `Server: ${config.mc.host}:${config.mc.port} (MC ${config.mc.version})`
-  );
+  console.log(`Server: ${config.mc.host}:${config.mc.port} (MC ${config.mc.version})`);
   console.log(`Decision interval: ${config.bot.decisionIntervalMs}ms`);
   console.log("");
 
-  // Start overlay only once (it persists across bot restarts)
-  if (!overlayStarted) {
-    startOverlay(3001);
-    overlayStarted = true;
+  // Start overlay only once per bot (persists across restarts)
+  if (!overlayStarted.value) {
+    startOverlay(roleConfig.overlayPort);
+    overlayStarted.value = true;
   }
 
-  // Create the bot
   const { bot, queueChat, stop } = await createBot({
-    onThought: (thought) => {
-      console.log(`💭 ${thought}`);
-    },
-    onAction: (action, result) => {
-      console.log(`🎮 [${action}] ${result}`);
-    },
-    onChat: (message) => {
-      console.log(`💬 ${message}`);
-    },
-  }, ATLAS_CONFIG);
+    onThought: (thought) => console.log(`[${roleConfig.name}] 💭 ${thought}`),
+    onAction: (action, result) => console.log(`[${roleConfig.name}] 🎮 [${action}] ${result}`),
+    onChat: (message) => console.log(`[${roleConfig.name}] 💬 ${message}`),
+  }, roleConfig);
 
-  // Set up Twitch chat
-  const twitch = createTwitchChat((msg) => {
-    queueChat(msg);
-    addChatMessage(msg.username, msg.message, msg.tier);
-  });
+  // Set up Twitch chat (Atlas only — Flora doesn't need her own chat connection)
+  const twitch = roleConfig.name === "Atlas"
+    ? createTwitchChat((msg) => {
+        queueChat(msg);
+        addChatMessage(msg.username, msg.message, (msg as any).tier ?? "free");
+      })
+    : null;
 
-  // Auto-restart on disconnect/kick/error
-  return new Promise<void>((resolve) => {
+  let lastKickReason = "";
+
+  return new Promise<string>((resolve) => {
     bot.on("kicked", (reason) => {
       const reasonStr = typeof reason === "string" ? reason : JSON.stringify(reason);
-      console.log(`[Bot] Kicked: ${reasonStr}`);
+      console.log(`[${roleConfig.name}] Kicked: ${reasonStr}`);
       lastKickReason = reasonStr;
       stop();
       twitch?.client.disconnect();
-      resolve();
+      resolve(lastKickReason);
     });
 
     bot.on("end", () => {
-      console.log("[Bot] Connection ended.");
+      console.log(`[${roleConfig.name}] Connection ended.`);
       stop();
       twitch?.client.disconnect();
-      resolve();
+      resolve(lastKickReason);
     });
 
     bot.on("error", (err) => {
-      console.error("[Bot] Error:", err);
+      console.error(`[${roleConfig.name}] Error:`, err);
     });
 
-    // Graceful shutdown on SIGINT/SIGTERM
     const shutdown = () => {
-      console.log("\n[Main] Shutting down (manual stop)...");
+      console.log(`\n[Main] Shutting down ${roleConfig.name} (manual stop)...`);
       stop();
       twitch?.client.disconnect();
       process.exit(0);
@@ -84,48 +81,50 @@ async function startBot() {
     process.on("SIGINT", shutdown);
     process.on("SIGTERM", shutdown);
 
-    console.log("[Main] Bot is starting up. Waiting for spawn...");
+    console.log(`[Main] ${roleConfig.name} is starting up. Waiting for spawn...`);
   });
 }
 
-let lastKickReason = "";
+async function runBotLoop(roleConfig: BotRoleConfig): Promise<void> {
+  let restartCount = 0;
+  const overlayStarted = { value: false };
 
-async function startBotTracked() {
-  // Wrap startBot to capture kick reason for smarter restart delay
-  return new Promise<void>((resolve, reject) => {
-    startBot().then(resolve).catch(reject);
-  });
-}
-
-async function main() {
   while (restartCount < MAX_RESTARTS) {
-    lastKickReason = "";
+    let lastKickReason = "";
     try {
-      await startBot();
+      lastKickReason = await startBot(roleConfig, restartCount, overlayStarted);
     } catch (err) {
-      console.error("[Main] Bot crashed:", err);
+      console.error(`[${roleConfig.name}] Bot crashed:`, err);
     }
 
     restartCount++;
     if (restartCount >= MAX_RESTARTS) {
-      console.error(`[Main] Max restarts (${MAX_RESTARTS}) reached. Giving up.`);
-      process.exit(1);
+      console.error(`[${roleConfig.name}] Max restarts (${MAX_RESTARTS}) reached. Giving up.`);
+      return;
     }
 
-    // Use a longer delay for duplicate login kicks so the server session expires
     const delay = lastKickReason.includes("duplicate_login") || lastKickReason.includes("You logged in from another location")
       ? DUPLICATE_LOGIN_DELAY_MS
       : RESTART_DELAY_MS;
-    console.log(`[Main] Restarting in ${delay / 1000}s... (attempt ${restartCount}/${MAX_RESTARTS})`);
+    console.log(`[${roleConfig.name}] Restarting in ${delay / 1000}s... (attempt ${restartCount}/${MAX_RESTARTS})`);
     await new Promise((r) => setTimeout(r, delay));
   }
 }
 
-// Catch unhandled promise rejections (e.g. from Twitch client, WebSocket, TCP) so they
-// don't crash the entire process — log and let the main restart loop handle recovery.
-process.on("unhandledRejection", (reason) => {
-  console.error("[Main] Unhandled rejection (caught — process kept alive):", reason);
-});
+async function main() {
+  // Always start Atlas
+  const atlasLoop = runBotLoop(ATLAS_CONFIG);
+
+  if (config.multiBot.enabled) {
+    console.log("[Main] Multi-bot mode enabled — starting Flora...");
+    // Add a 10-second stagger so both bots don't connect simultaneously
+    await new Promise((r) => setTimeout(r, 10000));
+    const floraLoop = runBotLoop(FLORA_CONFIG);
+    await Promise.all([atlasLoop, floraLoop]);
+  } else {
+    await atlasLoop;
+  }
+}
 
 main().catch((err) => {
   console.error("[Main] Fatal error:", err);
