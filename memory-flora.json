@@ -591,33 +591,48 @@
       "timestamp": "2026-02-23T23:13:12.161Z"
     },
     {
-      "skill": "build_farm",
-      "success": false,
-      "durationSeconds": 0.014,
-      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
-      "timestamp": "2026-02-23T23:27:11.470Z"
-    },
-    {
-      "skill": "build_farm",
-      "success": false,
-      "durationSeconds": 0.012,
-      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
-      "timestamp": "2026-02-23T23:27:12.915Z"
-    },
-    {
       "skill": "light_area",
       "success": false,
       "durationSeconds": 0,
       "notes": "No torches in inventory! Craft some first (coal + sticks).",
       "timestamp": "2026-02-23T23:28:45.369Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 438.725,
+      "notes": "HOUSE BUILT! \"Oak House\" at 9, 64, -333. Placed 136 blocks (38 skipped). It's GORGEOUS. It's HOME.",
+      "timestamp": "2026-02-23T23:36:05.560Z"
+    },
+    {
+      "skill": "craft_gear",
+      "success": true,
+      "durationSeconds": 10.301,
+      "notes": "Gear crafted! Got: wooden_shovel. Ready for action!",
+      "timestamp": "2026-02-23T23:36:32.666Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-23T23:36:34.180Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 546.854,
+      "notes": "HOUSE BUILT! \"Oak House\" at 9, 64, -333. Placed 151 blocks (23 skipped). It's GORGEOUS. It's HOME.",
+      "timestamp": "2026-02-23T23:45:55.639Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T23:28:45.369Z",
+  "lastUpdated": "2026-02-23T23:45:55.639Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",
     "craftABedUsingAvailableResourcesLikeWool",
-    "craftABedUsingWoolAndACraftingTableThenU"
+    "craftABedUsingWoolAndACraftingTableThenU",
+    "mineFiveCoalOres"
   ]
 }

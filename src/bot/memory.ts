@@ -63,8 +63,10 @@ const defaultMemory: BotMemory = {
 
 const PRECONDITION_KEYWORDS = [
   "No trees found", "need wood", "Need a pickaxe", "No torches",
-  "Couldn't plant", "timed out", "aborted", "No crafting_table",
+  "Couldn't plant", "aborted", "No crafting_table",
   "No furnace", "Need more", "not enough", "missing materials",
+  // "timed out" removed — combat/mining skills that time out are real failures,
+  // not precondition failures. exploreUntil timeouts use "aborted" instead.
 ];
 
 export class BotMemoryStore {

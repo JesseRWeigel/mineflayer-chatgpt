@@ -56,6 +56,9 @@ export const buildFarmSkill: Skill = {
     // Pre-scanning gives a fixed list to iterate — no re-searching mid-loop that could
     // accidentally use a different water source.
     const waterPos = water.position;
+    if (!waterPos) {
+      return { success: false, message: "Water block has no position — chunk may not be loaded. Try again." };
+    }
     const farmTargets: Vec3[] = [];
     for (let dx = -4; dx <= 4; dx++) {
       for (let dz = -4; dz <= 4; dz++) {
@@ -194,7 +197,7 @@ async function harvestMatureWheat(
       matching: (b) => b.name === "wheat" && b.metadata >= 7,
       maxDistance: 20,
     });
-    if (!wheat) break;
+    if (!wheat || !wheat.position) break;
 
     try {
       setMovements(bot);

@@ -479,10 +479,185 @@
       "durationSeconds": 15.127,
       "notes": "killFourSheep completed.",
       "timestamp": "2026-02-23T23:30:11.784Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.084,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:36:43.844Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.084,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:36:45.286Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.084,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:36:46.600Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.101,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby",
+      "timestamp": "2026-02-23T23:36:47.991Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.098,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:37:01.428Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T23:37:09.555Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.089,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:37:10.893Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.518,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:38:13.625Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-23T23:38:35.787Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-23T23:38:37.257Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.42,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:39:40.140Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 154.707,
+      "notes": "HOUSE BUILT! \"Oak House\" at 9, 64, -333. Placed 148 blocks (26 skipped). It's GORGEOUS. It's HOME.",
+      "timestamp": "2026-02-23T23:42:27.278Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.402,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:44:44.611Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.237,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T23:45:06.379Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T23:45:07.848Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.243,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:46:10.553Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.102,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:48:11.359Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T23:48:32.696Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.112,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-23T23:49:10.318Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.099,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby",
+      "timestamp": "2026-02-23T23:49:24.978Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.086,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:49:26.354Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.087,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:49:28.226Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.083,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:49:29.515Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.098,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:50:18.788Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.425,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:51:21.687Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T23:30:11.784Z",
+  "lastUpdated": "2026-02-23T23:51:21.687Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",
