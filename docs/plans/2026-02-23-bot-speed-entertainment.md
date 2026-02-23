@@ -23,6 +23,7 @@
 | 7. Pull fast model | ✅ Done | `qwen3:8b` (5.2 GB) pulled |
 | 8. Build & test | ✅ Done | TypeScript compiles clean |
 | 9. Run & observe | ✅ Done | Observed ~3 min of live operation |
+| 10. Fix skill graveyard | ✅ Done | 46→9 generated skills; restored static skills from blacklist |
 
 ## Verified Behaviors
 
@@ -33,12 +34,13 @@
 - `craftAFurnaceUsing8CobblestoneBlocks` correctly blacklisted after 5 failures (new threshold)
 - tsx hot-reload works — code changes take effect without manual restart
 - No crashes observed during 3-minute observation window
+- Static skills (`build_house`, `craft_gear`, `build_farm`, `light_area`, `build_bridge`) restored from false blacklist
+- 37 broken/redundant dynamic skills deleted; 2 broken furnace skills added to permanent blacklist
 
 ## Remaining Known Issues (Pre-existing, not introduced by this PR)
 
-- `craftFurnace` / `craftAFurnaceUsing8CobblestoneBlocks` dynamic skills fail because they look for a placed crafting table but the `craftCraftingTable` skill puts it in inventory. Need a new furnace skill generated via `generate_skill` or fix the existing one.
 - First LLM response per session occasionally has wrong format (no `thought` field, wrong action name) — this is a cold-start issue with qwen3:8b warming up. The fallback `"..."` thought handles it gracefully.
-- Bot sometimes loops crafting the same item (e.g., crafting tables) when it already has one — LLM context issue, not a code bug.
+- Bot sometimes loops crafting the same item when it already has one — LLM context issue, not a code bug.
 
 ---
 

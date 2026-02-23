@@ -93,6 +93,7 @@ export async function generateSkill(task: string): Promise<string> {
 
   const response = await ollama.chat({
     model: config.ollama.model,
+    think: false,  // Disable thinking mode — all tokens go to code output
     messages: [{ role: "user", content: prompt }],
     options: { temperature: 0.3, num_predict: 4096 },
   });

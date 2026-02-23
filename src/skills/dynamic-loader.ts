@@ -23,6 +23,12 @@ let voyagerHelperBundle = "";
 // These are the Voyager framework utilities, implemented with Mineflayer's API.
 const VOYAGER_PRIMITIVES = `
 const { goals: _vGoals, Movements: _vMovements } = require('mineflayer-pathfinder');
+// Expose goal constructors as bare names so Voyager skills can use e.g. new GoalBlock(...)
+const GoalBlock = _vGoals.GoalBlock;
+const GoalNear = _vGoals.GoalNear;
+const GoalFollow = _vGoals.GoalFollow;
+const GoalXZ = _vGoals.GoalXZ;
+const GoalY = _vGoals.GoalY;
 
 async function mineBlock(bot, name, count) {
   const target = count || 1;
