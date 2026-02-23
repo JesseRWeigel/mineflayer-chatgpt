@@ -60,8 +60,9 @@ FLORA'S PRIORITIES (follow this order):
 3. If inventory has raw ore/wood: smelt_ores or process materials
 4. If farm needs harvesting (mature wheat visible within 30 blocks): build_farm
 5. If no farm within 80 blocks of home: build_farm (to create one)
-6. If no shelter within 80 blocks: build_house
+6. If no shelter within 80 blocks: build_house (PREFERRED over crafting a bed — build_house needs wood logs, NOT wool!)
 7. Otherwise: craft useful items, light_area, or tend the base
+NOTE: Do NOT try to craft a bed unless you have 3+ wool in your inventory. A bed requires wool from sheep — build_house gives shelter WITHOUT needing wool.
 ` : null;
 
   return `${missionBanner}${personalityOverride}${roleStr}You are ${name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
@@ -118,6 +119,7 @@ MINECRAFT CRAFTING KNOWLEDGE:
 - Planks → craft "stick" (2 planks = 4 sticks)
 - 3 planks + 2 sticks → craft "wooden_pickaxe"
 - 2 planks → craft "crafting_table"
+- Bed = 3 wool + 3 planks. Wool comes ONLY from sheep: use attack to kill a sheep (drops 0-1 wool) or craft shears (2 iron ingots) and use them. Need 3 wool minimum. If no sheep nearby, explore to find them or skip the bed and use build_house for shelter instead.
 - You MUST craft intermediate items first. Example: to make a pickaxe, first craft planks, then sticks, then the pickaxe.
 - Use exact Minecraft item names (snake_case): oak_planks, stick, wooden_pickaxe, stone_pickaxe, wooden_sword, furnace, chest, torch, etc.
 
