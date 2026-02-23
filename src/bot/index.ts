@@ -102,6 +102,8 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   let lastResult = "";
   let repeatCount = 0;
   let lastActionWasSuccess = false;
+  // Track directions that led to water — shown to LLM so it avoids them
+  const waterDirections = new Set<string>();
   let currentGoal = "";
   let goalStepsLeft = 0;
   // Leash — tracks home position, set automatically when first house is built
@@ -210,6 +212,12 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         contextStr += "\n\n⚠️ TREES ARE NEARBY! Use gather_wood RIGHT NOW to collect logs. Don't explore further — you're standing next to trees!";
       }
 
+      // Warn LLM about ocean directions that lead to water (from past water-escape teleports)
+      if (waterDirections.size > 0) {
+        const dirs = Array.from(waterDirections).join(", ");
+        contextStr += `\n\n⚠️ OCEAN WARNING: Exploring ${dirs} leads directly into the ocean. Use a DIFFERENT direction (${["north","south","east","west"].filter(d => !waterDirections.has(d)).join(", ")}) to find land, trees, and resources.`;
+      }
+
       contextStr += "\n\nWhat should you do next? Respond with a JSON action.";
 
       // Safety override: if the bot is deep underground, skip the LLM and escape to surface.
@@ -226,6 +234,11 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         // If safeSpawn is configured, always escape back to the known-safe area
         if (roleConfig.safeSpawn) {
           const { x: sx, z: sz } = roleConfig.safeSpawn;
+          // Record which direction led to water so the LLM can avoid it
+          if (lastAction === "explore" || lastAction.startsWith("explore")) {
+            const lastDir = lastResult.match(/Explored (\w+)/)?.[1]?.toLowerCase();
+            if (lastDir) waterDirections.add(lastDir);
+          }
           console.log(`[Bot] In water — teleporting back to safeSpawn area (${sx},80,${sz})`);
           bot.chat(`/tp ${sx} 80 ${sz}`);
           await new Promise((r) => setTimeout(r, 3000));

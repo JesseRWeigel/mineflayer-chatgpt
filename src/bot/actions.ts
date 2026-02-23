@@ -97,8 +97,11 @@ export async function executeAction(
         const nz = params.z ?? (coords && (coords.length >= 3 ? coords[2] : coords[1]));
         return await goTo(bot, nx, ny, nz);
       }
-      case "explore":
-        return await explore(bot, params.direction || "north");
+      case "explore": {
+        const dirs = ["north", "south", "east", "west"] as const;
+        const randomDir = dirs[Math.floor(Math.random() * dirs.length)];
+        return await explore(bot, params.direction || randomDir);
+      }
       case "craft":
         return await craftItem(bot, params.item, params.count || 1);
       case "eat":
