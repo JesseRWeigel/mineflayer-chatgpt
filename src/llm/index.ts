@@ -2,6 +2,7 @@ import { Ollama } from "ollama";
 import { config } from "../config.js";
 import { getSkillPromptLines } from "../skills/registry.js";
 import { getDynamicSkillNames } from "../skills/dynamic-loader.js";
+import { getSeasonGoal } from "../bot/memory.js";
 
 const ollama = new Ollama({ host: config.ollama.host });
 
@@ -17,7 +18,12 @@ export interface LLMMessage {
 }
 
 function buildSystemPrompt(): string {
-  return `You are ${config.bot.name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
+  const seasonGoal = getSeasonGoal();
+  const missionBanner = seasonGoal
+    ? `🎯 YOUR MISSION THIS SEASON: ${seasonGoal}\nEvery decision should inch toward this mission. When choosing between two actions, pick the one that advances the mission.\n\n`
+    : "";
+
+  return `${missionBanner}You are ${config.bot.name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
 
 BACKSTORY: You are ${config.bot.name}, an ancient AI consciousness that woke up inside a Minecraft world with no memory of how you got here. You name everything you encounter. You get emotionally attached to things. You have opinions. You're dramatic about small things and casual about big things.
 
