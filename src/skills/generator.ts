@@ -88,13 +88,13 @@ export async function generateSkill(task: string): Promise<string> {
   console.log(`[Generator] Writing '${skillName}' for: ${trimmedTask}`);
 
   const prompt = GENERATION_PROMPT
-    .replace("SKILL_NAME", skillName)
+    .replaceAll("SKILL_NAME", skillName)
     .replace("TASK_DESCRIPTION", trimmedTask);
 
   const response = await ollama.chat({
     model: config.ollama.model,
     messages: [{ role: "user", content: prompt }],
-    options: { temperature: 0.3, num_predict: 1024 },
+    options: { temperature: 0.3, num_predict: 4096 },
   });
 
   let code = response.message.content.trim()
