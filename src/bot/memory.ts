@@ -48,6 +48,7 @@ export interface BotMemory {
   lastUpdated: string;
   /** Persistent set of skills confirmed broken (0% success, 2+ attempts). Never cleared by rolling window. */
   brokenSkillNames: string[];
+  seasonGoal?: string;
 }
 
 // Default empty memory
@@ -59,6 +60,7 @@ const defaultMemory: BotMemory = {
   lessons: [],
   lastUpdated: new Date().toISOString(),
   brokenSkillNames: [],
+  seasonGoal: undefined,
 };
 
 let memory: BotMemory = { ...defaultMemory };
@@ -351,4 +353,20 @@ export function getStats(): { structures: number; deaths: number; ores: number; 
     ores: memory.oreDiscoveries.length,
     skills: memory.skillHistory.length,
   };
+}
+
+export function getSeasonGoal(): string | undefined {
+  return memory.seasonGoal;
+}
+
+export function setSeasonGoal(goal: string) {
+  memory.seasonGoal = goal.trim();
+  saveMemory();
+  console.log(`[Memory] Season goal set: "${memory.seasonGoal}"`);
+}
+
+export function clearSeasonGoal() {
+  memory.seasonGoal = undefined;
+  saveMemory();
+  console.log("[Memory] Season goal cleared.");
 }
