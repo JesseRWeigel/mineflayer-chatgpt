@@ -19,13 +19,13 @@
 | 3. `!goal` in-game command | ✅ | |
 | 4. Season goal in overlay | ✅ | |
 | 5. Build & test season goal | ✅ | |
-| 6. BotRoleConfig type | ⬜ | |
-| 7. Parameterize memory per bot | ⬜ | |
-| 8. createBot accepts role config | ⬜ | |
-| 9. Leash / home range enforcement | ⬜ | |
-| 10. Flora bot role config + prompt | ⬜ | |
-| 11. Multi-bot launch in index.ts | ⬜ | |
-| 12. Build & test multi-bot | ⬜ | |
+| 6. BotRoleConfig type | ✅ | |
+| 7. Parameterize memory per bot | ✅ | |
+| 8. createBot accepts role config | ✅ | |
+| 9. Leash / home range enforcement | ✅ | |
+| 10. Flora bot role config + prompt | ✅ | |
+| 11. Multi-bot launch in index.ts | ✅ | |
+| 12. Build & test multi-bot | ✅ | |
 
 ---
 
