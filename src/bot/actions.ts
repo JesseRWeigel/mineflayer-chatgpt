@@ -383,6 +383,31 @@ async function craftItem(bot: Bot, itemName: string, count: number): Promise<str
     }
   }
 
+  if (!recipe) {
+    // Auto-convert logs → planks if missing planks (common early-game bottleneck)
+    const hasPlanks = bot.inventory.items().some(i => i.name.endsWith("_planks"));
+    if (!hasPlanks) {
+      const logItem = bot.inventory.items().find(i => i.name.endsWith("_log"));
+      if (logItem) {
+        const planksName = logItem.name.replace("_log", "_planks");
+        const planksItemData = mcData.itemsByName[planksName];
+        if (planksItemData) {
+          const planksRecipe = bot.recipesFor(planksItemData.id, null, 1, null)[0];
+          if (planksRecipe) {
+            try {
+              await bot.craft(planksRecipe, Math.floor(logItem.count), undefined);
+              console.log(`[Craft] Auto-crafted ${logItem.name} → ${planksName}`);
+            } catch { /* ignore, try main recipe anyway */ }
+            // Re-check recipe after getting planks
+            recipe = craftingTable
+              ? bot.recipesFor(item.id, null, 1, craftingTable)[0]
+              : bot.recipesFor(item.id, null, 1, null)[0];
+          }
+        }
+      }
+    }
+  }
+
   if (!recipe) return `Can't craft ${resolvedName} — missing materials or need a crafting table.`;
 
   if (craftingTable) {
