@@ -14,11 +14,11 @@
 
 | Task | Status | Notes |
 |------|--------|-------|
-| 1. Season goal in memory | ⬜ | |
-| 2. Season goal in LLM prompt | ⬜ | |
-| 3. `!goal` in-game command | ⬜ | |
-| 4. Season goal in overlay | ⬜ | |
-| 5. Build & test season goal | ⬜ | |
+| 1. Season goal in memory | ✅ | |
+| 2. Season goal in LLM prompt | ✅ | |
+| 3. `!goal` in-game command | ✅ | |
+| 4. Season goal in overlay | ✅ | |
+| 5. Build & test season goal | ✅ | |
 | 6. BotRoleConfig type | ⬜ | |
 | 7. Parameterize memory per bot | ⬜ | |
 | 8. createBot accepts role config | ⬜ | |
