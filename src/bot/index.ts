@@ -546,6 +546,19 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     // Small delay for server to sync position
     await new Promise((r) => setTimeout(r, 800));
 
+    // If a safe spawn location is configured, always TP there and set spawnpoint.
+    // This overrides the auto-detect logic and ensures bots start in a known-good biome.
+    if (roleConfig.safeSpawn) {
+      const { x, y, z } = roleConfig.safeSpawn;
+      console.log(`[Bot] safeSpawn configured — /tp to ${x},${y},${z}`);
+      bot.chat(`/tp ${x} ${y} ${z}`);
+      await new Promise((r) => setTimeout(r, 2000));
+      bot.chat(`/spawnpoint ${roleConfig.username} ${x} ${y} ${z}`);
+      console.log(`[Bot] Spawnpoint set to safeSpawn at ${x},${y},${z}`);
+      spawnSafetyRunning = false;
+      return;
+    }
+
     // If still falling, wait until onGround (up to 60 seconds)
     if (!bot.entity.onGround) {
       console.log(`[Bot] Spawn at Y=${bot.entity.position.y.toFixed(1)} — waiting for landing...`);

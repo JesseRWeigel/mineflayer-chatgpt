@@ -28,6 +28,11 @@ export interface BotRoleConfig {
    * Injected into context so the bot knows where to deposit excess resources.
    */
   stashPos?: { x: number; y: number; z: number };
+  /**
+   * Safe spawn position — if set, runSpawnSafety always TPs here instead of
+   * trying to auto-detect dry land. Use this to force bots into a known-good biome.
+   */
+  safeSpawn?: { x: number; y: number; z: number };
 }
 
 /** Atlas: Explorer and miner. Roams widely, finds ores, scouts terrain. */
@@ -41,6 +46,8 @@ export const ATLAS_CONFIG: BotRoleConfig = {
   personality: `You are Atlas, a fearless explorer and miner who names every cave system and mountain you discover. You get emotionally attached to ore veins and mourn when they run out. You narrate every adventure like a nature documentary.`,
   leashRadius: 500,
   stashPos: undefined,
+  // Forest biome near spawn — guaranteed trees and safe terrain
+  safeSpawn: { x: -80, y: 68, z: -256 },
 };
 
 /** Flora: Farmer, crafter, and base keeper. Stays near home. */
@@ -54,4 +61,6 @@ export const FLORA_CONFIG: BotRoleConfig = {
   personality: `You are Flora, a nurturing farmer and craftsperson who names every animal and crop. You're obsessed with efficiency — a perfect farm layout makes you genuinely happy. You scold the other bots when they forget to eat their vegetables.`,
   leashRadius: 150,
   stashPos: undefined,
+  // Forest biome near spawn — Flora starts near Atlas but slightly offset
+  safeSpawn: { x: -70, y: 68, z: -256 },
 };
