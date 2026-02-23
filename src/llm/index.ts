@@ -308,7 +308,7 @@ export async function queryLLM(
       "move": "explore", "walk": "explore", "travel": "explore",
       "teleport": "go_to",
       "mine": "mine_block", "mine block": "mine_block", "mine_blocks": "mine_block",
-      "gather wood": "gather_wood", "gatherwood": "gather_wood", "chop": "gather_wood",
+      "gather": "gather_wood", "gather wood": "gather_wood", "gatherwood": "gather_wood", "chop": "gather_wood",
       "place block": "place_block", "placeblock": "place_block",
       "respond to chat": "respond_to_chat",
       "invoke skill": "invoke_skill", "invokeskill": "invoke_skill",
