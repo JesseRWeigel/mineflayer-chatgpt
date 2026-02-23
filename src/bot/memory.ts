@@ -192,10 +192,10 @@ export class BotMemoryStore {
       this.memory.brokenSkillNames.push(skill);
       console.log(`[Memory] ${skill} added to permanent broken skills list`);
     }
-    if (success && this.memory.brokenSkillNames.includes(skill)) {
-      this.memory.brokenSkillNames = this.memory.brokenSkillNames.filter((s) => s !== skill);
-      console.log(`[Memory] ${skill} removed from broken skills (succeeded!)`);
-    }
+    // NOTE: we intentionally do NOT auto-remove from brokenSkillNames on success.
+    // brokenSkillNames is permanently managed — a skill that was manually added or flagged
+    // as broken (e.g., after deletion) stays broken. Fake successes from a buggy old
+    // version of a skill must not inadvertently restore it.
 
     console.log(`[Memory] ${skill}: ${success ? "SUCCESS" : "FAIL"} (${successRate.toFixed(0)}% success rate over ${skillAttempts.length} attempts)`);
     this.save();

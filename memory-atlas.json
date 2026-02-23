@@ -73,13 +73,6 @@
   ],
   "skillHistory": [
     {
-      "skill": "craftABedUsingAvailableResourcesLikeWool",
-      "success": false,
-      "durationSeconds": 0.01,
-      "notes": "craftABedUsingAvailableResourcesLikeWool failed: No bed recipe available (need 3 wool + 3 planks)",
-      "timestamp": "2026-02-23T21:20:20.375Z"
-    },
-    {
       "skill": "build_house",
       "success": false,
       "durationSeconds": 0.166,
@@ -87,43 +80,274 @@
       "timestamp": "2026-02-23T21:20:25.870Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "skill": "mineWoodLog",
       "success": false,
-      "durationSeconds": 60.001,
-      "notes": "findNearbySheepAndShearThemToCollectWool failed: findNearbySheepAndShearThemToCollectWool timed out after 60s",
-      "timestamp": "2026-02-23T22:30:55.858Z"
+      "durationSeconds": 60.069,
+      "notes": "mineWoodLog failed: mineWoodLog timed out after 60s",
+      "timestamp": "2026-02-23T22:34:14.169Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "skill": "killFourSheep",
       "success": true,
-      "durationSeconds": 0.026,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:31:06.590Z"
+      "durationSeconds": 15.029,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:12.672Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "skill": "killFourSheep",
       "success": true,
-      "durationSeconds": 10.181,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:31:26.612Z"
+      "durationSeconds": 0.063,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:14.472Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "skill": "craftWhiteBed",
       "success": true,
-      "durationSeconds": 37.466,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:07.229Z"
+      "durationSeconds": 0.017,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:35:32.181Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 60.016,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T22:36:34.558Z"
+    },
+    {
+      "skill": "killFourSheep",
       "success": true,
-      "durationSeconds": 23.792,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:32.733Z"
+      "durationSeconds": 0.079,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:53.758Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.082,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:55.409Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.079,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:57.293Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 20.021,
+      "notes": "craftWoodenPickaxe failed: Error: Event windowOpen did not fire within timeout of 20000ms",
+      "timestamp": "2026-02-23T22:37:19.649Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.084,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:37:21.297Z"
+    },
+    {
+      "skill": "equipIronArmor",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "equipIronArmor completed.",
+      "timestamp": "2026-02-23T22:37:23.057Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 172.479,
+      "notes": "House partially built (45/174 blocks). It has... character. Maybe patch the holes later.",
+      "timestamp": "2026-02-23T22:40:20.367Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:40:22.484Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.194,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:40:24.333Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.188,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:40:26.315Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:40:28.116Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.088,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:29.835Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:40:31.442Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:40:32.938Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.083,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:35.221Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.085,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:37.881Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.186,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:40:40.109Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.083,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:42.184Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.084,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:43.633Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.084,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:45.068Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.082,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:57.913Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.082,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:40:59.771Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.085,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:41:01.373Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:41:02.885Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.093,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:41:04.619Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.091,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:41:06.417Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.092,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:41:08.227Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:46:06.489Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.063,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:08.977Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:46:11.145Z"
+    },
+    {
+      "skill": "mineWoodLog",
+      "success": false,
+      "durationSeconds": 13.564,
+      "notes": "mineWoodLog failed: Took to long to decide path to goal!",
+      "timestamp": "2026-02-23T22:46:35.380Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T22:46:45.517Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 60.292,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T22:47:48.345Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T22:32:32.733Z",
+  "lastUpdated": "2026-02-23T22:47:48.345Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",

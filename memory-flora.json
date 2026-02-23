@@ -49,27 +49,6 @@
   ],
   "skillHistory": [
     {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.086,
-      "notes": "Can't find flat ground for a 7x7 house nearby. Try exploring to find open terrain!",
-      "timestamp": "2026-02-23T21:11:55.423Z"
-    },
-    {
-      "skill": "craftABedUsingAvailableResourcesLikeWool",
-      "success": false,
-      "durationSeconds": 0.036,
-      "notes": "craftABedUsingAvailableResourcesLikeWool failed: No bed recipe available (need 3 wool + 3 planks)",
-      "timestamp": "2026-02-23T21:12:01.627Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.072,
-      "notes": "Can't find flat ground for a 7x7 house nearby. Try exploring to find open terrain!",
-      "timestamp": "2026-02-23T21:12:06.830Z"
-    },
-    {
       "skill": "smelt_ores",
       "success": false,
       "durationSeconds": 0.001,
@@ -91,151 +70,11 @@
       "timestamp": "2026-02-23T21:13:22.004Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.054,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:27:58.870Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 16.703,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:28:19.744Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 33.807,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:28:55.521Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 26.906,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:29:24.420Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 10.581,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:29:38.796Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": false,
-      "durationSeconds": 60.001,
-      "notes": "findNearbySheepAndShearThemToCollectWool failed: findNearbySheepAndShearThemToCollectWool timed out after 60s",
-      "timestamp": "2026-02-23T22:30:40.415Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.987,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:30:45.622Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.013,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:30:47.278Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.026,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:30:49.188Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.024,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:30:59.599Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.031,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:31:01.806Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 6.046,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:31:23.154Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.982,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:31:26.416Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.043,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:31:28.675Z"
-    },
-    {
       "skill": "build_farm",
       "success": false,
       "durationSeconds": 15.115,
       "notes": "Couldn't plant anything. Need dirt blocks near water!",
       "timestamp": "2026-02-23T22:31:46.179Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 9.91,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:31:58.806Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 10.649,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:15.063Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.034,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:16.766Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.48,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:21.099Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.478,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:23.614Z"
-    },
-    {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.011,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:25.316Z"
     },
     {
       "skill": "build_house",
@@ -245,42 +84,495 @@
       "timestamp": "2026-02-23T22:32:27.421Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.049,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:31.937Z"
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.148,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:32:48.364Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 1.279,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:35.050Z"
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.058,
+      "notes": "Couldn't plant anything. Need dirt blocks near water!",
+      "timestamp": "2026-02-23T22:33:06.882Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 1.508,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:38.464Z"
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 4.21,
+      "notes": "Couldn't plant anything. Need dirt blocks near water!",
+      "timestamp": "2026-02-23T22:33:27.682Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
-      "success": true,
-      "durationSeconds": 0.043,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:42.566Z"
+      "skill": "killFourSheep",
+      "success": false,
+      "durationSeconds": 9.431,
+      "notes": "killFourSheep failed: Path was stopped before it could be completed! Thus, the desired goal was not reached.",
+      "timestamp": "2026-02-23T22:33:38.767Z"
     },
     {
-      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 10.204,
+      "notes": "Couldn't plant anything. Need dirt blocks near water!",
+      "timestamp": "2026-02-23T22:33:57.675Z"
+    },
+    {
+      "skill": "killFourSheep",
       "success": true,
-      "durationSeconds": 0.05,
-      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
-      "timestamp": "2026-02-23T22:32:44.455Z"
+      "durationSeconds": 0.082,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:34:01.984Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.082,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:34:03.955Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": true,
+      "durationSeconds": 0.005,
+      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
+      "timestamp": "2026-02-23T22:34:19.339Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.078,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:34:21.462Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.184,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:34:29.130Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 13.468,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:34:49.183Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.094,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:34:51.289Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.093,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:34:53.119Z"
+    },
+    {
+      "skill": "craft_gear",
+      "success": true,
+      "durationSeconds": 4.56,
+      "notes": "Gear crafted! Got: wooden_sword, wooden_shovel. Ready for action!",
+      "timestamp": "2026-02-23T22:34:59.532Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.076,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:01.289Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.076,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:03.217Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.073,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:05.046Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.078,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:09.045Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.074,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:10.954Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.073,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:13.130Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.166,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:35:15.912Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.077,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:19.889Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.078,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:25.445Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.076,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:27.287Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.075,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:31.345Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.075,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:37.941Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.078,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:40.153Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.079,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:42.144Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.079,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:48.330Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.077,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:52.497Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.077,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:54.395Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.078,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:35:58.251Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.08,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:03.696Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.08,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:05.543Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.071,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:16.679Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.069,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:18.528Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.065,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:22.454Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.066,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:24.479Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.066,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:26.333Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.066,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:31.935Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.063,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:33.795Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.061,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:36:35.845Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.184,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:37:47.800Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.065,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:37:59.124Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.069,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:38:25.993Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.063,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:38:28.504Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.059,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:38:46.360Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-23T22:41:39.782Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.073,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:41:44.654Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.079,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:41:46.655Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.079,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:41:48.503Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.086,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:43:12.685Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.082,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:43:30.595Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.09,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:45:43.854Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.088,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:45:47.711Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.092,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:45:51.901Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.072,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:05.310Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.077,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:08.092Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.064,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:20.196Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.063,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:23.664Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.086,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:32.193Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.085,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:34.450Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.083,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:36.446Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.015,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-23T22:46:38.401Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.078,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:42.807Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.08,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:44.680Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.013,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-23T22:46:55.167Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.077,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:46:57.052Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.076,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:47:01.045Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T22:32:44.455Z",
-  "brokenSkillNames": []
+  "lastUpdated": "2026-02-23T22:47:01.045Z",
+  "brokenSkillNames": [
+    "findNearbySheepAndShearThemToCollectWool",
+    "craftABedUsing3WoolAnd3Planks",
+    "craftABedUsingAvailableResourcesLikeWool",
+    "craftABedUsingWoolAndACraftingTableThenU"
+  ]
 }
