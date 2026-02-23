@@ -46,6 +46,8 @@ export interface BotMemory {
   skillHistory: SkillAttempt[];
   lessons: string[];
   lastUpdated: string;
+  /** Persistent set of skills confirmed broken (0% success, 2+ attempts). Never cleared by rolling window. */
+  brokenSkillNames: string[];
 }
 
 // Default empty memory
@@ -56,6 +58,7 @@ const defaultMemory: BotMemory = {
   skillHistory: [],
   lessons: [],
   lastUpdated: new Date().toISOString(),
+  brokenSkillNames: [],
 };
 
 let memory: BotMemory = { ...defaultMemory };
@@ -66,7 +69,8 @@ export function loadMemory(): BotMemory {
     if (fs.existsSync(MEMORY_FILE)) {
       const data = fs.readFileSync(MEMORY_FILE, "utf-8");
       memory = JSON.parse(data);
-      console.log(`[Memory] Loaded ${memory.structures.length} structures, ${memory.skillHistory.length} skill attempts`);
+      if (!memory.brokenSkillNames) memory.brokenSkillNames = [];
+      console.log(`[Memory] Loaded ${memory.structures.length} structures, ${memory.skillHistory.length} skill attempts, ${memory.brokenSkillNames.length} known broken skills`);
     }
   } catch (err) {
     console.error("[Memory] Failed to load:", err);
@@ -193,6 +197,17 @@ export function recordSkillAttempt(skill: string, success: boolean, durationSeco
   const successCount = skillAttempts.filter((s) => s.success).length;
   const successRate = skillAttempts.length > 0 ? (successCount / skillAttempts.length) * 100 : 0;
 
+  // Persist broken skills permanently (2+ failures with 0% success rate)
+  if (successRate === 0 && skillAttempts.length >= 2 && !memory.brokenSkillNames.includes(skill)) {
+    memory.brokenSkillNames.push(skill);
+    console.log(`[Memory] ${skill} added to permanent broken skills list`);
+  }
+  // Remove from broken list if it succeeds
+  if (success && memory.brokenSkillNames.includes(skill)) {
+    memory.brokenSkillNames = memory.brokenSkillNames.filter((s) => s !== skill);
+    console.log(`[Memory] ${skill} removed from broken skills (succeeded!)`);
+  }
+
   console.log(`[Memory] ${skill}: ${success ? "SUCCESS" : "FAIL"} (${successRate.toFixed(0)}% success rate over ${skillAttempts.length} attempts)`);
   saveMemory();
 }
@@ -248,16 +263,32 @@ export function getMemoryContext(): string {
     parts.push(`ORES FOUND: ${uniqueOres.join(", ")}`);
   }
 
-  // Skill performance
+  // Skill performance — split into "avoid" list and normal stats
+  const brokenSet = new Set(memory.brokenSkillNames);
   const skills = [...new Set(memory.skillHistory.map((s) => s.skill))];
-  if (skills.length > 0) {
-    const skillStats = skills
-      .map((skill) => {
-        const stats = getSkillSuccessRate(skill);
-        return `${skill}: ${stats.successRate.toFixed(0)}%`;
-      })
-      .join(", ");
-    parts.push(`SKILL PERFORMANCE: ${skillStats}`);
+  if (brokenSet.size > 0 || skills.length > 0) {
+    const brokenLabel: string[] = [];
+    const normalStats: string[] = [];
+
+    // Include all persistent broken skills
+    for (const skill of brokenSet) {
+      brokenLabel.push(`${skill} (historically broken)`);
+    }
+
+    for (const skill of skills) {
+      const stats = getSkillSuccessRate(skill);
+      if (stats.successRate === 0 && stats.totalAttempts >= 2 && !brokenSet.has(skill)) {
+        brokenLabel.push(`${skill} (failed ${stats.totalAttempts}/${stats.totalAttempts} times)`);
+      } else if (!brokenSet.has(skill)) {
+        normalStats.push(`${skill}: ${stats.successRate.toFixed(0)}%`);
+      }
+    }
+    if (brokenLabel.length > 0) {
+      parts.push(`BROKEN SKILLS — DO NOT USE EVER: ${brokenLabel.join(", ")}. These have NEVER succeeded. Choose completely different skills.`);
+    }
+    if (normalStats.length > 0) {
+      parts.push(`SKILL PERFORMANCE: ${normalStats.join(", ")}`);
+    }
   }
 
   // Lessons
@@ -267,6 +298,34 @@ export function getMemoryContext(): string {
   }
 
   return parts.length > 0 ? parts.join(". ") : "No memory yet.";
+}
+
+// Return skills that have never succeeded — used to pre-populate failure blacklist.
+// Combines: (a) persistent brokenSkillNames list, (b) skills in rolling window with 0%/2+ attempts.
+// Stores both bare name and "skill:" prefix so the block fires regardless of how the LLM calls the skill.
+export function getBrokenSkills(): Map<string, string> {
+  const broken = new Map<string, string>();
+
+  // (a) Persistent list — survives rolling window displacement
+  for (const skill of memory.brokenSkillNames) {
+    const msg = `Historically broken (0% success) — never use this skill`;
+    broken.set(skill, msg);
+    broken.set(`skill:${skill}`, msg);
+  }
+
+  // (b) Skills in rolling window with 0% over 2+ attempts
+  const skills = [...new Set(memory.skillHistory.map((s) => s.skill))];
+  for (const skill of skills) {
+    if (broken.has(skill)) continue; // already added
+    const stats = getSkillSuccessRate(skill);
+    if (stats.successRate === 0 && stats.totalAttempts >= 2) {
+      const msg = `Failed ${stats.totalAttempts} times (0% success rate) — this skill is broken, never use it`;
+      broken.set(skill, msg);
+      broken.set(`skill:${skill}`, msg);
+    }
+  }
+
+  return broken;
 }
 
 // Check if should avoid a location (based on deaths)

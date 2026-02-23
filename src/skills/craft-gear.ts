@@ -2,6 +2,7 @@ import type { Bot } from "mineflayer";
 import type { Skill, SkillResult } from "./types.js";
 import { LOG_TYPES } from "./materials.js";
 import mcDataLoader from "minecraft-data";
+import { Vec3 } from "vec3";
 
 /** Tool tiers from best to worst. */
 const TIERS = [
@@ -63,6 +64,12 @@ export const craftGearSkill: Skill = {
           maxDistance: 32,
         });
 
+        // If no table nearby, try to place one from inventory (or craft one from planks)
+        if (!table) {
+          await placeCraftingTable(bot);
+          table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 8 });
+        }
+
         let recipe = table
           ? bot.recipesFor(mcItem.id, null, 1, table)[0]
           : bot.recipesFor(mcItem.id, null, 1, null)[0];
@@ -93,20 +100,84 @@ export const craftGearSkill: Skill = {
       }
     }
 
-    if (crafted.length === 0) {
+    const newlyCrafted = crafted.filter((c) => !c.includes("already had"));
+
+    if (crafted.length === 0 || newlyCrafted.length === 0) {
+      // No new tools made — report what's missing so the LLM knows to get materials
+      const missing = TOOL_TYPES.map((t) => {
+        const have = bot.inventory.items().find((i) => i.name.endsWith(`_${t}`));
+        return have ? null : t;
+      }).filter(Boolean);
+      const hasWood = bot.inventory.items().some((i) => i.name.endsWith("_log") || i.name.endsWith("_planks"));
+      const hasCobble = bot.inventory.items().some((i) => i.name === "cobblestone");
+      const hasTable = !!bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
+      const hints: string[] = [];
+      if (!hasTable && !hasWood) hints.push("need wood to craft a crafting table");
+      else if (!hasTable) hints.push("need to place a crafting table");
+      if (missing.includes("pickaxe") && !hasCobble) hints.push("need cobblestone for pickaxe");
       return {
         success: false,
-        message: "Couldn't craft any tools. Need materials: wood, cobblestone, iron, or diamonds!",
+        message: `No new tools crafted. Missing: ${missing.join(", ") || "none"}. ${hints.join(". ")}. Use gather_wood to get materials first.`,
       };
     }
 
     return {
       success: true,
-      message: `Gear crafted! Got: ${crafted.join(", ")}. Ready for action!`,
-      stats: { toolsCrafted: crafted.length },
+      message: `Gear crafted! Got: ${newlyCrafted.join(", ")}. Ready for action!`,
+      stats: { toolsCrafted: newlyCrafted.length },
     };
   },
 };
+
+/** Place a crafting table from inventory near the bot, or craft one from planks first. */
+async function placeCraftingTable(bot: Bot): Promise<void> {
+  const mcData = mcDataLoader(bot.version);
+
+  // Ensure we have a crafting_table item — craft from planks if needed
+  let ctItem = bot.inventory.items().find((i) => i.name === "crafting_table");
+  if (!ctItem) {
+    const ctMcItem = mcData.itemsByName["crafting_table"];
+    if (!ctMcItem) return;
+    const recipe = bot.recipesFor(ctMcItem.id, null, 1, null)[0];
+    if (recipe) {
+      // First make planks from any log we have
+      for (const logType of LOG_TYPES) {
+        const log = bot.inventory.items().find((i) => i.name === logType);
+        if (!log) continue;
+        const plankName = logType.replace("_log", "_planks");
+        const plankItem = mcData.itemsByName[plankName];
+        if (!plankItem) continue;
+        const plankRecipe = bot.recipesFor(plankItem.id, null, 1, null)[0];
+        if (plankRecipe) {
+          try { await bot.craft(plankRecipe, 2, undefined); } catch { /* ok */ }
+        }
+        break;
+      }
+      try { await bot.craft(recipe, 1, undefined); } catch { /* ok */ }
+    }
+    ctItem = bot.inventory.items().find((i) => i.name === "crafting_table");
+  }
+
+  if (!ctItem) return;
+
+  // Place on the block below bot's feet, one step to the side
+  const pos = bot.entity.position.floored();
+  const candidates = [
+    pos.offset(1, 0, 0), pos.offset(-1, 0, 0),
+    pos.offset(0, 0, 1), pos.offset(0, 0, -1),
+  ];
+  for (const candidate of candidates) {
+    const ground = bot.blockAt(candidate.offset(0, -1, 0));
+    if (!ground || ground.name === "air") continue;
+    const atCandidate = bot.blockAt(candidate);
+    if (atCandidate && atCandidate.name !== "air") continue; // occupied
+    try {
+      await bot.equip(ctItem, "hand");
+      await bot.placeBlock(ground, new Vec3(0, 1, 0));
+      return;
+    } catch { /* try next position */ }
+  }
+}
 
 async function ensureSticks(bot: Bot, count: number, signal: AbortSignal): Promise<void> {
   if (signal.aborted) return;

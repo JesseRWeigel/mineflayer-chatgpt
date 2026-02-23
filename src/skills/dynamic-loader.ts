@@ -22,10 +22,14 @@ let voyagerHelperBundle = "";
 // Primitive functions that Voyager skills expect in the global scope.
 // These are the Voyager framework utilities, implemented with Mineflayer's API.
 const VOYAGER_PRIMITIVES = `
-const { goals: _vGoals } = require('mineflayer-pathfinder');
+const { goals: _vGoals, Movements: _vMovements } = require('mineflayer-pathfinder');
 
 async function mineBlock(bot, name, count) {
   const target = count || 1;
+  // Enable digging so pathfinder can reach underground ores through stone
+  const _digMoves = new _vMovements(bot);
+  _digMoves.canDig = true;
+  bot.pathfinder.setMovements(_digMoves);
   for (let mined = 0; mined < target; mined++) {
     const block = bot.findBlock({ matching: (b) => b.name === name || b.name === 'deepslate_' + name + '_ore', maxDistance: 48 });
     if (!block) throw new Error('Cannot find ' + name + ' nearby');

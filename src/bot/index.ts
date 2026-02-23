@@ -13,7 +13,7 @@ import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.j
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
-import { loadMemory, getMemoryContext, recordDeath } from "./memory.js";
+import { loadMemory, getMemoryContext, recordDeath, getBrokenSkills } from "./memory.js";
 import { spawn } from "node:child_process";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -87,7 +87,8 @@ export async function createBot(events: BotEvents) {
   const pendingChatMessages: ChatMessage[] = [];
   const recentHistory: LLMMessage[] = [];
   // Maps canonical skill/action key → last failure message (cleared on success)
-  const recentFailures = new Map<string, string>();
+  // Pre-populate with skills that have historically never worked (0% over 3+ attempts)
+  const recentFailures = new Map<string, string>(getBrokenSkills());
   let isActing = false;
   let decisionLoop: ReturnType<typeof setInterval> | null = null;
   let lastAction = "";
@@ -303,6 +304,19 @@ export async function createBot(events: BotEvents) {
         }
       }
 
+      // Server-side blacklist: block any action that's currently in recentFailures.
+      // The LLM prompt says "don't retry these" but LLMs don't always comply — this enforces it.
+      const isBlacklisted = recentFailures.has(actionKey);
+      if (isBlacklisted) {
+        const blockMsg = `Blocked: "${actionKey}" is in the failure blacklist. Choose a different action.`;
+        console.log(`[Bot] ${blockMsg}`);
+        events.onAction(decision.action, blockMsg);
+        recentHistory.push({ role: "assistant", content: blockMsg });
+        if (recentHistory.length > 20) recentHistory.splice(0, recentHistory.length - 10);
+        isActing = false;
+        return;
+      }
+
       // Execute action
       const result = await executeAction(bot, decision.action, decision.params);
       events.onAction(decision.action, result);
@@ -445,12 +459,35 @@ export async function createBot(events: BotEvents) {
           }
         }
       } else {
-        // Already on land — lock spawnpoint here so deaths don't respawn in ocean
-        const lx = Math.floor(bot.entity.position.x);
-        const ly = Math.floor(bot.entity.position.y);
-        const lz = Math.floor(bot.entity.position.z);
-        bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
-        console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
+        const spawnPos = bot.entity.position;
+        // Check if we spawned underground: solid ceiling within 8 blocks above
+        let isUnderground = false;
+        if (spawnPos.y < 80) {
+          for (let dy = 1; dy <= 8; dy++) {
+            const b = bot.blockAt(spawnPos.offset(0, dy, 0));
+            if (b && b.name !== "air" && b.name !== "cave_air") { isUnderground = true; break; }
+          }
+        }
+        if (isUnderground) {
+          // Teleport upward to get onto the surface, then lock spawnpoint there
+          const sx = Math.floor(spawnPos.x);
+          const sz = Math.floor(spawnPos.z);
+          console.log(`[Bot] Spawned underground at y=${spawnPos.y.toFixed(0)} — /tp to surface`);
+          bot.chat(`/tp ${sx} 320 ${sz}`);
+          await new Promise((r) => setTimeout(r, 4000)); // wait to fall to ground
+          const lx = Math.floor(bot.entity.position.x);
+          const ly = Math.floor(bot.entity.position.y);
+          const lz = Math.floor(bot.entity.position.z);
+          bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+          console.log(`[Bot] Spawnpoint set to surface at ${lx},${ly},${lz}`);
+        } else {
+          // Already on land at surface — lock spawnpoint here
+          const lx = Math.floor(spawnPos.x);
+          const ly = Math.floor(spawnPos.y);
+          const lz = Math.floor(spawnPos.z);
+          bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+          console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
+        }
       }
     }, 1000);
 

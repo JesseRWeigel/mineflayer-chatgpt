@@ -203,9 +203,14 @@ async function mineBlock(bot: Bot, blockType: string): Promise<string> {
 
   if (!block) return `No ${blockType} found nearby.`;
 
-  bot.pathfinder.setMovements(safeMoves(bot));
+  // Allow digging so pathfinder can reach underground ores through stone
+  const { Movements } = (await import("mineflayer-pathfinder")).default;
+  const digMoves = new Movements(bot);
+  digMoves.canDig = true;
+  bot.pathfinder.setMovements(digMoves);
   await safeGoto(bot, new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2));
   await bot.dig(block);
+  bot.pathfinder.setMovements(safeMoves(bot)); // restore safe moves
   return `Mined ${blockType}.`;
 }
 
@@ -246,12 +251,17 @@ async function explore(bot: Bot, direction: string): Promise<string> {
     }
   }
 
-  // If underground, prioritise getting back to the surface first.
-  if (bot.entity.position.y < 60) {
-    bot.pathfinder.setMovements(explorerMoves(bot));
+  // If underground (below y=64), try to dig/climb to the surface before exploring laterally.
+  if (bot.entity.position.y < 64) {
+    const digMoves = new Movements(bot);
+    digMoves.canDig = true;
+    digMoves.allowFreeMotion = true;
+    digMoves.allow1by1towers = true;
+    bot.pathfinder.setMovements(digMoves);
     try {
       await safeGoto(bot, new goals.GoalY(70), 30000);
     } catch { /* best effort */ }
+    bot.pathfinder.setMovements(explorerMoves(bot));
   }
 
   // Shorter hops (20-40 blocks) — pathfinder can compute these reliably
@@ -505,10 +515,6 @@ async function buildShelter(bot: Bot): Promise<string> {
     : "Couldn't build shelter here.";
 }
 
-/**
- * Find a flat 2-block area nearby for bed placement.
- * Beds need 2 adjacent air blocks on top of 2 solid blocks.
- */
 /**
  * Find a flat 2-block area nearby for bed placement.
  * Beds need 2 adjacent air blocks on top of 2 solid blocks.

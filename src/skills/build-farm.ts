@@ -51,7 +51,10 @@ export const buildFarmSkill: Skill = {
 
     setMovements(bot);
     try {
-      await bot.pathfinder.goto(new goals.GoalNear(water.position.x, water.position.y + 1, water.position.z, 4));
+      await Promise.race([
+        bot.pathfinder.goto(new goals.GoalNear(water.position.x, water.position.y + 1, water.position.z, 4)),
+        new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("timeout")); }, 15000)),
+      ]);
     } catch { /* ok */ }
 
     // --- Step 3: Collect seeds by breaking grass ---

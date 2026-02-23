@@ -80,6 +80,29 @@ export function getWorldContext(bot: Bot): string {
     );
   }
 
+  // Underground detection: if Y < 80 and no sky access within 20 blocks, bot is underground
+  if (!bot.entity.isInWater && pos.y < 80) {
+    // Scan upward for sky (first non-air block above indicates no sky access)
+    let skyAccessY = -1;
+    for (let dy = 1; dy <= 20; dy++) {
+      const b = bot.blockAt(pos.offset(0, dy, 0));
+      if (!b || b.name === "air") continue;
+      skyAccessY = dy;
+      break;
+    }
+    if (skyAccessY !== -1 && skyAccessY <= 10) {
+      // Solid block within 10 blocks above — definitely underground
+      parts.push(
+        `ALERT: Bot is UNDERGROUND (Y=${pos.y.toFixed(0)}, ceiling ${skyAccessY} blocks up). Use 'explore' to reach the surface — you need sunlight for trees and wood gathering. Cannot gather_wood underground.`
+      );
+    } else if (skyAccessY === -1) {
+      // No ceiling within 20 blocks — might be in open-air at low elevation
+      parts.push(
+        `NOTE: Bot is at low elevation (Y=${pos.y.toFixed(0)}). If no trees nearby, use 'explore' to find forested land.`
+      );
+    }
+  }
+
   return parts.join("\n");
 }
 
