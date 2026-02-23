@@ -99,6 +99,8 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   let lastActionWasSuccess = false;
   let currentGoal = "";
   let goalStepsLeft = 0;
+  // Leash — tracks home position, set automatically when first house is built
+  let homePos: { x: number; y: number; z: number } | null = roleConfig.homePos ?? null;
 
   // Queue a chat message for the LLM to consider
   function queueChat(msg: ChatMessage) {
@@ -157,6 +159,30 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         goalStepsLeft = 0;
       } else if (repeatCount >= 3 && lastActionWasSuccess) {
         contextStr += `\n\nVARIETY CHECK: You've successfully done "${lastAction.replace(/^skill:/, "")}" ${repeatCount} times in a row. Great work — but you're in a rut! Move on to your next goal. Pick a DIFFERENT action that advances your overall progress.`;
+      }
+
+      // Leash enforcement — keep bots from wandering too far from home
+      if (homePos && roleConfig.leashRadius > 0) {
+        const dx = bot.entity.position.x - homePos.x;
+        const dz = bot.entity.position.z - homePos.z;
+        const distFromHome = Math.sqrt(dx * dx + dz * dz);
+        const leashPct = distFromHome / roleConfig.leashRadius;
+
+        if (leashPct >= 1.5) {
+          // Hard override — skip LLM entirely, go home now
+          console.log(`[Bot] LEASH: ${distFromHome.toFixed(0)} blocks from home (limit ${roleConfig.leashRadius}) — overriding to go_to home`);
+          const homeResult = await executeAction(bot, "go_to", homePos);
+          events.onAction("go_to", homeResult);
+          return;
+        } else if (leashPct >= 0.8) {
+          contextStr += `\n\nLEASH WARNING: You are ${distFromHome.toFixed(0)} blocks from home (max range: ${roleConfig.leashRadius} blocks). Do NOT explore further — start heading back toward home at (${homePos.x}, ${homePos.y}, ${homePos.z}).`;
+        }
+      }
+
+      // Stash position hint — tells bot where to deposit excess resources
+      if (roleConfig.stashPos) {
+        const { x: sx, y: sy, z: sz } = roleConfig.stashPos;
+        contextStr += `\n\nTHE STASH: Shared chest area at (${sx}, ${sy}, ${sz}). When your inventory is nearly full or you have excess materials, go_to The Stash and deposit them. Pick up materials from The Stash when you need them.`;
       }
 
       // Recent failures: show the LLM exactly what failed and why so it stops retrying
@@ -368,6 +394,13 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
             if (firstKey) recentFailures.delete(firstKey);
           }
         }
+      }
+
+      // Lock home position when first house is built
+      if (isSuccess && decision.action === "build_house" && !homePos) {
+        const p = bot.entity.position;
+        homePos = { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z) };
+        console.log(`[Bot] Home position locked at ${homePos.x}, ${homePos.y}, ${homePos.z}`);
       }
 
       // Track goal from LLM response — only decrement on success so goals survive failures
