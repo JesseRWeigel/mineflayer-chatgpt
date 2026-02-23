@@ -12,7 +12,7 @@ import { startViewer } from "../stream/viewer.js";
 import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
-import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
+import { abortActiveSkill, isSkillRunning, getActiveSkillName, registerBotMemory } from "../skills/executor.js";
 import { skillRegistry } from "../skills/registry.js";
 import { BotMemoryStore } from "./memory.js";
 import { BotRoleConfig, ATLAS_CONFIG } from "./role.js";
@@ -59,7 +59,7 @@ async function ensureNeuralServer(): Promise<void> {
 export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = ATLAS_CONFIG) {
   ensureNeuralServer().catch((e) => console.warn("[Bot] Neural spawn error:", e));
 
-  // Load memory at startup
+  // Load memory at startup — register with executor so skill results go to this bot's file.
   const memStore = new BotMemoryStore(roleConfig.memoryFile);
   memStore.load();
 
@@ -77,6 +77,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     // (pathfinding, vm evaluation) doesn't cause disconnects
     checkTimeoutInterval: 120_000,
   });
+
+  // Register per-bot memory store so executor records skill results to the right file.
+  registerBotMemory(bot, memStore);
 
   // Load plugins
   bot.loadPlugin(pathfinder);

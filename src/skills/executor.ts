@@ -2,7 +2,7 @@ import type { Bot } from "mineflayer";
 import type { Skill, SkillProgress, SkillResult } from "./types.js";
 import { gatherMaterials } from "./materials.js";
 import { updateOverlay } from "../stream/overlay.js";
-import { recordSkillAttempt } from "../bot/memory.js";
+import { recordSkillAttempt, BotMemoryStore } from "../bot/memory.js";
 
 type ActiveSkillState = {
   skill: Skill;
@@ -13,6 +13,14 @@ type ActiveSkillState = {
 
 // Per-bot skill state — keyed by bot instance so multiple bots don't interfere.
 const activeSkillMap = new Map<Bot, ActiveSkillState>();
+
+// Per-bot memory stores — registered at bot creation so skill results go to the
+// correct per-bot memory file instead of the shared singleton.
+const memStoreMap = new Map<Bot, BotMemoryStore>();
+
+export function registerBotMemory(bot: Bot, store: BotMemoryStore): void {
+  memStoreMap.set(bot, store);
+}
 
 export function isSkillRunning(bot: Bot): boolean {
   return activeSkillMap.has(bot);
@@ -137,8 +145,13 @@ export async function runSkill(
     const result = await skillPromise;
     const durationSeconds = (Date.now() - startTime) / 1000;
 
-    // Record skill attempt in memory
-    recordSkillAttempt(skill.name, result.success, durationSeconds, result.message);
+    // Record skill attempt in per-bot memory (fallback to singleton for non-registered bots)
+    const memStore = memStoreMap.get(bot);
+    if (memStore) {
+      memStore.recordSkillAttempt(skill.name, result.success, durationSeconds, result.message);
+    } else {
+      recordSkillAttempt(skill.name, result.success, durationSeconds, result.message);
+    }
 
     progress({
       skillName: skill.name,
@@ -152,7 +165,12 @@ export async function runSkill(
     return result.message;
   } catch (err: any) {
     const durationSeconds = (Date.now() - startTime) / 1000;
-    recordSkillAttempt(skill.name, false, durationSeconds, `Crashed: ${err.message}`);
+    const memStore = memStoreMap.get(bot);
+    if (memStore) {
+      memStore.recordSkillAttempt(skill.name, false, durationSeconds, `Crashed: ${err.message}`);
+    } else {
+      recordSkillAttempt(skill.name, false, durationSeconds, `Crashed: ${err.message}`);
+    }
 
     progress({ skillName: skill.name, phase: "Crashed", progress: 0, message: err.message, active: false });
     return `Skill ${skill.name} crashed: ${err.message}`;
