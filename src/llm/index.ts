@@ -165,7 +165,7 @@ export async function queryLLM(
       messages,
       options: {
         temperature: 0.85,
-        num_predict: 1024,
+        num_predict: 4096,
       },
     });
 
@@ -184,7 +184,7 @@ export async function queryLLM(
             content: `Quick decision needed. Available actions: explore, gather_wood, craft_gear, mine_block, go_to, idle, chat.\nContext: ${context.slice(0, 500)}\nRespond with JSON only.`,
           },
         ],
-        options: { temperature: 0.6, num_predict: 256 },
+        options: { temperature: 0.6, num_predict: 512 },
       });
     }
 

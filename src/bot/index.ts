@@ -428,68 +428,104 @@ export async function createBot(events: BotEvents) {
     console.error("[Bot] Error:", err);
   });
 
-  // Spawn handler
-  bot.once("spawn", () => {
-    console.log("[Bot] Spawned! Starting decision loop...");
+  // Spawn safety — runs on every spawn (initial connection AND respawns after death).
+  // Locks spawnpoint only once the bot is confirmed standing on solid ground.
+  let spawnSafetyRunning = false;
+  async function runSpawnSafety() {
+    if (spawnSafetyRunning) return; // prevent concurrent runs (e.g. death mid-fall)
+    spawnSafetyRunning = true;
+    // Small delay for server to sync position
+    await new Promise((r) => setTimeout(r, 800));
 
-    // Set server gamerules and anchor spawnpoint on dry land (bot is OP level 4)
-    setTimeout(async () => {
-      bot.chat("/gamerule keepInventory true");
-      bot.chat("/gamerule doMobSpawning true");
-      console.log("[Bot] Sent gamerule commands (keepInventory + mob spawning enabled)");
+    // If still falling, wait until onGround (up to 60 seconds)
+    if (!bot.entity.onGround) {
+      console.log(`[Bot] Spawn at Y=${bot.entity.position.y.toFixed(1)} — waiting for landing...`);
+      const deadline = Date.now() + 60_000;
+      while (!bot.entity.onGround && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      if (!bot.entity.onGround) {
+        // Still falling — force /tp to a reasonable height
+        const px = Math.floor(bot.entity.position.x);
+        const pz = Math.floor(bot.entity.position.z);
+        console.log("[Bot] Still falling after 60s — forcing /tp to Y=80");
+        bot.chat(`/tp ${px} 80 ${pz}`);
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
 
-      // If spawned in water, /tp to land and lock spawnpoint there
-      const spawnFeet = bot.blockAt(bot.entity.position);
-      if (spawnFeet?.name === "water") {
-        console.log("[Bot] Spawned in water — using /tp to find land");
-        const sx = Math.floor(bot.entity.position.x);
-        const sz = Math.floor(bot.entity.position.z);
-        const dirs = [[0, 300], [300, 0], [0, -300], [-300, 0], [300, 300], [-300, 300]];
-        for (const [dx, dz] of dirs) {
-          bot.chat(`/tp ${sx + dx} 80 ${sz + dz}`);
-          await new Promise((r) => setTimeout(r, 3000));
-          const fb = bot.blockAt(bot.entity.position);
-          if (fb && fb.name !== "water" && fb.name !== "air") {
-            const lx = Math.floor(bot.entity.position.x);
-            const ly = Math.floor(bot.entity.position.y);
-            const lz = Math.floor(bot.entity.position.z);
-            bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
-            console.log(`[Bot] Spawnpoint set to land at ${lx},${ly},${lz}`);
-            break;
-          }
-        }
-      } else {
-        const spawnPos = bot.entity.position;
-        // Check if we spawned underground: solid ceiling within 8 blocks above
-        let isUnderground = false;
-        if (spawnPos.y < 80) {
-          for (let dy = 1; dy <= 8; dy++) {
-            const b = bot.blockAt(spawnPos.offset(0, dy, 0));
-            if (b && b.name !== "air" && b.name !== "cave_air") { isUnderground = true; break; }
-          }
-        }
-        if (isUnderground) {
-          // Teleport upward to get onto the surface, then lock spawnpoint there
-          const sx = Math.floor(spawnPos.x);
-          const sz = Math.floor(spawnPos.z);
-          console.log(`[Bot] Spawned underground at y=${spawnPos.y.toFixed(0)} — /tp to surface`);
-          bot.chat(`/tp ${sx} 320 ${sz}`);
-          await new Promise((r) => setTimeout(r, 4000)); // wait to fall to ground
+    const pos = bot.entity.position;
+    const feet = bot.blockAt(pos);
+    const below = bot.blockAt(pos.offset(0, -1, 0));
+
+    // Case: spawned in water — find land
+    if (feet?.name === "water" || below?.name === "water") {
+      console.log("[Bot] In water — using /tp to find land");
+      const sx = Math.floor(pos.x);
+      const sz = Math.floor(pos.z);
+      let foundLand = false;
+      for (const [dx, dz] of [[0, 300], [300, 0], [0, -300], [-300, 0], [300, 300]]) {
+        bot.chat(`/tp ${sx + dx} 80 ${sz + dz}`);
+        await new Promise((r) => setTimeout(r, 3000));
+        const fb = bot.blockAt(bot.entity.position);
+        if (fb && fb.name !== "water" && fb.name !== "air") {
           const lx = Math.floor(bot.entity.position.x);
           const ly = Math.floor(bot.entity.position.y);
           const lz = Math.floor(bot.entity.position.z);
           bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
-          console.log(`[Bot] Spawnpoint set to surface at ${lx},${ly},${lz}`);
-        } else {
-          // Already on land at surface — lock spawnpoint here
-          const lx = Math.floor(spawnPos.x);
-          const ly = Math.floor(spawnPos.y);
-          const lz = Math.floor(spawnPos.z);
-          bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
-          console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
+          console.log(`[Bot] Spawnpoint set to land at ${lx},${ly},${lz}`);
+          foundLand = true;
+          break;
         }
       }
-    }, 1000);
+      if (!foundLand) {
+        console.warn("[Bot] Could not find dry land for spawnpoint");
+      }
+      return;
+    }
+
+    // Case: underground (solid block above within 6 blocks and Y < 100)
+    if (pos.y < 100) {
+      let hasCeiling = false;
+      for (let dy = 1; dy <= 6; dy++) {
+        const b = bot.blockAt(pos.offset(0, dy, 0));
+        if (b && b.name !== "air" && b.name !== "cave_air") { hasCeiling = true; break; }
+      }
+      if (hasCeiling) {
+        const sx = Math.floor(pos.x);
+        const sz = Math.floor(pos.z);
+        console.log(`[Bot] Underground at Y=${pos.y.toFixed(0)} — /tp to surface with slow_falling`);
+        bot.chat(`/effect give ${config.mc.username} slow_falling 60 1`);
+        await new Promise((r) => setTimeout(r, 500));
+        bot.chat(`/tp ${sx} 200 ${sz}`);
+        // Wait for landing (slow_falling is slow — poll onGround)
+        const deadline = Date.now() + 60_000;
+        while (!bot.entity.onGround && Date.now() < deadline) {
+          await new Promise((r) => setTimeout(r, 300));
+        }
+        console.log(`[Bot] Landed at Y=${bot.entity.position.y.toFixed(1)}`);
+      }
+    }
+
+    // Lock spawnpoint at current confirmed ground position
+    const lx = Math.floor(bot.entity.position.x);
+    const ly = Math.floor(bot.entity.position.y);
+    const lz = Math.floor(bot.entity.position.z);
+    bot.chat(`/spawnpoint ${config.mc.username} ${lx} ${ly} ${lz}`);
+    console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
+    spawnSafetyRunning = false;
+  }
+
+  // Re-run spawn safety on every respawn (deaths included)
+  bot.on("spawn", async () => {
+    bot.chat("/gamerule keepInventory true");
+    bot.chat("/gamerule doMobSpawning true");
+    runSpawnSafety().catch((e) => console.warn("[Bot] Spawn safety error:", e));
+  });
+
+  // Spawn handler (once — one-time setup only)
+  bot.once("spawn", () => {
+    console.log("[Bot] Spawned! Starting decision loop...");
 
     // Start browser viewer on port 3000
     startViewer(bot, 3000);

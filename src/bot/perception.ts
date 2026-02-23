@@ -81,7 +81,8 @@ export function getWorldContext(bot: Bot): string {
   }
 
   // Underground detection: if Y < 80 and no sky access within 20 blocks, bot is underground
-  if (!bot.entity.isInWater && pos.y < 80) {
+  const feetInWater = bot.blockAt(pos)?.name === "water";
+  if (!feetInWater && pos.y < 80) {
     // Scan upward for sky (first non-air block above indicates no sky access)
     let skyAccessY = -1;
     for (let dy = 1; dy <= 20; dy++) {

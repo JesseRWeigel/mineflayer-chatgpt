@@ -111,9 +111,14 @@ export const buildHouseSkill: Skill = {
 
         try {
           setMovements(bot);
-          await bot.pathfinder.goto(
-            new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2),
-          );
+          await Promise.race([
+            bot.pathfinder.goto(
+              new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2),
+            ),
+            new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("pathfinder timeout")), 15_000)
+            ),
+          ]);
           await bot.dig(block);
           mined++;
           onProgress({
