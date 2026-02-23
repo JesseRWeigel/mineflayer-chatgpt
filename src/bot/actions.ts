@@ -408,7 +408,17 @@ async function craftItem(bot: Bot, itemName: string, count: number): Promise<str
     }
   }
 
-  if (!recipe) return `Can't craft ${resolvedName} — missing materials or need a crafting table.`;
+  if (!recipe) {
+    // Provide specific missing-material feedback so the LLM knows what to gather next.
+    if (resolvedName.endsWith("_bed")) {
+      const hasWool = bot.inventory.items().some(i => i.name.endsWith("_wool"));
+      const woolCount = bot.inventory.items().filter(i => i.name.endsWith("_wool")).reduce((s, i) => s + i.count, 0);
+      if (!hasWool || woolCount < 3) {
+        return `Can't craft ${resolvedName} — need 3 wool (you have ${woolCount}). Kill/shear nearby sheep to get wool, then craft planks + wool into a bed.`;
+      }
+    }
+    return `Can't craft ${resolvedName} — missing materials or need a crafting table.`;
+  }
 
   if (craftingTable) {
     // Walk to the crafting table

@@ -229,6 +229,12 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           console.log(`[Bot] In water — teleporting back to safeSpawn area (${sx},80,${sz})`);
           bot.chat(`/tp ${sx} 80 ${sz}`);
           await new Promise((r) => setTimeout(r, 3000));
+          // Clear location-specific failures — they triggered away from home base and
+          // are not relevant once we're back in the forest area.
+          for (const k of ["skill:build_house", "skill:build_farm"]) {
+            recentFailures.delete(k);
+            failureCounts.delete(k);
+          }
           return;
         }
 
@@ -435,13 +441,16 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         } else {
           failureCounts.delete(actionKey);
           recentFailures.delete(actionKey);
-          // Every 8 successes, expire the oldest blacklist entry so stale entries don't linger forever
-          successesSinceLastExpiry++;
-          if (successesSinceLastExpiry >= 8 && recentFailures.size > 0) {
-            successesSinceLastExpiry = 0;
-            const firstKey = recentFailures.keys().next().value;
-            if (firstKey) recentFailures.delete(firstKey);
-          }
+        }
+      }
+      // Every 8 successes (any action, including explore/go_to), expire the oldest blacklist
+      // entry so stale location-specific failures don't linger forever.
+      if (isSuccess) {
+        successesSinceLastExpiry++;
+        if (successesSinceLastExpiry >= 8 && recentFailures.size > 0) {
+          successesSinceLastExpiry = 0;
+          const firstKey = recentFailures.keys().next().value;
+          if (firstKey) recentFailures.delete(firstKey);
         }
       }
 
