@@ -3,7 +3,6 @@ import path from "path";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const MEMORY_FILE = path.join(__dirname, "../../memory.json");
 
 export interface Structure {
   type: "house" | "farm" | "mine" | "furnace" | "other";
@@ -46,12 +45,11 @@ export interface BotMemory {
   skillHistory: SkillAttempt[];
   lessons: string[];
   lastUpdated: string;
-  /** Persistent set of skills confirmed broken (0% success, 2+ attempts). Never cleared by rolling window. */
+  /** Persistent set of skills confirmed broken (5+ failures with 0% success rate). Never cleared by rolling window. */
   brokenSkillNames: string[];
   seasonGoal?: string;
 }
 
-// Default empty memory
 const defaultMemory: BotMemory = {
   structures: [],
   deaths: [],
@@ -63,310 +61,286 @@ const defaultMemory: BotMemory = {
   seasonGoal: undefined,
 };
 
-let memory: BotMemory = { ...defaultMemory };
+const PRECONDITION_KEYWORDS = [
+  "No trees found", "need wood", "Need a pickaxe", "No torches",
+  "Couldn't plant", "timed out", "aborted", "No crafting_table",
+  "No furnace", "Need more", "not enough", "missing materials",
+];
 
-// Load memory from file
-export function loadMemory(): BotMemory {
-  try {
-    if (fs.existsSync(MEMORY_FILE)) {
-      const data = fs.readFileSync(MEMORY_FILE, "utf-8");
-      memory = JSON.parse(data);
-      if (!memory.brokenSkillNames) memory.brokenSkillNames = [];
-      console.log(`[Memory] Loaded ${memory.structures.length} structures, ${memory.skillHistory.length} skill attempts, ${memory.brokenSkillNames.length} known broken skills`);
+export class BotMemoryStore {
+  private memory: BotMemory;
+  private memoryFile: string;
+
+  constructor(memoryFileName = "memory.json") {
+    this.memoryFile = path.join(__dirname, "../../", memoryFileName);
+    this.memory = { ...defaultMemory };
+  }
+
+  load(): BotMemory {
+    try {
+      if (fs.existsSync(this.memoryFile)) {
+        const data = fs.readFileSync(this.memoryFile, "utf-8");
+        this.memory = JSON.parse(data);
+        if (!this.memory.brokenSkillNames) this.memory.brokenSkillNames = [];
+        console.log(`[Memory] Loaded from ${path.basename(this.memoryFile)}: ${this.memory.structures.length} structures, ${this.memory.skillHistory.length} skill attempts, ${this.memory.brokenSkillNames.length} known broken skills`);
+      }
+    } catch (err) {
+      console.error("[Memory] Failed to load:", err);
+      this.memory = { ...defaultMemory };
     }
-  } catch (err) {
-    console.error("[Memory] Failed to load:", err);
-    memory = { ...defaultMemory };
-  }
-  return memory;
-}
-
-// Save memory to file
-function saveMemory() {
-  try {
-    memory.lastUpdated = new Date().toISOString();
-    fs.writeFileSync(MEMORY_FILE, JSON.stringify(memory, null, 2));
-  } catch (err) {
-    console.error("[Memory] Failed to save:", err);
-  }
-}
-
-// Add a structure to memory
-export function addStructure(type: Structure["type"], x: number, y: number, z: number, notes?: string) {
-  // Check if structure already exists nearby (within 10 blocks)
-  const existing = memory.structures.find(
-    (s) => s.type === type && Math.abs(s.x - x) < 10 && Math.abs(s.z - z) < 10
-  );
-
-  if (existing) {
-    console.log(`[Memory] Structure already exists nearby at ${existing.x}, ${existing.y}, ${existing.z}`);
-    return false;
+    return this.memory;
   }
 
-  memory.structures.push({
-    type,
-    x: Math.round(x),
-    y: Math.round(y),
-    z: Math.round(z),
-    builtAt: new Date().toISOString(),
-    notes,
-  });
-  console.log(`[Memory] Added ${type} at ${x}, ${y}, ${z}. Total: ${memory.structures.length}`);
-  saveMemory();
-  return true;
-}
+  private save() {
+    try {
+      this.memory.lastUpdated = new Date().toISOString();
+      fs.writeFileSync(this.memoryFile, JSON.stringify(this.memory, null, 2));
+    } catch (err) {
+      console.error("[Memory] Failed to save:", err);
+    }
+  }
 
-// Check if a structure exists nearby
-export function hasStructureNearby(type: Structure["type"], x: number, y: number, z: number, radius = 50): boolean {
-  return memory.structures.some(
-    (s) => s.type === type &&
-      Math.abs(s.x - x) <= radius &&
-      Math.abs(s.z - z) <= radius
-  );
-}
+  addStructure(type: Structure["type"], x: number, y: number, z: number, notes?: string): boolean {
+    const existing = this.memory.structures.find(
+      (s) => s.type === type && Math.abs(s.x - x) < 10 && Math.abs(s.z - z) < 10
+    );
+    if (existing) {
+      console.log(`[Memory] Structure already exists nearby at ${existing.x}, ${existing.y}, ${existing.z}`);
+      return false;
+    }
+    this.memory.structures.push({
+      type,
+      x: Math.round(x),
+      y: Math.round(y),
+      z: Math.round(z),
+      builtAt: new Date().toISOString(),
+      notes,
+    });
+    console.log(`[Memory] Added ${type} at ${x}, ${y}, ${z}. Total: ${this.memory.structures.length}`);
+    this.save();
+    return true;
+  }
 
-// Get nearest structure of a type
-export function getNearestStructure(type: Structure["type"], x: number, z: number): Structure | null {
-  let nearest: Structure | null = null;
-  let minDist = Infinity;
+  hasStructureNearby(type: Structure["type"], x: number, y: number, z: number, radius = 50): boolean {
+    return this.memory.structures.some(
+      (s) => s.type === type &&
+        Math.abs(s.x - x) <= radius &&
+        Math.abs(s.z - z) <= radius
+    );
+  }
 
-  for (const s of memory.structures) {
-    if (s.type === type) {
-      const dist = Math.sqrt((s.x - x) ** 2 + (s.z - z) ** 2);
-      if (dist < minDist) {
-        minDist = dist;
-        nearest = s;
+  getNearestStructure(type: Structure["type"], x: number, z: number): Structure | null {
+    let nearest: Structure | null = null;
+    let minDist = Infinity;
+    for (const s of this.memory.structures) {
+      if (s.type === type) {
+        const dist = Math.sqrt((s.x - x) ** 2 + (s.z - z) ** 2);
+        if (dist < minDist) {
+          minDist = dist;
+          nearest = s;
+        }
       }
     }
+    return nearest;
   }
 
-  return nearest;
-}
-
-// Record a death
-export function recordDeath(x: number, y: number, z: number, cause: string) {
-  memory.deaths.push({
-    location: `${x}, ${y}, ${z}`,
-    x: Math.round(x),
-    y: Math.round(y),
-    z: Math.round(z),
-    cause,
-    timestamp: new Date().toISOString(),
-  });
-  // Keep last 50 deaths
-  if (memory.deaths.length > 50) {
-    memory.deaths = memory.deaths.slice(-50);
-  }
-  console.log(`[Memory] Recorded death at ${x}, ${y}, ${z} (cause: ${cause})`);
-  saveMemory();
-}
-
-// Record ore discovery
-export function recordOre(oreType: string, x: number, y: number, z: number) {
-  // Check if already discovered nearby
-  const existing = memory.oreDiscoveries.find(
-    (o) => o.type === oreType && Math.abs(o.x - x) < 5 && Math.abs(o.z - z) < 5
-  );
-  if (existing) return;
-
-  memory.oreDiscoveries.push({
-    type: oreType,
-    x: Math.round(x),
-    y: Math.round(y),
-    z: Math.round(z),
-    timestamp: new Date().toISOString(),
-  });
-  console.log(`[Memory] Discovered ${oreType} at ${x}, ${y}, ${z}`);
-  saveMemory();
-}
-
-// Record skill attempt
-export function recordSkillAttempt(skill: string, success: boolean, durationSeconds: number, notes: string) {
-  memory.skillHistory.push({
-    skill,
-    success,
-    durationSeconds,
-    notes,
-    timestamp: new Date().toISOString(),
-  });
-  // Keep last 100 attempts
-  if (memory.skillHistory.length > 100) {
-    memory.skillHistory = memory.skillHistory.slice(-100);
-  }
-
-  // Update success rate tracking
-  const skillAttempts = memory.skillHistory.filter((s) => s.skill === skill);
-  const successCount = skillAttempts.filter((s) => s.success).length;
-  const successRate = skillAttempts.length > 0 ? (successCount / skillAttempts.length) * 100 : 0;
-
-  // Persist broken skills permanently (2+ failures with 0% success rate)
-  // Skip precondition failures — these indicate missing resources, not code bugs
-  const PRECONDITION_KEYWORDS = [
-    "No trees found", "need wood", "Need a pickaxe", "No torches",
-    "Couldn't plant", "timed out", "aborted", "No crafting_table",
-    "No furnace", "Need more", "not enough", "missing materials",
-  ];
-  const isPreconditionFail = !success && PRECONDITION_KEYWORDS.some(k => notes.toLowerCase().includes(k.toLowerCase()));
-  const realFailures = skillAttempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
-  if (!success && !isPreconditionFail && realFailures.length >= 5 && !memory.brokenSkillNames.includes(skill)) {
-    memory.brokenSkillNames.push(skill);
-    console.log(`[Memory] ${skill} added to permanent broken skills list`);
-  }
-  // Remove from broken list if it succeeds
-  if (success && memory.brokenSkillNames.includes(skill)) {
-    memory.brokenSkillNames = memory.brokenSkillNames.filter((s) => s !== skill);
-    console.log(`[Memory] ${skill} removed from broken skills (succeeded!)`);
-  }
-
-  console.log(`[Memory] ${skill}: ${success ? "SUCCESS" : "FAIL"} (${successRate.toFixed(0)}% success rate over ${skillAttempts.length} attempts)`);
-  saveMemory();
-}
-
-// Get skill success rate for a skill
-export function getSkillSuccessRate(skill: string): { successRate: number; totalAttempts: number; avgDuration: number } {
-  const attempts = memory.skillHistory.filter((s) => s.skill === skill);
-  if (attempts.length === 0) {
-    return { successRate: -1, totalAttempts: 0, avgDuration: 0 };
-  }
-
-  const successes = attempts.filter((a) => a.success).length;
-  const avgDuration = attempts.reduce((sum, a) => sum + a.durationSeconds, 0) / attempts.length;
-
-  return {
-    successRate: (successes / attempts.length) * 100,
-    totalAttempts: attempts.length,
-    avgDuration,
-  };
-}
-
-// Add a lesson
-export function addLesson(lesson: string) {
-  memory.lessons.push(lesson);
-  // Keep last 20 lessons
-  if (memory.lessons.length > 20) {
-    memory.lessons = memory.lessons.slice(-20);
-  }
-  saveMemory();
-}
-
-// Generate memory context for LLM
-export function getMemoryContext(): string {
-  const parts: string[] = [];
-
-  // Structures
-  if (memory.structures.length > 0) {
-    const houses = memory.structures.filter((s) => s.type === "house");
-    if (houses.length > 0) {
-      parts.push(`HOUSES BUILT: ${houses.length} - at coordinates: ${houses.map((h) => `(${h.x}, ${h.z})`).join(", ")}`);
+  recordDeath(x: number, y: number, z: number, cause: string): void {
+    this.memory.deaths.push({
+      location: `${x}, ${y}, ${z}`,
+      x: Math.round(x),
+      y: Math.round(y),
+      z: Math.round(z),
+      cause,
+      timestamp: new Date().toISOString(),
+    });
+    if (this.memory.deaths.length > 50) {
+      this.memory.deaths = this.memory.deaths.slice(-50);
     }
+    console.log(`[Memory] Recorded death at ${x}, ${y}, ${z} (cause: ${cause})`);
+    this.save();
   }
 
-  // Deaths
-  if (memory.deaths.length > 0) {
-    const recentDeaths = memory.deaths.slice(-5);
-    parts.push(`RECENT DEATHS: ${recentDeaths.map((d) => `${d.cause} at (${d.x}, ${d.y}, ${d.z})`).join("; ")}`);
+  recordOre(oreType: string, x: number, y: number, z: number): void {
+    const existing = this.memory.oreDiscoveries.find(
+      (o) => o.type === oreType && Math.abs(o.x - x) < 5 && Math.abs(o.z - z) < 5
+    );
+    if (existing) return;
+    this.memory.oreDiscoveries.push({
+      type: oreType,
+      x: Math.round(x),
+      y: Math.round(y),
+      z: Math.round(z),
+      timestamp: new Date().toISOString(),
+    });
+    console.log(`[Memory] Discovered ${oreType} at ${x}, ${y}, ${z}`);
+    this.save();
   }
 
-  // Ores
-  if (memory.oreDiscoveries.length > 0) {
-    const uniqueOres = [...new Set(memory.oreDiscoveries.map((o) => o.type))];
-    parts.push(`ORES FOUND: ${uniqueOres.join(", ")}`);
-  }
-
-  // Skill performance — split into "avoid" list and normal stats
-  const brokenSet = new Set(memory.brokenSkillNames);
-  const skills = [...new Set(memory.skillHistory.map((s) => s.skill))];
-  if (brokenSet.size > 0 || skills.length > 0) {
-    const brokenLabel: string[] = [];
-    const normalStats: string[] = [];
-
-    // Include all persistent broken skills
-    for (const skill of brokenSet) {
-      brokenLabel.push(`${skill} (historically broken)`);
+  recordSkillAttempt(skill: string, success: boolean, durationSeconds: number, notes: string): void {
+    this.memory.skillHistory.push({ skill, success, durationSeconds, notes, timestamp: new Date().toISOString() });
+    if (this.memory.skillHistory.length > 100) {
+      this.memory.skillHistory = this.memory.skillHistory.slice(-100);
     }
 
-    for (const skill of skills) {
-      const stats = getSkillSuccessRate(skill);
-      if (stats.successRate === 0 && stats.totalAttempts >= 2 && !brokenSet.has(skill)) {
-        brokenLabel.push(`${skill} (failed ${stats.totalAttempts}/${stats.totalAttempts} times)`);
-      } else if (!brokenSet.has(skill)) {
-        normalStats.push(`${skill}: ${stats.successRate.toFixed(0)}%`);
+    const skillAttempts = this.memory.skillHistory.filter((s) => s.skill === skill);
+    const successCount = skillAttempts.filter((s) => s.success).length;
+    const successRate = skillAttempts.length > 0 ? (successCount / skillAttempts.length) * 100 : 0;
+
+    const isPreconditionFail = !success && PRECONDITION_KEYWORDS.some(k => notes.toLowerCase().includes(k.toLowerCase()));
+    const realFailures = skillAttempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+    if (!success && !isPreconditionFail && realFailures.length >= 5 && !this.memory.brokenSkillNames.includes(skill)) {
+      this.memory.brokenSkillNames.push(skill);
+      console.log(`[Memory] ${skill} added to permanent broken skills list`);
+    }
+    if (success && this.memory.brokenSkillNames.includes(skill)) {
+      this.memory.brokenSkillNames = this.memory.brokenSkillNames.filter((s) => s !== skill);
+      console.log(`[Memory] ${skill} removed from broken skills (succeeded!)`);
+    }
+
+    console.log(`[Memory] ${skill}: ${success ? "SUCCESS" : "FAIL"} (${successRate.toFixed(0)}% success rate over ${skillAttempts.length} attempts)`);
+    this.save();
+  }
+
+  getSkillSuccessRate(skill: string): { successRate: number; totalAttempts: number; avgDuration: number } {
+    const attempts = this.memory.skillHistory.filter((s) => s.skill === skill);
+    if (attempts.length === 0) return { successRate: -1, totalAttempts: 0, avgDuration: 0 };
+    const successes = attempts.filter((a) => a.success).length;
+    const avgDuration = attempts.reduce((sum, a) => sum + a.durationSeconds, 0) / attempts.length;
+    return { successRate: (successes / attempts.length) * 100, totalAttempts: attempts.length, avgDuration };
+  }
+
+  addLesson(lesson: string): void {
+    this.memory.lessons.push(lesson);
+    if (this.memory.lessons.length > 20) {
+      this.memory.lessons = this.memory.lessons.slice(-20);
+    }
+    this.save();
+  }
+
+  getMemoryContext(): string {
+    const parts: string[] = [];
+
+    if (this.memory.structures.length > 0) {
+      const houses = this.memory.structures.filter((s) => s.type === "house");
+      if (houses.length > 0) {
+        parts.push(`HOUSES BUILT: ${houses.length} - at coordinates: ${houses.map((h) => `(${h.x}, ${h.z})`).join(", ")}`);
       }
     }
-    if (brokenLabel.length > 0) {
-      parts.push(`BROKEN SKILLS — DO NOT USE EVER: ${brokenLabel.join(", ")}. These have NEVER succeeded. Choose completely different skills.`);
+
+    if (this.memory.deaths.length > 0) {
+      const recentDeaths = this.memory.deaths.slice(-5);
+      parts.push(`RECENT DEATHS: ${recentDeaths.map((d) => `${d.cause} at (${d.x}, ${d.y}, ${d.z})`).join("; ")}`);
     }
-    if (normalStats.length > 0) {
-      parts.push(`SKILL PERFORMANCE: ${normalStats.join(", ")}`);
+
+    if (this.memory.oreDiscoveries.length > 0) {
+      const uniqueOres = [...new Set(this.memory.oreDiscoveries.map((o) => o.type))];
+      parts.push(`ORES FOUND: ${uniqueOres.join(", ")}`);
     }
+
+    const brokenSet = new Set(this.memory.brokenSkillNames);
+    const skills = [...new Set(this.memory.skillHistory.map((s) => s.skill))];
+    if (brokenSet.size > 0 || skills.length > 0) {
+      const brokenLabel: string[] = [];
+      const normalStats: string[] = [];
+      for (const skill of brokenSet) {
+        brokenLabel.push(`${skill} (historically broken)`);
+      }
+      for (const skill of skills) {
+        const stats = this.getSkillSuccessRate(skill);
+        if (stats.successRate === 0 && stats.totalAttempts >= 2 && !brokenSet.has(skill)) {
+          brokenLabel.push(`${skill} (failed ${stats.totalAttempts}/${stats.totalAttempts} times)`);
+        } else if (!brokenSet.has(skill)) {
+          normalStats.push(`${skill}: ${stats.successRate.toFixed(0)}%`);
+        }
+      }
+      if (brokenLabel.length > 0) {
+        parts.push(`BROKEN SKILLS — DO NOT USE EVER: ${brokenLabel.join(", ")}. These have NEVER succeeded. Choose completely different skills.`);
+      }
+      if (normalStats.length > 0) {
+        parts.push(`SKILL PERFORMANCE: ${normalStats.join(", ")}`);
+      }
+    }
+
+    if (this.memory.lessons.length > 0) {
+      const recentLessons = this.memory.lessons.slice(-3);
+      parts.push(`LESSONS LEARNED: ${recentLessons.join("; ")}`);
+    }
+
+    return parts.length > 0 ? parts.join(". ") : "No memory yet.";
   }
 
-  // Lessons
-  if (memory.lessons.length > 0) {
-    const recentLessons = memory.lessons.slice(-3);
-    parts.push(`LESSONS LEARNED: ${recentLessons.join("; ")}`);
-  }
-
-  return parts.length > 0 ? parts.join(". ") : "No memory yet.";
-}
-
-// Return skills that have never succeeded — used to pre-populate failure blacklist.
-// Combines: (a) persistent brokenSkillNames list, (b) skills in rolling window with 0%/2+ attempts.
-// Stores both bare name and "skill:" prefix so the block fires regardless of how the LLM calls the skill.
-export function getBrokenSkills(): Map<string, string> {
-  const broken = new Map<string, string>();
-
-  // (a) Persistent list — survives rolling window displacement
-  for (const skill of memory.brokenSkillNames) {
-    const msg = `Historically broken (0% success) — never use this skill`;
-    broken.set(skill, msg);
-    broken.set(`skill:${skill}`, msg);
-  }
-
-  // (b) Skills in rolling window with 0% over 2+ attempts
-  const skills = [...new Set(memory.skillHistory.map((s) => s.skill))];
-  for (const skill of skills) {
-    if (broken.has(skill)) continue; // already added
-    const stats = getSkillSuccessRate(skill);
-    if (stats.successRate === 0 && stats.totalAttempts >= 2) {
-      const msg = `Failed ${stats.totalAttempts} times (0% success rate) — this skill is broken, never use it`;
+  getBrokenSkills(): Map<string, string> {
+    const broken = new Map<string, string>();
+    for (const skill of this.memory.brokenSkillNames) {
+      const msg = `Historically broken (0% success) — never use this skill`;
       broken.set(skill, msg);
       broken.set(`skill:${skill}`, msg);
     }
+    const skills = [...new Set(this.memory.skillHistory.map((s) => s.skill))];
+    for (const skill of skills) {
+      if (broken.has(skill)) continue;
+      const stats = this.getSkillSuccessRate(skill);
+      if (stats.successRate === 0 && stats.totalAttempts >= 2) {
+        const msg = `Failed ${stats.totalAttempts} times (0% success rate) — this skill is broken, never use it`;
+        broken.set(skill, msg);
+        broken.set(`skill:${skill}`, msg);
+      }
+    }
+    return broken;
   }
 
-  return broken;
+  shouldAvoidLocation(x: number, y: number, z: number, radius = 10): boolean {
+    return this.memory.deaths.some(
+      (d) => Math.abs(d.x - x) < radius && Math.abs(d.z - z) < radius
+    );
+  }
+
+  getStats(): { structures: number; deaths: number; ores: number; skills: number } {
+    return {
+      structures: this.memory.structures.length,
+      deaths: this.memory.deaths.length,
+      ores: this.memory.oreDiscoveries.length,
+      skills: this.memory.skillHistory.length,
+    };
+  }
+
+  getSeasonGoal(): string | undefined {
+    return this.memory.seasonGoal;
+  }
+
+  setSeasonGoal(goal: string): void {
+    this.memory.seasonGoal = goal.trim();
+    this.save();
+    console.log(`[Memory] Season goal set: "${this.memory.seasonGoal}"`);
+  }
+
+  clearSeasonGoal(): void {
+    this.memory.seasonGoal = undefined;
+    this.save();
+    console.log("[Memory] Season goal cleared.");
+  }
 }
 
-// Check if should avoid a location (based on deaths)
-export function shouldAvoidLocation(x: number, y: number, z: number, radius = 10): boolean {
-  return memory.deaths.some(
-    (d) => Math.abs(d.x - x) < radius && Math.abs(d.z - z) < radius
-  );
-}
+// ---------------------------------------------------------------------------
+// Backward-compat singleton — used by src/llm/index.ts and any code that
+// hasn't been migrated to per-bot BotMemoryStore instances yet.
+// createBot in src/bot/index.ts creates its own per-bot store separately.
+// ---------------------------------------------------------------------------
+const _singleton = new BotMemoryStore("memory.json");
 
-// Get stats summary
-export function getStats(): { structures: number; deaths: number; ores: number; skills: number } {
-  return {
-    structures: memory.structures.length,
-    deaths: memory.deaths.length,
-    ores: memory.oreDiscoveries.length,
-    skills: memory.skillHistory.length,
-  };
-}
-
-export function getSeasonGoal(): string | undefined {
-  return memory.seasonGoal;
-}
-
-export function setSeasonGoal(goal: string) {
-  memory.seasonGoal = goal.trim();
-  saveMemory();
-  console.log(`[Memory] Season goal set: "${memory.seasonGoal}"`);
-}
-
-export function clearSeasonGoal() {
-  memory.seasonGoal = undefined;
-  saveMemory();
-  console.log("[Memory] Season goal cleared.");
-}
+export function loadMemory(): BotMemory { return _singleton.load(); }
+export function getMemoryContext(): string { return _singleton.getMemoryContext(); }
+export function recordDeath(x: number, y: number, z: number, cause: string): void { _singleton.recordDeath(x, y, z, cause); }
+export function recordOre(oreType: string, x: number, y: number, z: number): void { _singleton.recordOre(oreType, x, y, z); }
+export function recordSkillAttempt(skill: string, success: boolean, durationSeconds: number, notes: string): void { _singleton.recordSkillAttempt(skill, success, durationSeconds, notes); }
+export function getSkillSuccessRate(skill: string) { return _singleton.getSkillSuccessRate(skill); }
+export function addLesson(lesson: string): void { _singleton.addLesson(lesson); }
+export function addStructure(type: Structure["type"], x: number, y: number, z: number, notes?: string): boolean { return _singleton.addStructure(type, x, y, z, notes); }
+export function hasStructureNearby(type: Structure["type"], x: number, y: number, z: number, radius?: number): boolean { return _singleton.hasStructureNearby(type, x, y, z, radius); }
+export function getNearestStructure(type: Structure["type"], x: number, z: number): Structure | null { return _singleton.getNearestStructure(type, x, z); }
+export function getBrokenSkills(): Map<string, string> { return _singleton.getBrokenSkills(); }
+export function shouldAvoidLocation(x: number, y: number, z: number, radius?: number): boolean { return _singleton.shouldAvoidLocation(x, y, z, radius); }
+export function getStats() { return _singleton.getStats(); }
+export function getSeasonGoal(): string | undefined { return _singleton.getSeasonGoal(); }
+export function setSeasonGoal(goal: string): void { _singleton.setSeasonGoal(goal); }
+export function clearSeasonGoal(): void { _singleton.clearSeasonGoal(); }
