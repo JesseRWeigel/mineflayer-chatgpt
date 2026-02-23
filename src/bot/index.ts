@@ -13,6 +13,7 @@ import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.j
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
+import { skillRegistry } from "../skills/registry.js";
 import { BotMemoryStore } from "./memory.js";
 import { BotRoleConfig, ATLAS_CONFIG } from "./role.js";
 import { spawn } from "node:child_process";
@@ -78,12 +79,6 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   bot.loadPlugin(pathfinder);
   bot.loadPlugin(pvp.plugin);
   bot.loadPlugin(autoEat);
-
-  // Static skill names that can be called directly OR via invoke_skill — normalize both
-  const DIRECT_SKILL_NAMES = new Set([
-    "gather_wood", "mine_block", "craft_gear", "build_house", "strip_mine",
-    "smelt_ores", "go_fishing", "build_farm", "light_area", "build_bridge",
-  ]);
 
   // State
   const pendingChatMessages: ChatMessage[] = [];
@@ -327,11 +322,13 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         if (audioUrl) speakThought(audioUrl);
       }).catch(() => {});
 
-      // Normalize action key: invoke_skill:X and direct skill call X are the same thing
+      // Normalize action key: invoke_skill:X, direct skill call X, and any known skill name
+      // all map to the same canonical "skill:<name>" key so streak/blacklist tracking works
+      // regardless of which call pattern the LLM uses.
       const actionKey =
         decision.action === "invoke_skill" && decision.params?.skill
           ? `skill:${decision.params.skill}`
-          : DIRECT_SKILL_NAMES.has(decision.action)
+          : skillRegistry.has(decision.action)
           ? `skill:${decision.action}`
           : decision.action;
       // Don't let LLM-fallback `idle` breaks streak tracking for real skills
@@ -380,7 +377,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
 
       // Track failures for skill-type actions only (go_to/idle shouldn't pollute the list)
       const isSkillAction =
-        DIRECT_SKILL_NAMES.has(decision.action) ||
+        skillRegistry.has(decision.action) ||
         decision.action === "invoke_skill" ||
         decision.action === "neural_combat" ||
         decision.action === "generate_skill" ||
