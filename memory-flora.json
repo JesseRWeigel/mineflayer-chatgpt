@@ -589,10 +589,31 @@
       "durationSeconds": 199.448,
       "notes": "House partially built (89/174 blocks). It has... character. Maybe patch the holes later.",
       "timestamp": "2026-02-23T23:13:12.161Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.014,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-23T23:27:11.470Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.012,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-23T23:27:12.915Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-23T23:28:45.369Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T23:13:12.161Z",
+  "lastUpdated": "2026-02-23T23:28:45.369Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",

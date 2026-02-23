@@ -427,7 +427,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
               ? "Use 'attack' on sheep to get wool (kill sheep, they drop 0-2 wool each)."
               : targetName?.toLowerCase().includes("zombie") || targetName?.toLowerCase().includes("kilone")
                 ? "Combat is unreliable — explore, gather resources, build_house, or build_farm instead."
-                : "Choose a completely different approach.";
+                : targetName?.toLowerCase().includes("coal") || targetName?.toLowerCase().includes("minewo")
+                  ? "Use 'mine_block' with block='coal_ore' or 'oak_log' directly instead of dynamic skills."
+                  : "Choose a completely different approach.";
           const blockMsg = `BLOCKED: '${blockedName}' is permanently broken — ${altMsg}`;
           console.log(`[Bot] ${blockMsg}`);
           events.onAction(decision.action, blockMsg);
@@ -476,11 +478,18 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       lastActionWasSuccess = isSuccess;
       if (isSkillAction) {
         if (!isSuccess) {
-          const prevCount = (failureCounts.get(actionKey) ?? 0) + 1;
-          failureCounts.set(actionKey, prevCount);
-          // Only hard-blacklist after 2+ consecutive failures (single failures may be transient)
-          if (prevCount >= 2) {
-            recentFailures.set(actionKey, result.slice(0, 120));
+          // "Already running skill X" means the skill runner was busy — the REQUESTED skill
+          // never started, so this is not a real failure for that skill. Skip failure counting
+          // to prevent skills like build_house from being wrongly blacklisted just because
+          // a different skill was hogging the runner.
+          const isAlreadyRunning = result.startsWith("Already running skill");
+          if (!isAlreadyRunning) {
+            const prevCount = (failureCounts.get(actionKey) ?? 0) + 1;
+            failureCounts.set(actionKey, prevCount);
+            // Only hard-blacklist after 2+ consecutive failures (single failures may be transient)
+            if (prevCount >= 2) {
+              recentFailures.set(actionKey, result.slice(0, 120));
+            }
           }
           goalStepsLeft = Math.max(0, goalStepsLeft - 2);
         } else {

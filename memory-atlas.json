@@ -1,5 +1,14 @@
 {
-  "structures": [],
+  "structures": [
+    {
+      "type": "house",
+      "x": 9,
+      "y": 64,
+      "z": -333,
+      "builtAt": "2026-02-23T23:19:44.082Z",
+      "notes": "Oak House (partial)"
+    }
+  ],
   "deaths": [
     {
       "location": "-79.5, 56, -255.5",
@@ -428,14 +437,58 @@
       "durationSeconds": 60.747,
       "notes": "killOneZombie failed: killOneZombie timed out after 60s",
       "timestamp": "2026-02-23T23:16:00.804Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 175.633,
+      "notes": "House partially built (104/174 blocks). It has... character. Maybe patch the holes later.",
+      "timestamp": "2026-02-23T23:19:44.082Z"
+    },
+    {
+      "skill": "craftWhiteBed",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWhiteBed completed.",
+      "timestamp": "2026-02-23T23:19:45.683Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 159,
+      "notes": "House partially built (107/174 blocks). It has... character. Maybe patch the holes later.",
+      "timestamp": "2026-02-23T23:26:43.628Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.457,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:27:46.474Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": true,
+      "durationSeconds": 60.799,
+      "notes": "killOneZombie completed.",
+      "timestamp": "2026-02-23T23:29:04.367Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 15.127,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T23:30:11.784Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T23:16:00.804Z",
+  "lastUpdated": "2026-02-23T23:30:11.784Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",
     "craftABedUsingAvailableResourcesLikeWool",
-    "craftABedUsingWoolAndACraftingTableThenU"
+    "craftABedUsingWoolAndACraftingTableThenU",
+    "mineFiveCoalOres",
+    "mineFiveCoalOresV2"
   ]
 }
