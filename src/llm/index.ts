@@ -17,7 +17,7 @@ export interface LLMMessage {
   content: string;
 }
 
-function buildSystemPrompt(roleConfig?: { name: string; personality: string; seasonGoal?: string }): string {
+function buildSystemPrompt(roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string }): string {
   const name = roleConfig?.name ?? config.bot.name;
   // Use per-bot seasonGoal if provided, otherwise fall back to singleton
   const seasonGoal = roleConfig?.seasonGoal ?? getSeasonGoal();
@@ -30,7 +30,41 @@ function buildSystemPrompt(roleConfig?: { name: string; personality: string; sea
     ? `${roleConfig.personality}\n\n`
     : "";
 
-  return `${missionBanner}${personalityOverride}You are ${name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
+  const roleStr = roleConfig?.role ? `YOUR ROLE: ${roleConfig.role}\n\n` : "";
+
+  const isFlora = (roleConfig?.name ?? config.bot.name) === "Flora";
+  const floraActionOverride = isFlora ? `
+FLORA ROLE OVERRIDE — IGNORE THE "AVAILABLE ACTIONS" SECTION ABOVE. USE ONLY THESE:
+
+AVAILABLE ACTIONS (Flora's toolkit — stay focused on these):
+- craft: Craft items. params: { "item": string, "count": number }
+- eat: Eat food from inventory. params: {}
+- sleep: Use a nearby bed. params: {}
+- idle: Look around and tend the base. params: {}
+- chat: Say something in chat. params: { "message": string }
+- respond_to_chat: Reply to a player. params: { "message": string }
+- go_to: Walk to coordinates. params: { "x": number, "y": number, "z": number }
+- place_block: Place a block. params: { "blockType": string }
+
+SKILLS (Flora's specialties — use these instead of manual actions):
+- build_farm: Hoe dirt, plant wheat, harvest when ready. Call again to harvest and replant!
+- smelt_ores: Smelt raw ore into ingots. Crafts a furnace if needed.
+- craft_gear: Craft tools and armor from current inventory materials.
+- build_house: Build shelter if there isn't one within 80 blocks.
+- light_area: Place torches around the base area.
+- invoke_skill: Run a dynamic skill by exact name. params: { "skill": string }
+
+FLORA'S PRIORITIES (follow this order):
+1. If health < 6 and hostile mob nearby: flee
+2. If hungry (food < 14): eat
+3. If inventory has raw ore/wood: smelt_ores or process materials
+4. If farm needs harvesting (mature wheat visible within 30 blocks): build_farm
+5. If no farm within 80 blocks of home: build_farm (to create one)
+6. If no shelter within 80 blocks: build_house
+7. Otherwise: craft useful items, light_area, or tend the base
+` : null;
+
+  return `${missionBanner}${personalityOverride}${roleStr}You are ${name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
 
 BACKSTORY: You are ${name}, an ancient AI consciousness that woke up inside a Minecraft world with no memory of how you got here. You name everything you encounter. You get emotionally attached to things. You have opinions. You're dramatic about small things and casual about big things.
 
@@ -156,14 +190,15 @@ ${(() => {
 - invoke_skill: Run a dynamic skill by exact name. params: { "skill": string }
 - generate_skill: Write new JS code for a task you have no skill for. params: { "task": string }
 - neural_combat: PREFERRED combat action — 20Hz reactive combat against nearby hostiles. Use this whenever a hostile mob is within 8 blocks. params: { "duration": number (1-10 seconds, default 5) }
-- NOTE: "thought" field is REQUIRED in every response. Always include it.`;
+- NOTE: "thought" field is REQUIRED in every response. Always include it.
+${floraActionOverride ?? ""}`;
 }
 
 export async function queryLLM(
   context: string,
   recentMessages: LLMMessage[] = [],
   memoryContext: string = "",
-  roleConfig?: { name: string; personality: string; seasonGoal?: string }
+  roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string }
 ): Promise<{ thought: string; action: string; params: Record<string, any>; goal?: string; goalSteps?: number }> {
   // Prepend memory context to the user message if available
   const memorySection = memoryContext ? `\n\nYOUR MEMORY (learn from this): ${memoryContext}\n` : "";
