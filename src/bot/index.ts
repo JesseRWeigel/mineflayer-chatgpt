@@ -159,6 +159,10 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         goalStepsLeft = 0;
       } else if (repeatCount >= 3 && lastActionWasSuccess) {
         contextStr += `\n\nVARIETY CHECK: You've successfully done "${lastAction.replace(/^skill:/, "")}" ${repeatCount} times in a row. Great work — but you're in a rut! Move on to your next goal. Pick a DIFFERENT action that advances your overall progress.`;
+        if (repeatCount >= 5) {
+          // Hard enforcement: temporarily block this action to force diversification
+          recentFailures.set(lastAction, `Repeated ${repeatCount} times successfully — time to move on to something else`);
+        }
       }
 
       // Leash enforcement — keep bots from wandering too far from home
@@ -342,7 +346,8 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
 
       // Server-side blacklist: block any action that's currently in recentFailures.
       // The LLM prompt says "don't retry these" but LLMs don't always comply — this enforces it.
-      const isBlacklisted = recentFailures.has(actionKey);
+      // Check both bare name and skill:-prefixed name to catch cross-prefix dynamic skill calls.
+      const isBlacklisted = recentFailures.has(actionKey) || recentFailures.has(`skill:${actionKey}`);
       if (isBlacklisted) {
         const blockMsg = `Blocked: "${actionKey}" is in the failure blacklist. Choose a different action.`;
         console.log(`[Bot] ${blockMsg}`);
