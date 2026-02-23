@@ -195,6 +195,30 @@
       from { transform: translateX(20px); opacity: 0; }
       to { transform: translateX(0); opacity: 1; }
     }
+
+    /* Season goal — below thought bar */
+    #season-goal {
+      position: absolute;
+      top: 85px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px solid rgba(255, 215, 0, 0.4);
+      border-radius: 10px;
+      padding: 6px 20px;
+      max-width: 700px;
+      text-align: center;
+      font-size: 13px;
+      color: #ffd700;
+      display: none;
+    }
+    #season-goal .mission-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: #999;
+      margin-bottom: 2px;
+    }
   </style>
 </head>
 <body>
@@ -202,6 +226,12 @@
   <div id="thought-bar">
     <div class="label">Atlas is thinking</div>
     <div id="thought-text">Waking up...</div>
+  </div>
+
+  <!-- Season goal -->
+  <div id="season-goal">
+    <div class="mission-label">This Season's Mission</div>
+    <div id="season-goal-text"></div>
   </div>
 
   <!-- Stats -->
@@ -269,6 +299,14 @@
         $('inventory-list').textContent = state.inventory.join(', ');
       } else {
         $('inventory-list').textContent = 'Empty';
+      }
+
+      // Season goal
+      if (state.seasonGoal) {
+        $('season-goal').style.display = 'block';
+        $('season-goal-text').textContent = state.seasonGoal;
+      } else {
+        $('season-goal').style.display = 'none';
       }
 
       // Chat — built safely with DOM methods

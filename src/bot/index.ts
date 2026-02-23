@@ -588,6 +588,7 @@ export async function createBot(events: BotEvents) {
         position: { x: bot.entity.position.x, y: bot.entity.position.y, z: bot.entity.position.z },
         time: (bot.time.timeOfDay < 13000 || bot.time.timeOfDay > 23000) ? "Daytime" : "Nighttime",
         inventory: bot.inventory.items().map((i) => `${i.name}x${i.count}`),
+        seasonGoal: getSeasonGoal() ?? undefined,
       };
       if (isSkillRunning()) {
         (overlayData as any).action = `[SKILL] ${getActiveSkillName()}`;

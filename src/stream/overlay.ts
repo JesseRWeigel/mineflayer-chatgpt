@@ -17,6 +17,7 @@ export interface OverlayState {
   inventory: string[];
   chatMessages: { username: string; message: string; tier: string }[];
   skillProgress?: { skillName: string; phase: string; progress: number; message: string; active: boolean };
+  seasonGoal?: string;
 }
 
 let io: SocketIO | null = null;
