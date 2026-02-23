@@ -2,7 +2,10 @@ import type { Bot } from "mineflayer";
 import type { Skill, SkillProgress, SkillResult } from "./types.js";
 import { gatherMaterials } from "./materials.js";
 import { updateOverlay } from "../stream/overlay.js";
-import { recordSkillAttempt, BotMemoryStore } from "../bot/memory.js";
+import { recordSkillAttempt } from "../bot/memory.js";
+import { getBotMemoryStore, registerBotMemory } from "../bot/memory-registry.js";
+
+export { registerBotMemory };
 
 type ActiveSkillState = {
   skill: Skill;
@@ -13,14 +16,6 @@ type ActiveSkillState = {
 
 // Per-bot skill state — keyed by bot instance so multiple bots don't interfere.
 const activeSkillMap = new Map<Bot, ActiveSkillState>();
-
-// Per-bot memory stores — registered at bot creation so skill results go to the
-// correct per-bot memory file instead of the shared singleton.
-const memStoreMap = new Map<Bot, BotMemoryStore>();
-
-export function registerBotMemory(bot: Bot, store: BotMemoryStore): void {
-  memStoreMap.set(bot, store);
-}
 
 export function isSkillRunning(bot: Bot): boolean {
   return activeSkillMap.has(bot);
@@ -146,7 +141,7 @@ export async function runSkill(
     const durationSeconds = (Date.now() - startTime) / 1000;
 
     // Record skill attempt in per-bot memory (fallback to singleton for non-registered bots)
-    const memStore = memStoreMap.get(bot);
+    const memStore = getBotMemoryStore(bot);
     if (memStore) {
       memStore.recordSkillAttempt(skill.name, result.success, durationSeconds, result.message);
     } else {
@@ -165,7 +160,7 @@ export async function runSkill(
     return result.message;
   } catch (err: any) {
     const durationSeconds = (Date.now() - startTime) / 1000;
-    const memStore = memStoreMap.get(bot);
+    const memStore = getBotMemoryStore(bot);
     if (memStore) {
       memStore.recordSkillAttempt(skill.name, false, durationSeconds, `Crashed: ${err.message}`);
     } else {

@@ -7,6 +7,7 @@ import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
 import { hasStructureNearby, addStructure, getNearestStructure } from "../bot/memory.js";
+import { getBotMemoryStore } from "../bot/memory-registry.js";
 
 /** All door types — any wood's door works interchangeably */
 const DOOR_TYPES = [
@@ -49,8 +50,14 @@ export const buildHouseSkill: Skill = {
     } else {
       // Check if there's already a house nearby before finding a new site
       const botPos = bot.entity.position;
-      if (hasStructureNearby("house", botPos.x, botPos.y, botPos.z, 80)) {
-        const nearest = getNearestStructure("house", botPos.x, botPos.z);
+      const _memStore = getBotMemoryStore(bot);
+      const _hasHouse = _memStore
+        ? _memStore.hasStructureNearby("house", botPos.x, botPos.y, botPos.z, 80)
+        : hasStructureNearby("house", botPos.x, botPos.y, botPos.z, 80);
+      if (_hasHouse) {
+        const nearest = _memStore
+          ? _memStore.getNearestStructure("house", botPos.x, botPos.z)
+          : getNearestStructure("house", botPos.x, botPos.z);
         const loc = nearest ? `at (${nearest.x}, ${nearest.y}, ${nearest.z})` : "nearby";
         return {
           success: true, // Treat as success so it doesn't get blacklisted — house already built!
@@ -299,16 +306,20 @@ export const buildHouseSkill: Skill = {
     } catch { /* ok */ }
 
     if (placed > total * 0.7) {
-      // Save house to memory
-      addStructure("house", origin.x, origin.y, origin.z, bp.name);
+      // Save house to per-bot memory (falls back to singleton if no per-bot store registered)
+      const _ms = getBotMemoryStore(bot);
+      if (_ms) _ms.addStructure("house", origin.x, origin.y, origin.z, bp.name);
+      else addStructure("house", origin.x, origin.y, origin.z, bp.name);
       return {
         success: true,
         message: `HOUSE BUILT! "${bp.name}" at ${origin.x}, ${origin.y}, ${origin.z}. Placed ${placed} blocks (${skipped} skipped). It's GORGEOUS. It's HOME.`,
         stats: { blocksPlaced: placed, blocksSkipped: skipped },
       };
     } else if (placed > 0) {
-      // Save house to memory (even if partial)
-      addStructure("house", origin.x, origin.y, origin.z, `${bp.name} (partial)`);
+      // Save house to per-bot memory (even if partial)
+      const _ms = getBotMemoryStore(bot);
+      if (_ms) _ms.addStructure("house", origin.x, origin.y, origin.z, `${bp.name} (partial)`);
+      else addStructure("house", origin.x, origin.y, origin.z, `${bp.name} (partial)`);
       return {
         success: true,
         message: `House partially built (${placed}/${total} blocks). It has... character. Maybe patch the holes later.`,
