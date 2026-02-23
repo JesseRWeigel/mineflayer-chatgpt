@@ -38,47 +38,48 @@ export const buildFarmSkill: Skill = {
       }
     }
 
-    // --- Step 2: Find farmable dirt (with water within 5 blocks) ---
-    // Search for dirt/grass first, then verify water is close enough for hydration.
-    // This avoids navigating to the ocean edge where there's no adjacent dirt.
-    onProgress({ skillName: "build_farm", phase: "Finding water", progress: 0.05, message: "Searching for farmable land near water...", active: true });
+    // --- Step 2: Find water, then pre-scan nearby dirt for a fixed target list ---
+    // Finding water first avoids the "wrong water re-location" bug where the post-navigation
+    // water re-search picks a different water source with no adjacent dirt.
+    onProgress({ skillName: "build_farm", phase: "Finding farmable land", progress: 0.05, message: "Searching for water and nearby dirt...", active: true });
 
-    const farmableDirt = bot.findBlock({
-      matching: (b) => {
-        if (b.name !== "dirt" && b.name !== "grass_block") return false;
-        // Check that water exists within 5 blocks (for hydration)
-        for (let dx = -5; dx <= 5; dx++) {
-          for (let dz = -5; dz <= 5; dz++) {
-            const nearby = bot.blockAt(b.position.offset(dx, 0, dz));
-            if (nearby && nearby.name === "water") return true;
-          }
-        }
-        return false;
-      },
+    const water = bot.findBlock({
+      matching: (b) => b.name === "water",
       maxDistance: 64,
     });
 
-    if (!farmableDirt) {
-      return { success: false, message: "No farmable land nearby! Need dirt/grass within 5 blocks of water. Explore south/east/west to find a river or pond." };
+    if (!water) {
+      return { success: false, message: "No water found within 64 blocks! Explore to find a river or pond." };
     }
 
-    // Find the water source nearest to the farmable dirt (for navigation reference)
-    let water = bot.findBlock({
-      matching: (b) => b.name === "water",
-      maxDistance: 8,
-      // Search near the farmable dirt block
-    });
+    // Pre-scan a 9x9 area around the water for tillable dirt/grass at the same Y level.
+    // Pre-scanning gives a fixed list to iterate — no re-searching mid-loop that could
+    // accidentally use a different water source.
+    const waterPos = water.position;
+    const farmTargets: Vec3[] = [];
+    for (let dx = -4; dx <= 4; dx++) {
+      for (let dz = -4; dz <= 4; dz++) {
+        if (dx === 0 && dz === 0) continue; // skip water block itself
+        const pos = waterPos.offset(dx, 0, dz);
+        const block = bot.blockAt(pos);
+        if (block && (block.name === "dirt" || block.name === "grass_block")) {
+          farmTargets.push(pos.clone());
+        }
+      }
+    }
 
+    if (farmTargets.length === 0) {
+      return { success: false, message: "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river." };
+    }
+
+    // Navigate to the water area
     setMovements(bot);
     try {
       await Promise.race([
-        bot.pathfinder.goto(new goals.GoalNear(farmableDirt.position.x, farmableDirt.position.y, farmableDirt.position.z, 4)),
+        bot.pathfinder.goto(new goals.GoalNear(waterPos.x, waterPos.y, waterPos.z, 5)),
         new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("timeout")); }, 15000)),
       ]);
-    } catch { /* ok */ }
-
-    // Re-locate water near our new position
-    water = bot.findBlock({ matching: (b) => b.name === "water", maxDistance: 12 }) ?? water;
+    } catch { /* ok — try anyway */ }
 
     // --- Step 3: Collect seeds by breaking grass ---
     onProgress({ skillName: "build_farm", phase: "Collecting seeds", progress: 0.1, message: "Breaking grass for seeds...", active: true });
@@ -103,37 +104,36 @@ export const buildFarmSkill: Skill = {
       return { success: false, message: "No seeds from grass! Try a grassier biome." };
     }
 
-    // --- Step 4: Hoe dirt near water and plant ---
+    // --- Step 4: Till and plant on pre-identified target positions ---
     onProgress({ skillName: "build_farm", phase: "Planting crops", progress: 0.25, message: "Tilling soil and planting...", active: true });
 
     let planted = 0;
-    const target = Math.min(seedCount, 16);
+    const target = Math.min(seedCount, farmTargets.length, 16);
 
-    for (let i = 0; i < target + 25 && planted < target && !signal.aborted; i++) {
-      // Find dirt/grass_block near water (within 4 blocks for hydration)
-      const dirt = bot.findBlock({
-        matching: (b) => {
-          if (b.name !== "dirt" && b.name !== "grass_block") return false;
-          if (!b.position || !water?.position) return false;
-          return b.position.distanceTo(water.position) <= 5;
-        },
-        maxDistance: 20,
-      });
-      if (!dirt) break;
+    for (const targetPos of farmTargets) {
+      if (planted >= target || signal.aborted) break;
+
+      // Skip if block was already tilled by a previous iteration
+      const currentBlock = bot.blockAt(targetPos);
+      if (!currentBlock || (currentBlock.name !== "dirt" && currentBlock.name !== "grass_block")) continue;
 
       try {
         setMovements(bot);
-        await bot.pathfinder.goto(new goals.GoalNear(dirt.position.x, dirt.position.y, dirt.position.z, 2));
+        await Promise.race([
+          bot.pathfinder.goto(new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 1)),
+          new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("timeout")); }, 8000)),
+        ]);
 
         // Equip hoe and till
         hoe = bot.inventory.items().find((it) => it.name.endsWith("_hoe"));
         if (!hoe) break;
         await bot.equip(hoe, "hand");
-        await bot.activateBlock(dirt);
-        await bot.waitForTicks(3);
+        await bot.lookAt(targetPos.offset(0.5, 0.5, 0.5));
+        await bot.activateBlock(currentBlock);
+        await bot.waitForTicks(4);
 
         // Check if it became farmland
-        const result = bot.blockAt(dirt.position);
+        const result = bot.blockAt(targetPos);
         if (result && result.name === "farmland") {
           const seeds = bot.inventory.items().find((it) => it.name === "wheat_seeds");
           if (seeds) {
@@ -155,12 +155,12 @@ export const buildFarmSkill: Skill = {
     }
 
     if (planted === 0) {
-      return { success: false, message: "Couldn't plant anything. Need dirt blocks near water!" };
+      return { success: false, message: `Couldn't plant anything near water at ${waterPos.x.toFixed(0)},${waterPos.z.toFixed(0)} — navigation or tilling failed. Try 'explore' first.` };
     }
 
     return {
       success: true,
-      message: `Farm planted! ${planted} wheat seeds near water at ${water?.position.x.toFixed(0) ?? "?"}, ${water?.position.z.toFixed(0) ?? "?"}. Wheat grows in ~5 minutes — come back and use build_farm again to harvest!`,
+      message: `Farm planted! ${planted} wheat seeds near water at ${waterPos.x.toFixed(0)}, ${waterPos.z.toFixed(0)}. Wheat grows in ~5 minutes — come back and use build_farm again to harvest!`,
       stats: { cropsPlanted: planted },
     };
   },
@@ -217,7 +217,7 @@ async function harvestMatureWheat(
     for (let i = 0; i < 40 && !signal.aborted; i++) {
       const farmland = bot.findBlock({
         matching: (b) => {
-          if (b.name !== "farmland") return false;
+          if (b.name !== "farmland" || !b.position) return false;
           const above = bot.blockAt(b.position.offset(0, 1, 0));
           return above !== null && above.name === "air";
         },

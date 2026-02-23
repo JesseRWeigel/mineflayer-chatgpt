@@ -1,5 +1,14 @@
 {
-  "structures": [],
+  "structures": [
+    {
+      "type": "house",
+      "x": 9,
+      "y": 64,
+      "z": -333,
+      "builtAt": "2026-02-23T23:13:12.161Z",
+      "notes": "Oak House (partial)"
+    }
+  ],
   "deaths": [
     {
       "location": "415.5, 80, -163.5",
@@ -8,6 +17,14 @@
       "z": -163,
       "cause": "unknown",
       "timestamp": "2026-02-23T21:13:41.660Z"
+    },
+    {
+      "location": "-122.29051261771838, 60.7, -216.8",
+      "x": -122,
+      "y": 61,
+      "z": -217,
+      "cause": "unknown",
+      "timestamp": "2026-02-23T23:02:16.769Z"
     }
   ],
   "oreDiscoveries": [
@@ -565,10 +582,31 @@
       "durationSeconds": 0.076,
       "notes": "killFourSheep completed.",
       "timestamp": "2026-02-23T22:47:01.045Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 480.415,
+      "notes": "Interrupted while gathering wood!",
+      "timestamp": "2026-02-23T23:02:17.104Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 189.407,
+      "notes": "HOUSE BUILT! \"Oak House\" at 2, 63, -327. Placed 169 blocks (5 skipped). It's GORGEOUS. It's HOME.",
+      "timestamp": "2026-02-23T23:05:39.040Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 199.448,
+      "notes": "House partially built (89/174 blocks). It has... character. Maybe patch the holes later.",
+      "timestamp": "2026-02-23T23:13:12.161Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T22:47:01.045Z",
+  "lastUpdated": "2026-02-23T23:13:12.161Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",

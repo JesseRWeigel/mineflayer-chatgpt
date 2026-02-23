@@ -425,7 +425,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           const altMsg =
             targetName?.toLowerCase().includes("shear") || targetName?.toLowerCase().includes("wool")
               ? "Use 'attack' on sheep to get wool (kill sheep, they drop 0-2 wool each)."
-              : "Choose a completely different approach.";
+              : targetName?.toLowerCase().includes("zombie") || targetName?.toLowerCase().includes("kilone")
+                ? "Combat is unreliable — explore, gather resources, build_house, or build_farm instead."
+                : "Choose a completely different approach.";
           const blockMsg = `BLOCKED: '${blockedName}' is permanently broken — ${altMsg}`;
           console.log(`[Bot] ${blockMsg}`);
           events.onAction(decision.action, blockMsg);

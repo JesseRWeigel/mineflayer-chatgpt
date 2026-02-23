@@ -344,10 +344,94 @@
       "durationSeconds": 60.292,
       "notes": "killOneZombie failed: killOneZombie timed out after 60s",
       "timestamp": "2026-02-23T22:47:48.345Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 60.003,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T22:50:26.467Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 60.121,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T22:53:43.944Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 60.011,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T22:54:58.594Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.075,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:55:13.908Z"
+    },
+    {
+      "skill": "killFourSheep",
+      "success": true,
+      "durationSeconds": 0.072,
+      "notes": "killFourSheep completed.",
+      "timestamp": "2026-02-23T22:55:16.524Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 60.223,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T22:56:38.525Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.512,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:57:05.607Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 460.649,
+      "notes": "HOUSE BUILT! \"Oak House\" at 2, 63, -327. Placed 150 blocks (24 skipped). It's GORGEOUS. It's HOME.",
+      "timestamp": "2026-02-23T23:04:47.702Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 173.867,
+      "notes": "HOUSE BUILT! \"Oak House\" at 2, 63, -327. Placed 169 blocks (5 skipped). It's GORGEOUS. It's HOME.",
+      "timestamp": "2026-02-23T23:07:47.314Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.188,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:11:02.166Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 61.078,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:13:17.192Z"
+    },
+    {
+      "skill": "killOneZombie",
+      "success": false,
+      "durationSeconds": 60.747,
+      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
+      "timestamp": "2026-02-23T23:16:00.804Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T22:47:48.345Z",
+  "lastUpdated": "2026-02-23T23:16:00.804Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",
