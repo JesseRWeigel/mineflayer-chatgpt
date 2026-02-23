@@ -241,20 +241,33 @@ export class BotMemoryStore {
     const skills = [...new Set(this.memory.skillHistory.map((s) => s.skill))];
     if (brokenSet.size > 0 || skills.length > 0) {
       const brokenLabel: string[] = [];
+      const preconditionLabel: string[] = [];
       const normalStats: string[] = [];
       for (const skill of brokenSet) {
         brokenLabel.push(`${skill} (historically broken)`);
       }
       for (const skill of skills) {
-        const stats = this.getSkillSuccessRate(skill);
-        if (stats.successRate === 0 && stats.totalAttempts >= 2 && !brokenSet.has(skill)) {
-          brokenLabel.push(`${skill} (failed ${stats.totalAttempts}/${stats.totalAttempts} times)`);
-        } else if (!brokenSet.has(skill)) {
-          normalStats.push(`${skill}: ${stats.successRate.toFixed(0)}%`);
+        if (brokenSet.has(skill)) continue;
+        const attempts = this.memory.skillHistory.filter((s) => s.skill === skill);
+        const successes = attempts.filter((a) => a.success).length;
+        const realFailures = attempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+        const preconditionFailures = attempts.filter(a => !a.success && PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+        if (successes === 0 && realFailures.length >= 2) {
+          // No successes, at least 2 genuine failures — truly broken
+          brokenLabel.push(`${skill} (failed ${attempts.length}/${attempts.length} times)`);
+        } else if (successes === 0 && preconditionFailures.length >= 2 && realFailures.length === 0) {
+          // All failures are precondition misses (no trees, no materials, etc.) — skill works, just needs resources
+          preconditionLabel.push(`${skill} (needs resources — explore/gather first)`);
+        } else {
+          const rate = attempts.length > 0 ? ((successes / attempts.length) * 100).toFixed(0) : "0";
+          normalStats.push(`${skill}: ${rate}%`);
         }
       }
       if (brokenLabel.length > 0) {
         parts.push(`BROKEN SKILLS — DO NOT USE EVER: ${brokenLabel.join(", ")}. These have NEVER succeeded. Choose completely different skills.`);
+      }
+      if (preconditionLabel.length > 0) {
+        parts.push(`SKILLS WAITING FOR RESOURCES (these work fine — just need prerequisites): ${preconditionLabel.join(", ")}`);
       }
       if (normalStats.length > 0) {
         parts.push(`SKILL PERFORMANCE: ${normalStats.join(", ")}`);

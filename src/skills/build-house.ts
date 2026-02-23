@@ -99,7 +99,7 @@ export const buildHouseSkill: Skill = {
       for (let i = 0; i < logsToMine + 15 && mined < logsToMine && !signal.aborted; i++) {
         const block = bot.findBlock({
           matching: (b) => logBlockNames.includes(b.name),
-          maxDistance: 64,
+          maxDistance: 128,
         });
         if (!block) {
           if (mined === 0) {

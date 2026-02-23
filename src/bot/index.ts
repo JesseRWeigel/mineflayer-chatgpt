@@ -404,6 +404,33 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         return;
       }
 
+      // Persistent broken-skills gate: block invoke_skill / generate_skill for known-broken dynamic skills.
+      // These skills failed 5+ times historically and were deleted. The LLM must not re-create them.
+      const brokenSkills = memStore.getBrokenSkills();
+      if (decision.action === "invoke_skill" || decision.action === "generate_skill") {
+        const targetName =
+          decision.action === "invoke_skill"
+            ? (decision.params?.skill as string | undefined)
+            : undefined; // generate_skill: check task text for a broken skill name
+        const taskText = (decision.params?.task as string | undefined) ?? "";
+        const brokenMatch =
+          targetName
+            ? brokenSkills.get(targetName) ?? brokenSkills.get(`skill:${targetName}`)
+            : [...brokenSkills.keys()].find((k) => taskText.includes(k.replace("skill:", "")));
+        if (brokenMatch) {
+          const blockedName = targetName ?? "that skill";
+          const altMsg =
+            targetName?.toLowerCase().includes("shear") || targetName?.toLowerCase().includes("wool")
+              ? "Use 'attack' on sheep to get wool (kill sheep, they drop 0-2 wool each)."
+              : "Choose a completely different approach.";
+          const blockMsg = `BLOCKED: '${blockedName}' is permanently broken — ${altMsg}`;
+          console.log(`[Bot] ${blockMsg}`);
+          events.onAction(decision.action, blockMsg);
+          isActing = false;
+          return;
+        }
+      }
+
       // Execute action
       const result = await executeAction(bot, decision.action, decision.params);
       lastResult = result;
