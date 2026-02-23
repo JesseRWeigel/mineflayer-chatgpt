@@ -220,7 +220,16 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         const wy = bot.entity.position.y.toFixed(1);
         console.log(`[Bot] In water at ${wx},${wy},${wz} — attempting /tp escape`);
 
-        // Try a few /tp attempts (spacing them out to avoid AFK kick)
+        // If safeSpawn is configured, always escape back to the known-safe area
+        if (roleConfig.safeSpawn) {
+          const { x: sx, z: sz } = roleConfig.safeSpawn;
+          console.log(`[Bot] In water — teleporting back to safeSpawn area (${sx},80,${sz})`);
+          bot.chat(`/tp ${sx} 80 ${sz}`);
+          await new Promise((r) => setTimeout(r, 3000));
+          return;
+        }
+
+        // No safeSpawn — try a few /tp attempts (spacing them out to avoid AFK kick)
         const offsets = [[0, 300], [300, 0], [0, -300], [-300, 0]];
         let foundLand = false;
         for (const [dx, dz] of offsets) {
