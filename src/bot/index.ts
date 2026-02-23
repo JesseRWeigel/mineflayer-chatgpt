@@ -540,6 +540,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   // Spawn safety — runs on every spawn (initial connection AND respawns after death).
   // Locks spawnpoint only once the bot is confirmed standing on solid ground.
   let spawnSafetyRunning = false;
+  // Resolves once the first spawn safety run completes — gates the decision loop
+  let resolveSpawnSafetyDone!: () => void;
+  const spawnSafetyDone = new Promise<void>((r) => { resolveSpawnSafetyDone = r; });
   async function runSpawnSafety() {
     if (spawnSafetyRunning) return; // prevent concurrent runs (e.g. death mid-fall)
     spawnSafetyRunning = true;
@@ -556,6 +559,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       bot.chat(`/spawnpoint ${roleConfig.username} ${x} ${y} ${z}`);
       console.log(`[Bot] Spawnpoint set to safeSpawn at ${x},${y},${z}`);
       spawnSafetyRunning = false;
+      resolveSpawnSafetyDone();
       return;
     }
 
@@ -603,6 +607,8 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       if (!foundLand) {
         console.warn("[Bot] Could not find dry land for spawnpoint");
       }
+      spawnSafetyRunning = false;
+      resolveSpawnSafetyDone();
       return;
     }
 
@@ -636,6 +642,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
     console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
     spawnSafetyRunning = false;
+    resolveSpawnSafetyDone();
   }
 
   // Re-run spawn safety on every respawn (deaths included)
@@ -686,7 +693,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     // Continuous action loop — fires immediately after each action completes
     loopRunning = true;
     async function runLoop() {
-      await new Promise((r) => setTimeout(r, 2000)); // Initial delay after spawn
+      await spawnSafetyDone; // Wait for spawn safety to complete before first decision
       while (loopRunning) {
         await decide();
         // Minimum gap between decisions (prevents hammering when actions return instantly)
