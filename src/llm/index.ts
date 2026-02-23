@@ -193,7 +193,7 @@ export async function queryLLM(
         messages: [
           {
             role: "system",
-            content: `You are ${config.bot.name}, an AI playing Minecraft. Respond ONLY with valid JSON: {"thought":"...","action":"...","params":{}}`,
+            content: `You are ${roleConfig?.name ?? config.bot.name}, an AI playing Minecraft. Respond ONLY with valid JSON: {"thought":"...","action":"...","params":{}}`,
           },
           {
             role: "user",
@@ -322,7 +322,8 @@ export async function queryLLM(
 
 export async function chatWithLLM(
   prompt: string,
-  context: string
+  context: string,
+  roleConfig?: { name: string }
 ): Promise<string> {
   try {
     const response = await ollama.chat({
@@ -330,7 +331,7 @@ export async function chatWithLLM(
       messages: [
         {
           role: "system",
-          content: `You are ${config.bot.name}, a chaotic AI playing Minecraft on a livestream. A viewer is talking to you. Reply in 1-2 short sentences. Be funny, dramatic, and in-character. You name everything, hold grudges against mobs, and are emotionally attached to your items. You're currently: ${context}`,
+          content: `You are ${roleConfig?.name ?? config.bot.name}, a chaotic AI playing Minecraft on a livestream. A viewer is talking to you. Reply in 1-2 short sentences. Be funny, dramatic, and in-character. You name everything, hold grudges against mobs, and are emotionally attached to your items. You're currently: ${context}`,
         },
         { role: "user", content: prompt },
       ],
