@@ -87,9 +87,13 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   // NOT pre-populated from memory — let the bot try fresh each session.
   // Memory context already warns the LLM about historically broken skills.
   const recentFailures = new Map<string, string>();
+  // Count consecutive failures per action — only hard-blacklist after 2+ consecutive failures
+  const failureCounts = new Map<string, number>();
+  let successesSinceLastExpiry = 0;
   let isActing = false;
   let loopRunning = false;
   let lastAction = "";
+  let lastResult = "";
   let repeatCount = 0;
   let lastActionWasSuccess = false;
   let currentGoal = "";
@@ -191,6 +195,11 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           .map(([k, v]) => `- ${k.replace(/^skill:/, "")}: ${v}`)
           .join("\n");
         contextStr += `\n\nSKILLS/ACTIONS THAT JUST FAILED (DO NOT RETRY THESE):\n${failLines}\nChoose a DIFFERENT action.`;
+      }
+
+      // If the last action found trees, strongly hint to gather_wood now
+      if (lastResult && /found trees nearby/i.test(lastResult)) {
+        contextStr += "\n\n⚠️ TREES ARE NEARBY! Use gather_wood RIGHT NOW to collect logs. Don't explore further — you're standing next to trees!";
       }
 
       contextStr += "\n\nWhat should you do next? Respond with a JSON action.";
@@ -330,6 +339,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           ? `skill:${decision.params.skill}`
           : skillRegistry.has(decision.action)
           ? `skill:${decision.action}`
+          // craft failures are item-specific — blacklist craft:item not all crafting
+          : decision.action === "craft" && decision.params?.item
+          ? `craft:${decision.params.item}`
           : decision.action;
       // Don't let LLM-fallback `idle` breaks streak tracking for real skills
       if (decision.action !== "idle" || decision.thought !== "Brain buffering...") {
@@ -358,6 +370,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
 
       // Execute action
       const result = await executeAction(bot, decision.action, decision.params);
+      lastResult = result;
       events.onAction(decision.action, result);
       console.log(`[Bot] Result: ${result}`);
 
@@ -377,12 +390,14 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       }
 
       // Track failures for skill-type actions only (go_to/idle shouldn't pollute the list)
+      // explore is intentionally excluded: it's a navigation primitive that handles its own errors
+      // internally. Blacklisting it leads to permanent stuck states. The variety check (repeatCount)
+      // already prevents explore ruts. go_to is also excluded for the same reason.
       const isSkillAction =
         skillRegistry.has(decision.action) ||
         decision.action === "invoke_skill" ||
         decision.action === "neural_combat" ||
         decision.action === "generate_skill" ||
-        decision.action === "explore" ||
         decision.action === "craft";
       const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished/i.test(result);
 
@@ -393,12 +408,20 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       lastActionWasSuccess = isSuccess;
       if (isSkillAction) {
         if (!isSuccess) {
-          recentFailures.set(actionKey, result.slice(0, 120));
+          const prevCount = (failureCounts.get(actionKey) ?? 0) + 1;
+          failureCounts.set(actionKey, prevCount);
+          // Only hard-blacklist after 2+ consecutive failures (single failures may be transient)
+          if (prevCount >= 2) {
+            recentFailures.set(actionKey, result.slice(0, 120));
+          }
           goalStepsLeft = Math.max(0, goalStepsLeft - 2);
         } else {
+          failureCounts.delete(actionKey);
           recentFailures.delete(actionKey);
-          // On success, expire the oldest failure entry to keep the soft-blacklist from going stale
-          if (recentFailures.size > 0) {
+          // Every 8 successes, expire the oldest blacklist entry so stale entries don't linger forever
+          successesSinceLastExpiry++;
+          if (successesSinceLastExpiry >= 8 && recentFailures.size > 0) {
+            successesSinceLastExpiry = 0;
             const firstKey = recentFailures.keys().next().value;
             if (firstKey) recentFailures.delete(firstKey);
           }

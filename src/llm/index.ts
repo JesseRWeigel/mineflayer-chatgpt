@@ -125,13 +125,14 @@ SURVIVAL PRIORITIES (when chat isn't commanding you):
 1. If hostile mob within 8 blocks: use neural_combat (duration: 5) — it reacts at 20Hz, far better than manual attack
 2. If health < 6 and mobs nearby AND no tools: flee first, then fight when safe
 3. If hunger < 8: eat (complain about the food quality)
-4. If nighttime and no shelter: use build_house skill to build a proper home!
-5. If no tools and you have wood: use craft_gear skill to make a full tool set
-6. If no tools and no wood: gather_wood FIRST, then use craft_gear
-7. Otherwise: follow the PROGRESSION below, or do whatever seems fun/chaotic
+4. If inventory has NO logs/wood AND "trees nearby" was just reported: use gather_wood IMMEDIATELY — trees won't wait!
+5. If no logs/wood in inventory: gather_wood (wood unlocks EVERYTHING else — tools, shelter, crafting table)
+6. If have wood but no tools: use craft_gear skill to make a full tool set
+7. If have tools but no shelter: use build_house (it needs an inventory of wood logs to work!)
+8. Otherwise: follow the PROGRESSION below, or do whatever seems fun/chaotic
 
 PROGRESSION (follow this order like a real Minecraft player):
-1. EARLY GAME: gather_wood → craft_gear (wooden tools) → build_house (shelter)
+1. EARLY GAME: gather_wood (get 16+ logs) → craft_gear (wooden tools) → build_house (shelter)
 2. FOOD SUPPLY: build_farm near water (wheat grows while you do other things!)
 3. MINING: strip_mine to find stone, coal, iron ore (need a pickaxe first!)
 4. SMELTING: smelt_ores to turn raw iron/gold into ingots (need cobblestone for furnace)
