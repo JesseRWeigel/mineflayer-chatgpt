@@ -292,14 +292,22 @@ export class BotMemoryStore {
     const skills = [...new Set(this.memory.skillHistory.map((s) => s.skill))];
     for (const skill of skills) {
       if (broken.has(skill)) continue;
-      const stats = this.getSkillSuccessRate(skill);
-      if (stats.successRate === 0 && stats.totalAttempts >= 2) {
-        const msg = `Failed ${stats.totalAttempts} times (0% success rate) — this skill is broken, never use it`;
+      const attempts = this.memory.skillHistory.filter((s) => s.skill === skill);
+      const successes = attempts.filter((a) => a.success).length;
+      const realFailures = attempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+      // Only flag as broken if there are REAL failures (not just precondition misses like "no trees")
+      if (successes === 0 && realFailures.length >= 2) {
+        const msg = `Failed ${attempts.length} times (0% success rate) — this skill is broken, never use it`;
         broken.set(skill, msg);
         broken.set(`skill:${skill}`, msg);
       }
     }
     return broken;
+  }
+
+  /** Returns only the persistent brokenSkillNames list (for execution-layer gating). */
+  getPersistentBrokenSkillNames(): Set<string> {
+    return new Set(this.memory.brokenSkillNames);
   }
 
   shouldAvoidLocation(x: number, y: number, z: number, radius = 10): boolean {

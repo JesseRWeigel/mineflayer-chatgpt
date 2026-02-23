@@ -406,18 +406,20 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
 
       // Persistent broken-skills gate: block invoke_skill / generate_skill for known-broken dynamic skills.
       // These skills failed 5+ times historically and were deleted. The LLM must not re-create them.
-      const brokenSkills = memStore.getBrokenSkills();
+      // Uses getPersistentBrokenSkillNames() (not getBrokenSkills) so built-in skills with precondition
+      // failures (e.g. build_house "no trees", build_farm "no water") are never wrongly blocked.
+      const persistentBroken = memStore.getPersistentBrokenSkillNames();
       if (decision.action === "invoke_skill" || decision.action === "generate_skill") {
         const targetName =
           decision.action === "invoke_skill"
             ? (decision.params?.skill as string | undefined)
             : undefined; // generate_skill: check task text for a broken skill name
         const taskText = (decision.params?.task as string | undefined) ?? "";
-        const brokenMatch =
+        const isTargetBroken =
           targetName
-            ? brokenSkills.get(targetName) ?? brokenSkills.get(`skill:${targetName}`)
-            : [...brokenSkills.keys()].find((k) => taskText.includes(k.replace("skill:", "")));
-        if (brokenMatch) {
+            ? persistentBroken.has(targetName)
+            : [...persistentBroken].some((k) => taskText.includes(k));
+        if (isTargetBroken) {
           const blockedName = targetName ?? "that skill";
           const altMsg =
             targetName?.toLowerCase().includes("shear") || targetName?.toLowerCase().includes("wool")
