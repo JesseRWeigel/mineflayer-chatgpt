@@ -256,6 +256,8 @@ export async function queryLLM(
     // Normalize action names — model sometimes uses spaces/different keys
     const ACTION_ALIASES: Record<string, string> = {
       "go to": "go_to", "goto": "go_to",
+      "move": "explore", "walk": "explore", "travel": "explore",
+      "teleport": "go_to",
       "mine": "mine_block", "mine block": "mine_block", "mine_blocks": "mine_block",
       "gather wood": "gather_wood", "gatherwood": "gather_wood", "chop": "gather_wood",
       "place block": "place_block", "placeblock": "place_block",
@@ -268,10 +270,23 @@ export async function queryLLM(
       "craft_item": "craft", "crafting": "craft",
     };
     const rawAction = (parsed.action || "idle").toLowerCase().trim();
-    const action = ACTION_ALIASES[rawAction] ?? parsed.action ?? "idle";
+    let action = ACTION_ALIASES[rawAction] ?? parsed.action ?? "idle";
 
     // Normalize params — model sometimes uses "parameters" instead of "params"
     const params = parsed.params ?? parsed.parameters ?? {};
+
+    // mine_BLOCKTYPE → mine_block with blockType injected
+    // Catches: mine_iron_ore, mine_coal_ore, mine_diamond, mine_cobblestone, etc.
+    if (action !== "mine_block" && /^mine_\w+$/.test(action)) {
+      params.blockType = params.blockType || action.slice(5); // "mine_iron_ore" → "iron_ore"
+      action = "mine_block";
+    }
+
+    // manuallyBuild* / buildAShelter* / constructShelter* → build_house
+    // The 8b model frequently invents long camelCase shelter-building action names
+    if (/^manually(build|construct)|^build.*(shelter|hut)|^construct.*(shelter|house)/i.test(action)) {
+      action = "build_house";
+    }
 
     // Repair: invoke_skill with "skill" at top level instead of in params (truncated JSON)
     if (action === "invoke_skill" && !params.skill && parsed.skill) {

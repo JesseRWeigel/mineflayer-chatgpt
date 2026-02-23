@@ -24,6 +24,7 @@
 | 8. Build & test | ✅ Done | TypeScript compiles clean |
 | 9. Run & observe | ✅ Done | Observed ~3 min of live operation |
 | 10. Fix skill graveyard | ✅ Done | 46→9 generated skills; restored static skills from blacklist |
+| 11. Action alias fixes | ✅ Done | `mine_X`→`mine_block`, `manuallyBuild*`→`build_house`, `move`→`explore`; unknown actions blocked on 1st fail |
 
 ## Verified Behaviors
 
@@ -36,11 +37,15 @@
 - No crashes observed during 3-minute observation window
 - Static skills (`build_house`, `craft_gear`, `build_farm`, `light_area`, `build_bridge`) restored from false blacklist
 - 37 broken/redundant dynamic skills deleted; 2 broken furnace skills added to permanent blacklist
+- `mine_iron_ore` / `mine_coal` / etc. now route to `mine_block` with correct `blockType` param
+- `manuallyBuildAShelter*` / `constructShelter*` now route to `build_house`
+- `move` / `walk` / `travel` now route to `explore`
+- Hallucinated unknown actions added to `recentFailures` immediately (1 fail = blocked, was: blocked only after 5 permanent blacklist threshold)
 
 ## Remaining Known Issues (Pre-existing, not introduced by this PR)
 
-- First LLM response per session occasionally has wrong format (no `thought` field, wrong action name) — this is a cold-start issue with qwen3:8b warming up. The fallback `"..."` thought handles it gracefully.
-- Bot sometimes loops crafting the same item when it already has one — LLM context issue, not a code bug.
+- First LLM response per session occasionally has wrong format (no `thought` field) — cold-start issue with qwen3:8b. The fallback `"..."` thought handles it gracefully.
+- Bot sometimes fixates on a high-success-rate skill (e.g. shearing sheep 35 times) instead of moving on — LLM context issue with qwen3:8b short memory. Not a loop; it's succeeding, just inefficiently.
 
 ---
 

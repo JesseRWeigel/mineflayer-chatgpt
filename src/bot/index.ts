@@ -333,6 +333,11 @@ export async function createBot(events: BotEvents) {
         inventory: bot.inventory.items().map((i) => `${i.name}x${i.count}`),
       });
 
+      // Hallucinated action names — immediately block so the bot stops retrying different variants
+      if (result.startsWith("Unknown action:")) {
+        recentFailures.set(decision.action, "Unknown action — not in action list");
+      }
+
       // Track failures for skill-type actions only (go_to/idle shouldn't pollute the list)
       const isSkillAction =
         DIRECT_SKILL_NAMES.has(decision.action) ||
