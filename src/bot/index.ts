@@ -550,14 +550,24 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     await new Promise((r) => setTimeout(r, 800));
 
     // If a safe spawn location is configured, always TP there and set spawnpoint.
-    // This overrides the auto-detect logic and ensures bots start in a known-good biome.
+    // Uses slow_falling to land safely at the exact ground level (Y is ignored — we drop from 200).
     if (roleConfig.safeSpawn) {
-      const { x, y, z } = roleConfig.safeSpawn;
-      console.log(`[Bot] safeSpawn configured — /tp to ${x},${y},${z}`);
-      bot.chat(`/tp ${x} ${y} ${z}`);
-      await new Promise((r) => setTimeout(r, 2000));
-      bot.chat(`/spawnpoint ${roleConfig.username} ${x} ${y} ${z}`);
-      console.log(`[Bot] Spawnpoint set to safeSpawn at ${x},${y},${z}`);
+      const { x, z } = roleConfig.safeSpawn;
+      console.log(`[Bot] safeSpawn configured — teleporting to ${x},200,${z} with slow_falling`);
+      bot.chat(`/effect give ${roleConfig.username} slow_falling 120 1`);
+      await new Promise((r) => setTimeout(r, 500));
+      bot.chat(`/tp ${x} 200 ${z}`);
+      // Wait for landing — slow_falling makes this take up to ~20s from Y=200
+      const landDeadline = Date.now() + 30_000;
+      while (!bot.entity.onGround && Date.now() < landDeadline) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+      const lx = Math.floor(bot.entity.position.x);
+      const ly = Math.floor(bot.entity.position.y);
+      const lz = Math.floor(bot.entity.position.z);
+      console.log(`[Bot] Landed at ${lx},${ly},${lz} — setting spawnpoint`);
+      bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
+      console.log(`[Bot] Spawnpoint set to safeSpawn area`);
       spawnSafetyRunning = false;
       resolveSpawnSafetyDone();
       return;
