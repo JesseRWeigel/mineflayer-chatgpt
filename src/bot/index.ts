@@ -94,6 +94,7 @@ export async function createBot(events: BotEvents) {
   let loopRunning = false;
   let lastAction = "";
   let repeatCount = 0;
+  let lastActionWasSuccess = false;
   let currentGoal = "";
   let goalStepsLeft = 0;
 
@@ -147,11 +148,13 @@ export async function createBot(events: BotEvents) {
         goalStepsLeft = 0;
       }
 
-      // Stuck detection: if repeating the same action 2+ times, tell the LLM to change strategy
-      if (repeatCount >= 2) {
+      // Stuck detection: repeating the same action — distinguish failure loops from success ruts
+      if (repeatCount >= 2 && !lastActionWasSuccess) {
         contextStr += `\n\nIMPORTANT: You've tried "${lastAction}" ${repeatCount} times in a row and it keeps failing. You MUST choose a COMPLETELY DIFFERENT action. Abandon your current goal and try something new.`;
         currentGoal = "";
         goalStepsLeft = 0;
+      } else if (repeatCount >= 3 && lastActionWasSuccess) {
+        contextStr += `\n\nVARIETY CHECK: You've successfully done "${lastAction.replace(/^skill:/, "")}" ${repeatCount} times in a row. Great work — but you're in a rut! Move on to your next goal. Pick a DIFFERENT action that advances your overall progress.`;
       }
 
       // Recent failures: show the LLM exactly what failed and why so it stops retrying
@@ -346,6 +349,7 @@ export async function createBot(events: BotEvents) {
         decision.action === "generate_skill" ||
         decision.action === "explore";
       const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished/i.test(result);
+      lastActionWasSuccess = isSuccess;
       if (isSkillAction) {
         if (!isSuccess) {
           recentFailures.set(actionKey, result.slice(0, 120));

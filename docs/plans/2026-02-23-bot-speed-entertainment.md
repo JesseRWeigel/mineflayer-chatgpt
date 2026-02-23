@@ -25,6 +25,7 @@
 | 9. Run & observe | ✅ Done | Observed ~3 min of live operation |
 | 10. Fix skill graveyard | ✅ Done | 46→9 generated skills; restored static skills from blacklist |
 | 11. Action alias fixes | ✅ Done | `mine_X`→`mine_block`, `manuallyBuild*`→`build_house`, `move`→`explore`; unknown actions blocked on 1st fail |
+| 12. Fix success rut loop | ✅ Done | After 3 consecutive successes of same action, LLM told to pick something different |
 
 ## Verified Behaviors
 
@@ -45,7 +46,7 @@
 ## Remaining Known Issues (Pre-existing, not introduced by this PR)
 
 - First LLM response per session occasionally has wrong format (no `thought` field) — cold-start issue with qwen3:8b. The fallback `"..."` thought handles it gracefully.
-- Bot sometimes fixates on a high-success-rate skill (e.g. shearing sheep 35 times) instead of moving on — LLM context issue with qwen3:8b short memory. Not a loop; it's succeeding, just inefficiently.
+- Bot will do the same successful action up to 3 times before being nudged to diversify — intentional, prevents over-interruption of multi-step tasks.
 
 ---
 
