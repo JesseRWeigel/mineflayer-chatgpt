@@ -376,9 +376,10 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           ? `skill:${decision.params.skill}`
           : skillRegistry.has(decision.action)
           ? `skill:${decision.action}`
-          // craft failures are item-specific — blacklist craft:item not all crafting
-          : decision.action === "craft" && decision.params?.item
-          ? `craft:${decision.params.item}`
+          // craft failures are item-specific — blacklist craft:item not all crafting.
+          // LLMs sometimes put item in params.item and sometimes at top-level — check both.
+          : decision.action === "craft" && (decision.params?.item ?? (decision as any).item)
+          ? `craft:${decision.params?.item ?? (decision as any).item}`
           : decision.action;
       // Don't let LLM-fallback `idle` breaks streak tracking for real skills
       if (decision.action !== "idle" || decision.thought !== "Brain buffering...") {
@@ -393,7 +394,13 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       // Server-side blacklist: block any action that's currently in recentFailures.
       // The LLM prompt says "don't retry these" but LLMs don't always comply — this enforces it.
       // Check both bare name and skill:-prefixed name to catch cross-prefix dynamic skill calls.
-      const isBlacklisted = recentFailures.has(actionKey) || recentFailures.has(`skill:${actionKey}`);
+      // Also check go_to coordinate-specific keys (stored as "go_to:x,z") to block repeat visits.
+      const goToCoordKey = decision.action === "go_to"
+        ? `go_to:${decision.params?.x},${decision.params?.z}`
+        : null;
+      const isBlacklisted = recentFailures.has(actionKey)
+        || recentFailures.has(`skill:${actionKey}`)
+        || (goToCoordKey !== null && recentFailures.has(goToCoordKey));
       if (isBlacklisted) {
         const blockMsg = `Blocked: "${actionKey}" is in the failure blacklist. Choose a different action.`;
         console.log(`[Bot] ${blockMsg}`);
@@ -405,16 +412,18 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         return;
       }
 
-      // Persistent broken-skills gate: block invoke_skill / generate_skill for known-broken dynamic skills.
-      // These skills failed 5+ times historically and were deleted. The LLM must not re-create them.
+      // Persistent broken-skills gate: block invoke_skill, generate_skill, AND direct dynamic
+      // skill calls (LLMs sometimes call skill names as the action directly without invoke_skill).
       // Uses getPersistentBrokenSkillNames() (not getBrokenSkills) so built-in skills with precondition
       // failures (e.g. build_house "no trees", build_farm "no water") are never wrongly blocked.
       const persistentBroken = memStore.getPersistentBrokenSkillNames();
-      if (decision.action === "invoke_skill" || decision.action === "generate_skill") {
+      if (decision.action === "invoke_skill" || decision.action === "generate_skill" || skillRegistry.has(decision.action)) {
         const targetName =
           decision.action === "invoke_skill"
             ? (decision.params?.skill as string | undefined)
-            : undefined; // generate_skill: check task text for a broken skill name
+            : decision.action === "generate_skill"
+            ? undefined // generate_skill: check task text for a broken skill name
+            : decision.action; // direct dynamic skill dispatch (e.g. "action": "mineFiveCoalOres")
         const taskText = (decision.params?.task as string | undefined) ?? "";
         const isTargetBroken =
           targetName
@@ -636,6 +645,17 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       const landDeadline = Date.now() + 8_000;
       while (!bot.entity.onGround && Date.now() < landDeadline) {
         await new Promise((r) => setTimeout(r, 200));
+        // Abort if we landed in water (safeSpawn coords are in ocean) — fall through to water handler
+        const feetBlock = bot.blockAt(bot.entity.position);
+        if (feetBlock?.name === "water") break;
+      }
+      const feetCheck = bot.blockAt(bot.entity.position);
+      if (feetCheck?.name === "water") {
+        console.warn(`[Bot] safeSpawn landed in water at ${x},${z} — falling through to water handler`);
+        // Don't set spawnpoint — the water handler will TP elsewhere
+        spawnSafetyRunning = false;
+        resolveSpawnSafetyDone();
+        return;
       }
       const lx = Math.floor(bot.entity.position.x);
       const ly = Math.floor(bot.entity.position.y);
