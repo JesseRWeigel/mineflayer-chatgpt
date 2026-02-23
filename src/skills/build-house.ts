@@ -6,7 +6,7 @@ import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
-import { hasStructureNearby, addStructure } from "../bot/memory.js";
+import { hasStructureNearby, addStructure, getNearestStructure } from "../bot/memory.js";
 
 /** All door types — any wood's door works interchangeably */
 const DOOR_TYPES = [
@@ -50,9 +50,11 @@ export const buildHouseSkill: Skill = {
       // Check if there's already a house nearby before finding a new site
       const botPos = bot.entity.position;
       if (hasStructureNearby("house", botPos.x, botPos.y, botPos.z, 80)) {
+        const nearest = getNearestStructure("house", botPos.x, botPos.z);
+        const loc = nearest ? `at (${nearest.x}, ${nearest.y}, ${nearest.z})` : "nearby";
         return {
-          success: false,
-          message: "There's already a house within 80 blocks! I should explore elsewhere or visit my existing home.",
+          success: true, // Treat as success so it doesn't get blacklisted — house already built!
+          message: `House already built ${loc}. Use go_to ${nearest?.x ?? ""} ${nearest?.y ?? ""} ${nearest?.z ?? ""} to visit the existing home.`,
         };
       }
       origin = findBuildSite(bot, 7, 7);
