@@ -519,7 +519,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     memStore.recordDeath(pos.x, pos.y, pos.z, cause);
 
     console.log("[Bot] I died! Respawning...");
-    abortActiveSkill();
+    abortActiveSkill(bot);
     recentHistory.push({
       role: "assistant",
       content: "I just died! Need to be more careful.",
@@ -694,8 +694,8 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         inventory: bot.inventory.items().map((i) => `${i.name}x${i.count}`),
         seasonGoal: memStore.getSeasonGoal() ?? undefined,
       };
-      if (isSkillRunning()) {
-        (overlayData as any).action = `[SKILL] ${getActiveSkillName()}`;
+      if (isSkillRunning(bot)) {
+        (overlayData as any).action = `[SKILL] ${getActiveSkillName(bot)}`;
       }
       updateOverlay(overlayData as any);
     }, 2000);

@@ -35,7 +35,7 @@ export async function evalSkill(bot: Bot, skillName: string): Promise<EvalResult
     bot.chat(`[EVAL] ${passed ? "PASS" : "FAIL"} ${skillName} (${(durationMs / 1000).toFixed(1)}s): ${resultMessage.slice(0, 80)}`);
     return { skill: skillName, passed, message: resultMessage, durationMs };
   } catch (err: any) {
-    abortActiveSkill(); // ensure executor clears activeSkill so next eval can run
+    abortActiveSkill(bot); // ensure executor clears activeSkill so next eval can run
     const durationMs = Date.now() - start;
     bot.chat(`[EVAL] FAIL ${skillName} (${(durationMs / 1000).toFixed(1)}s): ${err.message.slice(0, 80)}`);
     return { skill: skillName, passed: false, message: err.message, durationMs };

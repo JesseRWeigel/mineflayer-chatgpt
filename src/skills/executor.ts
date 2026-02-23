@@ -3,25 +3,30 @@ import type { Skill, SkillProgress, SkillResult } from "./types.js";
 import { gatherMaterials } from "./materials.js";
 import { updateOverlay } from "../stream/overlay.js";
 import { recordSkillAttempt } from "../bot/memory.js";
-let activeSkill: {
+
+type ActiveSkillState = {
   skill: Skill;
   abortController: AbortController;
   promise: Promise<SkillResult>;
   startTime: number;
-} | null = null;
+};
 
-export function isSkillRunning(): boolean {
-  return activeSkill !== null;
+// Per-bot skill state — keyed by bot instance so multiple bots don't interfere.
+const activeSkillMap = new Map<Bot, ActiveSkillState>();
+
+export function isSkillRunning(bot: Bot): boolean {
+  return activeSkillMap.has(bot);
 }
 
-export function getActiveSkillName(): string | null {
-  return activeSkill?.skill.name ?? null;
+export function getActiveSkillName(bot: Bot): string | null {
+  return activeSkillMap.get(bot)?.skill.name ?? null;
 }
 
-export function abortActiveSkill(): void {
-  if (activeSkill) {
-    console.log(`[Skill] Aborting skill "${activeSkill.skill.name}"`);
-    activeSkill.abortController.abort();
+export function abortActiveSkill(bot: Bot): void {
+  const active = activeSkillMap.get(bot);
+  if (active) {
+    console.log(`[Skill] Aborting skill "${active.skill.name}"`);
+    active.abortController.abort();
   }
 }
 
@@ -34,8 +39,9 @@ export async function runSkill(
   skill: Skill,
   params: Record<string, any>,
 ): Promise<string> {
-  if (activeSkill) {
-    return `Already running skill "${activeSkill.skill.name}". Wait for it to finish.`;
+  const active = activeSkillMap.get(bot);
+  if (active) {
+    return `Already running skill "${active.skill.name}". Wait for it to finish.`;
   }
 
   const abortController = new AbortController();
@@ -106,7 +112,7 @@ export async function runSkill(
     });
   });
 
-  activeSkill = { skill, abortController, promise: skillPromise, startTime };
+  activeSkillMap.set(bot, { skill, abortController, promise: skillPromise, startTime });
 
   // Skill chatter — bot narrates every 30s so the stream isn't dead air during long skills
   const SKILL_QUIPS = [
@@ -121,7 +127,7 @@ export async function runSkill(
     "The process is the journey. Or something. I don't know, I'm busy.",
   ];
   const chatterInterval = setInterval(() => {
-    if (activeSkill) {
+    if (activeSkillMap.has(bot)) {
       const quip = SKILL_QUIPS[Math.floor(Math.random() * SKILL_QUIPS.length)];
       bot.chat(quip);
     }
@@ -152,6 +158,6 @@ export async function runSkill(
     return `Skill ${skill.name} crashed: ${err.message}`;
   } finally {
     clearInterval(chatterInterval);
-    activeSkill = null;
+    activeSkillMap.delete(bot);
   }
 }
