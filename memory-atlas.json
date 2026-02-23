@@ -1,0 +1,133 @@
+{
+  "structures": [],
+  "deaths": [
+    {
+      "location": "-79.5, 56, -255.5",
+      "x": -79,
+      "y": 56,
+      "z": -255,
+      "cause": "unknown",
+      "timestamp": "2026-02-23T21:22:33.961Z"
+    },
+    {
+      "location": "520.5, 80, 44.591012098706955",
+      "x": 521,
+      "y": 80,
+      "z": 45,
+      "cause": "unknown",
+      "timestamp": "2026-02-23T21:26:45.362Z"
+    },
+    {
+      "location": "-93.5, 64, -594.5",
+      "x": -93,
+      "y": 64,
+      "z": -594,
+      "cause": "unknown",
+      "timestamp": "2026-02-23T21:47:57.460Z"
+    },
+    {
+      "location": "581.5, 80, -405.5",
+      "x": 582,
+      "y": 80,
+      "z": -405,
+      "cause": "unknown",
+      "timestamp": "2026-02-23T22:14:52.512Z"
+    }
+  ],
+  "oreDiscoveries": [
+    {
+      "type": "coal_ore",
+      "x": 254,
+      "y": 63,
+      "z": -410,
+      "timestamp": "2026-02-23T21:20:24.649Z"
+    },
+    {
+      "type": "iron_ore",
+      "x": 254,
+      "y": 63,
+      "z": -408,
+      "timestamp": "2026-02-23T21:20:24.649Z"
+    },
+    {
+      "type": "coal_ore",
+      "x": 542,
+      "y": 80,
+      "z": -450,
+      "timestamp": "2026-02-23T21:20:47.117Z"
+    },
+    {
+      "type": "coal_ore",
+      "x": 546,
+      "y": 78,
+      "z": -456,
+      "timestamp": "2026-02-23T21:20:47.117Z"
+    },
+    {
+      "type": "coal_ore",
+      "x": 550,
+      "y": 78,
+      "z": -444,
+      "timestamp": "2026-02-23T21:20:47.117Z"
+    }
+  ],
+  "skillHistory": [
+    {
+      "skill": "craftABedUsingAvailableResourcesLikeWool",
+      "success": false,
+      "durationSeconds": 0.01,
+      "notes": "craftABedUsingAvailableResourcesLikeWool failed: No bed recipe available (need 3 wool + 3 planks)",
+      "timestamp": "2026-02-23T21:20:20.375Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.166,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T21:20:25.870Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": false,
+      "durationSeconds": 60.001,
+      "notes": "findNearbySheepAndShearThemToCollectWool failed: findNearbySheepAndShearThemToCollectWool timed out after 60s",
+      "timestamp": "2026-02-23T22:30:55.858Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.026,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:31:06.590Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 10.181,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:31:26.612Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 37.466,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:07.229Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 23.792,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:32.733Z"
+    }
+  ],
+  "lessons": [],
+  "lastUpdated": "2026-02-23T22:32:32.733Z",
+  "brokenSkillNames": [
+    "findNearbySheepAndShearThemToCollectWool",
+    "craftABedUsing3WoolAnd3Planks",
+    "craftABedUsingAvailableResourcesLikeWool",
+    "craftABedUsingWoolAndACraftingTableThenU"
+  ]
+}

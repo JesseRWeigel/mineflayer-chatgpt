@@ -1,0 +1,286 @@
+{
+  "structures": [],
+  "deaths": [
+    {
+      "location": "415.5, 80, -163.5",
+      "x": 416,
+      "y": 80,
+      "z": -163,
+      "cause": "unknown",
+      "timestamp": "2026-02-23T21:13:41.660Z"
+    }
+  ],
+  "oreDiscoveries": [
+    {
+      "type": "coal_ore",
+      "x": 410,
+      "y": 82,
+      "z": -159,
+      "timestamp": "2026-02-23T21:12:12.656Z"
+    },
+    {
+      "type": "coal_ore",
+      "x": 416,
+      "y": 80,
+      "z": -157,
+      "timestamp": "2026-02-23T21:12:12.656Z"
+    },
+    {
+      "type": "coal_ore",
+      "x": 422,
+      "y": 80,
+      "z": -155,
+      "timestamp": "2026-02-23T21:12:12.657Z"
+    },
+    {
+      "type": "coal_ore",
+      "x": 401,
+      "y": 76,
+      "z": -165,
+      "timestamp": "2026-02-23T21:12:21.009Z"
+    },
+    {
+      "type": "coal_ore",
+      "x": 401,
+      "y": 80,
+      "z": -171,
+      "timestamp": "2026-02-23T21:12:21.009Z"
+    }
+  ],
+  "skillHistory": [
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.086,
+      "notes": "Can't find flat ground for a 7x7 house nearby. Try exploring to find open terrain!",
+      "timestamp": "2026-02-23T21:11:55.423Z"
+    },
+    {
+      "skill": "craftABedUsingAvailableResourcesLikeWool",
+      "success": false,
+      "durationSeconds": 0.036,
+      "notes": "craftABedUsingAvailableResourcesLikeWool failed: No bed recipe available (need 3 wool + 3 planks)",
+      "timestamp": "2026-02-23T21:12:01.627Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.072,
+      "notes": "Can't find flat ground for a 7x7 house nearby. Try exploring to find open terrain!",
+      "timestamp": "2026-02-23T21:12:06.830Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-23T21:12:13.850Z"
+    },
+    {
+      "skill": "strip_mine",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Need a pickaxe! Use craft_gear first, then strip_mine.",
+      "timestamp": "2026-02-23T21:12:19.131Z"
+    },
+    {
+      "skill": "mineFiveCoalOres",
+      "success": false,
+      "durationSeconds": 60.001,
+      "notes": "mineFiveCoalOres failed: mineFiveCoalOres timed out after 60s",
+      "timestamp": "2026-02-23T21:13:22.004Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.054,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:27:58.870Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 16.703,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:28:19.744Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 33.807,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:28:55.521Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 26.906,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:29:24.420Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 10.581,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:29:38.796Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": false,
+      "durationSeconds": 60.001,
+      "notes": "findNearbySheepAndShearThemToCollectWool failed: findNearbySheepAndShearThemToCollectWool timed out after 60s",
+      "timestamp": "2026-02-23T22:30:40.415Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.987,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:30:45.622Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.013,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:30:47.278Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.026,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:30:49.188Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.024,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:30:59.599Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.031,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:31:01.806Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 6.046,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:31:23.154Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.982,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:31:26.416Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.043,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:31:28.675Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 15.115,
+      "notes": "Couldn't plant anything. Need dirt blocks near water!",
+      "timestamp": "2026-02-23T22:31:46.179Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 9.91,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:31:58.806Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 10.649,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:15.063Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.034,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:16.766Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.48,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:21.099Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.478,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:23.614Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.011,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:25.316Z"
+    },
+    {
+      "skill": "build_house",
+      "success": false,
+      "durationSeconds": 0.151,
+      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
+      "timestamp": "2026-02-23T22:32:27.421Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.049,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:31.937Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 1.279,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:35.050Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 1.508,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:38.464Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.043,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:42.566Z"
+    },
+    {
+      "skill": "findNearbySheepAndShearThemToCollectWool",
+      "success": true,
+      "durationSeconds": 0.05,
+      "notes": "findNearbySheepAndShearThemToCollectWool completed.",
+      "timestamp": "2026-02-23T22:32:44.455Z"
+    }
+  ],
+  "lessons": [],
+  "lastUpdated": "2026-02-23T22:32:44.455Z",
+  "brokenSkillNames": []
+}
