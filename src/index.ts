@@ -7,6 +7,20 @@ import { ATLAS_CONFIG, FLORA_CONFIG, BotRoleConfig } from "./bot/role.js";
 
 loadDynamicSkills();
 
+// Registry of active bot stop functions for clean multi-bot shutdown
+const activeStops: (() => void)[] = [];
+
+function shutdownAll() {
+  console.log("\n[Main] Shutting down all bots...");
+  for (const fn of activeStops) {
+    try { fn(); } catch { /* ignore errors during shutdown */ }
+  }
+  process.exit(0);
+}
+// Register once — never overwritten
+process.on("SIGINT", shutdownAll);
+process.on("SIGTERM", shutdownAll);
+
 const MAX_RESTARTS = 50;
 const RESTART_DELAY_MS = 30000;
 const DUPLICATE_LOGIN_DELAY_MS = 60000;
@@ -49,10 +63,23 @@ async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlay
   let lastKickReason = "";
 
   return new Promise<string>((resolve) => {
+    // Register this bot's cleanup in the shared shutdown registry
+    const cleanup = () => {
+      stop();
+      twitch?.client.disconnect();
+    };
+    activeStops.push(cleanup);
+
+    const removeCleanup = () => {
+      const idx = activeStops.indexOf(cleanup);
+      if (idx !== -1) activeStops.splice(idx, 1);
+    };
+
     bot.on("kicked", (reason) => {
       const reasonStr = typeof reason === "string" ? reason : JSON.stringify(reason);
       console.log(`[${roleConfig.name}] Kicked: ${reasonStr}`);
       lastKickReason = reasonStr;
+      removeCleanup();
       stop();
       twitch?.client.disconnect();
       resolve(lastKickReason);
@@ -60,6 +87,7 @@ async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlay
 
     bot.on("end", () => {
       console.log(`[${roleConfig.name}] Connection ended.`);
+      removeCleanup();
       stop();
       twitch?.client.disconnect();
       resolve(lastKickReason);
@@ -68,18 +96,6 @@ async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlay
     bot.on("error", (err) => {
       console.error(`[${roleConfig.name}] Error:`, err);
     });
-
-    const shutdown = () => {
-      console.log(`\n[Main] Shutting down ${roleConfig.name} (manual stop)...`);
-      stop();
-      twitch?.client.disconnect();
-      process.exit(0);
-    };
-
-    process.removeAllListeners("SIGINT");
-    process.removeAllListeners("SIGTERM");
-    process.on("SIGINT", shutdown);
-    process.on("SIGTERM", shutdown);
 
     console.log(`[Main] ${roleConfig.name} is starting up. Waiting for spawn...`);
   });
