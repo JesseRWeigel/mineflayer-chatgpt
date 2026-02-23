@@ -13,7 +13,7 @@ import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.j
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
-import { loadMemory, getMemoryContext, recordDeath } from "./memory.js";
+import { loadMemory, getMemoryContext, recordDeath, getSeasonGoal, setSeasonGoal, clearSeasonGoal } from "./memory.js";
 import { spawn } from "node:child_process";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -404,6 +404,26 @@ export async function createBot(events: BotEvents) {
         evalSkill(bot, parts[1]).catch((e) => bot.chat(`[EVAL] Error: ${e.message}`));
       } else {
         bot.chat("[EVAL] Usage: /eval <skillname>  or  /eval all [filter]");
+      }
+      return;
+    }
+
+    // !goal commands — set/clear the season goal from in-game
+    if (message.startsWith("!goal")) {
+      const parts = message.trim().split(/\s+/);
+      const sub = parts[1]?.toLowerCase();
+      if (sub === "set" && parts.length > 2) {
+        const newGoal = parts.slice(2).join(" ");
+        setSeasonGoal(newGoal);
+        bot.chat(`Mission accepted: "${newGoal}"`);
+      } else if (sub === "clear") {
+        clearSeasonGoal();
+        bot.chat("Season goal cleared. Going freeform.");
+      } else if (sub === "show" || !sub) {
+        const current = getSeasonGoal();
+        bot.chat(current ? `Current mission: "${current}"` : "No season goal set. Use !goal set <text>");
+      } else {
+        bot.chat("Usage: !goal set <text> | !goal clear | !goal show");
       }
       return;
     }
