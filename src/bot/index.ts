@@ -349,8 +349,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         const blockMsg = `Blocked: "${actionKey}" is in the failure blacklist. Choose a different action.`;
         console.log(`[Bot] ${blockMsg}`);
         events.onAction(decision.action, blockMsg);
-        recentHistory.push({ role: "assistant", content: blockMsg });
-        if (recentHistory.length > 20) recentHistory.splice(0, recentHistory.length - 10);
+        // Do NOT push to recentHistory — flooding history with block messages causes
+        // the LLM to obsessively keep picking the same blocked action. The recentFailures
+        // section in contextStr already tells the LLM what not to retry.
         isActing = false;
         return;
       }
