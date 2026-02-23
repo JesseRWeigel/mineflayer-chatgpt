@@ -297,7 +297,14 @@ async function explore(bot: Bot, direction: string): Promise<string> {
   if (nearbyWater) notes.push("Water/lake visible.");
   if (notes.length === 0) notes.push("Barren area — no trees or resources visible.");
 
-  const biome = (bot.blockAt(bot.entity.position) as any)?.biome?.name || "unknown";
+  const block = bot.blockAt(bot.entity.position) as any;
+  const rawBiome = block?.biome;
+  // block.biome might be a biome object directly, or a numeric ID
+  const biome = (typeof rawBiome === "object" && rawBiome?.name)
+    ? rawBiome.name
+    : (typeof rawBiome === "number"
+      ? ((bot as any).registry?.biomes?.[rawBiome]?.name ?? `biome_${rawBiome}`)
+      : "unknown");
   const newPos = bot.entity.position;
   return `Explored ${direction} (~${dist} blocks). Now at ${newPos.x.toFixed(0)}, ${newPos.y.toFixed(0)}, ${newPos.z.toFixed(0)}. Biome: ${biome}. ${notes.join(" ")}`;
 }

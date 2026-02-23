@@ -161,19 +161,21 @@ export async function queryLLM(
 
   try {
     let response = await ollama.chat({
-      model: config.ollama.model,
+      model: config.ollama.fastModel,
       messages,
+      think: false,  // Disable qwen3 chain-of-thought — saves ~3800 tokens for actual JSON output
       options: {
         temperature: 0.85,
-        num_predict: 4096,
+        num_predict: 1024,  // Cap tokens for speed (enough for JSON + some preamble)
       },
     });
 
-    // Retry once on empty response — use a tiny fallback prompt without /no_think
-    if (!response.message.content.trim()) {
-      console.warn("[LLM] Empty response — retrying with fallback prompt...");
+    // Retry once on short/empty response — use minimal fallback prompt
+    if (response.message.content.trim().length < 20) {
+      console.warn("[LLM] Short/empty response — retrying with fallback prompt...");
       response = await ollama.chat({
-        model: config.ollama.model,
+        model: config.ollama.fastModel,
+        think: false,
         messages: [
           {
             role: "system",
@@ -251,10 +253,35 @@ export async function queryLLM(
       }
     }
 
+    // Normalize action names — model sometimes uses spaces/different keys
+    const ACTION_ALIASES: Record<string, string> = {
+      "go to": "go_to", "goto": "go_to",
+      "mine": "mine_block", "mine block": "mine_block", "mine_blocks": "mine_block",
+      "gather wood": "gather_wood", "gatherwood": "gather_wood", "chop": "gather_wood",
+      "place block": "place_block", "placeblock": "place_block",
+      "respond to chat": "respond_to_chat",
+      "invoke skill": "invoke_skill", "invokeskill": "invoke_skill",
+      "generate skill": "generate_skill", "generateskill": "generate_skill",
+      "neural combat": "neural_combat",
+      "build house": "build_house", "build farm": "build_farm",
+      "craft gear": "craft_gear", "strip mine": "strip_mine",
+      "craft_item": "craft", "crafting": "craft",
+    };
+    const rawAction = (parsed.action || "idle").toLowerCase().trim();
+    const action = ACTION_ALIASES[rawAction] ?? parsed.action ?? "idle";
+
+    // Normalize params — model sometimes uses "parameters" instead of "params"
+    const params = parsed.params ?? parsed.parameters ?? {};
+
+    // Repair: invoke_skill with "skill" at top level instead of in params (truncated JSON)
+    if (action === "invoke_skill" && !params.skill && parsed.skill) {
+      params.skill = parsed.skill;
+    }
+
     return {
-      thought: parsed.thought || "...",
-      action: parsed.action || "idle",
-      params: parsed.params || {},
+      thought: parsed.thought || parsed.reason || parsed.reasoning || "...",
+      action,
+      params,
       goal: parsed.goal,
       goalSteps: parsed.goalSteps,
     };
@@ -270,7 +297,7 @@ export async function chatWithLLM(
 ): Promise<string> {
   try {
     const response = await ollama.chat({
-      model: config.ollama.model,
+      model: config.ollama.fastModel,
       messages: [
         {
           role: "system",

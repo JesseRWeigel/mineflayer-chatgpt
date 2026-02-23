@@ -108,6 +108,25 @@ export async function runSkill(
 
   activeSkill = { skill, abortController, promise: skillPromise, startTime };
 
+  // Skill chatter — bot narrates every 30s so the stream isn't dead air during long skills
+  const SKILL_QUIPS = [
+    "Still working on it... this better be worth it.",
+    "Don't rush me, I'm an AI. Time is relative.",
+    "Going great. Totally under control.",
+    "This is fine. Everything is fine.",
+    "Almost there... maybe.",
+    "I have no idea how long this will take.",
+    "Chat, if this works, you owe me a follow.",
+    "My hands are a blur right now. Well, I don't have hands. You know what I mean.",
+    "The process is the journey. Or something. I don't know, I'm busy.",
+  ];
+  const chatterInterval = setInterval(() => {
+    if (activeSkill) {
+      const quip = SKILL_QUIPS[Math.floor(Math.random() * SKILL_QUIPS.length)];
+      bot.chat(quip);
+    }
+  }, 30000);
+
   try {
     const result = await skillPromise;
     const durationSeconds = (Date.now() - startTime) / 1000;
@@ -132,6 +151,7 @@ export async function runSkill(
     progress({ skillName: skill.name, phase: "Crashed", progress: 0, message: err.message, active: false });
     return `Skill ${skill.name} crashed: ${err.message}`;
   } finally {
+    clearInterval(chatterInterval);
     activeSkill = null;
   }
 }

@@ -198,7 +198,15 @@ export function recordSkillAttempt(skill: string, success: boolean, durationSeco
   const successRate = skillAttempts.length > 0 ? (successCount / skillAttempts.length) * 100 : 0;
 
   // Persist broken skills permanently (2+ failures with 0% success rate)
-  if (successRate === 0 && skillAttempts.length >= 2 && !memory.brokenSkillNames.includes(skill)) {
+  // Skip precondition failures — these indicate missing resources, not code bugs
+  const PRECONDITION_KEYWORDS = [
+    "No trees found", "need wood", "Need a pickaxe", "No torches",
+    "Couldn't plant", "timed out", "aborted", "No crafting_table",
+    "No furnace", "Need more", "not enough", "missing materials",
+  ];
+  const isPreconditionFail = !success && PRECONDITION_KEYWORDS.some(k => notes.toLowerCase().includes(k.toLowerCase()));
+  const realFailures = skillAttempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+  if (!success && !isPreconditionFail && realFailures.length >= 5 && !memory.brokenSkillNames.includes(skill)) {
     memory.brokenSkillNames.push(skill);
     console.log(`[Memory] ${skill} added to permanent broken skills list`);
   }

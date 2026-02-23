@@ -15,7 +15,8 @@ let overlayStarted = false;
 async function startBot() {
   console.log(`\n=== Minecraft AI Streamer (restart #${restartCount}) ===`);
   console.log(`Bot name: ${config.bot.name}`);
-  console.log(`LLM: ${config.ollama.model} @ ${config.ollama.host}`);
+  const fastLabel = config.ollama.fastModel !== config.ollama.model ? ` (fast decisions: ${config.ollama.fastModel})` : "";
+  console.log(`LLM: ${config.ollama.model}${fastLabel} @ ${config.ollama.host}`);
   console.log(
     `Server: ${config.mc.host}:${config.mc.port} (MC ${config.mc.version})`
   );

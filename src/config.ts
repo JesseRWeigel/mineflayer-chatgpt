@@ -11,6 +11,7 @@ export const config = {
   ollama: {
     host: process.env.OLLAMA_HOST || "http://localhost:11434",
     model: process.env.OLLAMA_MODEL || "qwen3:32b",
+    fastModel: process.env.OLLAMA_FAST_MODEL || process.env.OLLAMA_MODEL || "qwen3:32b",
   },
   twitch: {
     channel: process.env.TWITCH_CHANNEL || "",
@@ -21,7 +22,7 @@ export const config = {
   bot: {
     name: process.env.BOT_NAME || "Atlas",
     decisionIntervalMs: parseInt(
-      process.env.BOT_DECISION_INTERVAL_MS || "5000"
+      process.env.BOT_DECISION_INTERVAL_MS || "500"
     ),
     chatCooldownMs: parseInt(process.env.BOT_CHAT_COOLDOWN_MS || "3000"),
   },

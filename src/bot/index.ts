@@ -13,7 +13,7 @@ import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.j
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
-import { loadMemory, getMemoryContext, recordDeath, getBrokenSkills } from "./memory.js";
+import { loadMemory, getMemoryContext, recordDeath } from "./memory.js";
 import { spawn } from "node:child_process";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -86,11 +86,12 @@ export async function createBot(events: BotEvents) {
   // State
   const pendingChatMessages: ChatMessage[] = [];
   const recentHistory: LLMMessage[] = [];
-  // Maps canonical skill/action key → last failure message (cleared on success)
-  // Pre-populate with skills that have historically never worked (0% over 3+ attempts)
-  const recentFailures = new Map<string, string>(getBrokenSkills());
+  // Maps canonical skill/action key → last failure message (cleared on success).
+  // NOT pre-populated from memory — let the bot try fresh each session.
+  // Memory context already warns the LLM about historically broken skills.
+  const recentFailures = new Map<string, string>();
   let isActing = false;
-  let decisionLoop: ReturnType<typeof setInterval> | null = null;
+  let loopRunning = false;
   let lastAction = "";
   let repeatCount = 0;
   let currentGoal = "";
@@ -332,14 +333,6 @@ export async function createBot(events: BotEvents) {
         inventory: bot.inventory.items().map((i) => `${i.name}x${i.count}`),
       });
 
-      // Track goal from LLM response
-      if (decision.goal) {
-        currentGoal = decision.goal;
-        goalStepsLeft = decision.goalSteps || 5;
-      } else if (goalStepsLeft > 0) {
-        goalStepsLeft--;
-      }
-
       // Track failures for skill-type actions only (go_to/idle shouldn't pollute the list)
       const isSkillAction =
         DIRECT_SKILL_NAMES.has(decision.action) ||
@@ -347,14 +340,27 @@ export async function createBot(events: BotEvents) {
         decision.action === "neural_combat" ||
         decision.action === "generate_skill" ||
         decision.action === "explore";
+      const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished/i.test(result);
       if (isSkillAction) {
-        const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished/i.test(result);
         if (!isSuccess) {
           recentFailures.set(actionKey, result.slice(0, 120));
           goalStepsLeft = Math.max(0, goalStepsLeft - 2);
         } else {
           recentFailures.delete(actionKey);
+          // On success, expire the oldest failure entry to keep the soft-blacklist from going stale
+          if (recentFailures.size > 0) {
+            const firstKey = recentFailures.keys().next().value;
+            if (firstKey) recentFailures.delete(firstKey);
+          }
         }
+      }
+
+      // Track goal from LLM response — only decrement on success so goals survive failures
+      if (decision.goal) {
+        currentGoal = decision.goal;
+        goalStepsLeft = decision.goalSteps || 5;
+      } else if (goalStepsLeft > 0 && isSuccess) {
+        goalStepsLeft--;
       }
 
       // Track history for context
@@ -420,7 +426,7 @@ export async function createBot(events: BotEvents) {
   // Handle kicked
   bot.on("kicked", (reason) => {
     console.log(`[Bot] Kicked: ${JSON.stringify(reason)}`);
-    if (decisionLoop) clearInterval(decisionLoop);
+    loopRunning = false;
   });
 
   // Handle errors
@@ -560,18 +566,24 @@ export async function createBot(events: BotEvents) {
       updateOverlay(overlayData as any);
     }, 2000);
 
-    // Start the decision loop
-    decisionLoop = setInterval(decide, config.bot.decisionIntervalMs);
-
-    // First decision immediately
-    setTimeout(decide, 2000);
+    // Continuous action loop — fires immediately after each action completes
+    loopRunning = true;
+    async function runLoop() {
+      await new Promise((r) => setTimeout(r, 2000)); // Initial delay after spawn
+      while (loopRunning) {
+        await decide();
+        // Minimum gap between decisions (prevents hammering when actions return instantly)
+        await new Promise((r) => setTimeout(r, config.bot.decisionIntervalMs));
+      }
+    }
+    runLoop().catch((e) => console.error("[Bot] Decision loop crashed:", e));
   });
 
   return {
     bot,
     queueChat,
     stop: () => {
-      if (decisionLoop) clearInterval(decisionLoop);
+      loopRunning = false;
       bot.quit();
     },
   };
