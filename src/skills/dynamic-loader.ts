@@ -36,11 +36,21 @@ async function mineBlock(bot, name, count) {
   const _digMoves = new _vMovements(bot);
   _digMoves.canDig = true;
   bot.pathfinder.setMovements(_digMoves);
-  for (let mined = 0; mined < target; mined++) {
+  let mined = 0;
+  let attempts = 0;
+  while (mined < target && attempts < target + 5) {
+    attempts++;
     const block = bot.findBlock({ matching: (b) => b.name === name || b.name === 'deepslate_' + name + '_ore', maxDistance: 48 });
     if (!block) throw new Error('Cannot find ' + name + ' nearby');
-    await bot.pathfinder.goto(new _vGoals.GoalNear(block.position.x, block.position.y, block.position.z, 1));
-    await bot.dig(block);
+    try {
+      // Radius 2 instead of 1 gives the pathfinder more flexibility to find a valid approach
+      await bot.pathfinder.goto(new _vGoals.GoalNear(block.position.x, block.position.y, block.position.z, 2));
+      await bot.dig(block);
+      mined++;
+    } catch (e) {
+      // Block unreachable — it may be in a tree canopy or across water; try next nearest
+      if (attempts >= target + 5) throw e;
+    }
   }
 }
 

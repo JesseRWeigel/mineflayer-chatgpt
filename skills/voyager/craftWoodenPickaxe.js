@@ -4,23 +4,30 @@ async function craftWoodenPickaxe(bot) {
     mcData.itemsByName.crafting_table.id
   );
 
-  // If not, craft a crafting table
+  // If not, craft a crafting table (only needs planks, no logs)
   if (craftingTableCount === 0) {
     await craftCraftingTable(bot);
   }
 
-  // Check if there are enough oak planks in the inventory
+  // Need at least 3 planks for the pickaxe head
   const oakPlanksCount = bot.inventory.count(mcData.itemsByName.oak_planks.id);
 
-  // If not, craft oak planks from oak logs
-  if (oakPlanksCount < 6) {
+  if (oakPlanksCount < 3) {
+    // Try to craft planks from logs in inventory first
     const oakLogsCount = bot.inventory.count(mcData.itemsByName.oak_log.id);
-    const planksToCraft = Math.ceil((6 - oakPlanksCount) / 4);
-    if (oakLogsCount < planksToCraft) {
-      await mineBlock(bot, "oak_log", planksToCraft - oakLogsCount);
+    if (oakLogsCount > 0) {
+      await craftItem(bot, "oak_planks", 1);
+      bot.chat("Crafted oak planks from logs.");
+    } else {
+      // No logs in inventory — try to mine some nearby
+      try {
+        await mineBlock(bot, "oak_log", 1);
+        await craftItem(bot, "oak_planks", 1);
+        bot.chat("Mined and crafted oak planks.");
+      } catch (e) {
+        throw new Error("Cannot find oak_log nearby — need wood to craft planks");
+      }
     }
-    await craftItem(bot, "oak_planks", planksToCraft);
-    bot.chat("Crafted oak planks.");
   }
 
   // Check if there are enough sticks in the inventory
