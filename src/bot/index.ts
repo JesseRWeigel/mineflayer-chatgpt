@@ -108,6 +108,8 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   let lastActionWasSuccess = false;
   // Track directions that led to water — shown to LLM so it avoids them
   const waterDirections = new Set<string>();
+  // Cooldown for water-escape teleport — prevents repeated /tp spam while server processes the command
+  let lastWaterEscapeMs = 0;
   let currentGoal = "";
   let goalStepsLeft = 0;
   // Leash — tracks home position, set automatically when first house is built
@@ -225,36 +227,43 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         contextStr += `\n\n✅ You have ${currentLogCount} logs — ENOUGH WOOD! Do NOT keep gathering. Use craft_gear to make tools, or build_house for shelter.`;
       }
 
+      // Coal shortage hint: when craft:torch fails with "missing coal", tell the bot to mine it
+      if (lastAction.startsWith("craft:torch") && !lastActionWasSuccess && /missing.*coal/i.test(lastResult)) {
+        contextStr += `\n\n⚠️ NO COAL: Can't craft torches — you need COAL first! Use strip_mine to find coal underground, OR use mine_block with blockType='coal_ore' if coal_ore is nearby. Check your memory context for discovered ore locations. Do NOT keep trying craft torch until you have coal.`;
+      }
+
       // Wood shortage warning: inject explicit gather_wood (or explore) instruction
       const logCount = currentLogCount;
       const plankCount = currentPlankCount;
+      // build_house failing with "no trees" is also a wood shortage — catch it the same way
+      const buildHouseNoTrees = /build_house/.test(lastAction) && !lastActionWasSuccess && /no trees/i.test(lastResult);
+      if (buildHouseNoTrees) {
+        const botX = Math.floor(bot.entity.position.x);
+        const nearLake = botX <= 20;
+        if (nearLake) {
+          contextStr += `\n\n⚠️ NO TREES: build_house can't find trees at X=${botX}. Go EAST to find forest. Use gather_wood (searches 256 blocks) or explore EAST 2-3 times until "Found trees nearby!" appears. Do NOT keep retrying build_house — you need trees first!`;
+        } else {
+          contextStr += `\n\n⚠️ NO TREES: build_house can't find trees at X=${botX}. The local forest is stripped. Use gather_wood to search 256 blocks, or explore EAST or SOUTH to find untouched trees. Do NOT keep retrying build_house.`;
+        }
+      }
       if (logCount === 0 && plankCount < 4) {
         const gatherWoodJustFailed = lastAction === "gather_wood" && !lastActionWasSuccess;
         const botX = Math.floor(bot.entity.position.x);
         const botZ = Math.floor(bot.entity.position.z);
         if (gatherWoodJustFailed) {
-          // The old forest zone (Z=-200 to Z=-270) has been COMPLETELY STRIPPED.
-          // Bot must explore MUCH further south to find an untouched forest.
-          // In Minecraft, south = increasing Z (Z=-270 → Z=-200 → Z=-100 → Z=0 → Z=100).
-          const alreadyInOldForest = botZ >= -290 && botZ <= -190;
-          if (alreadyInOldForest) {
-            // Bot is already in the depleted zone — must explore FAR south (many steps)
-            const targetZ = -100; // unexplored territory further south
-            const dzNeeded = targetZ - botZ; // positive = go south
-            const stepsNeeded = Math.max(3, Math.ceil(Math.abs(dzNeeded) / 35));
-            contextStr += `\n\n⚠️ WOOD SHORTAGE: The forest near Z=-220 to Z=-270 has been COMPLETELY STRIPPED — no trees remain there. You MUST explore SOUTH many times to find a new untouched forest. Target: Z=${targetZ} (you are at Z=${botZ}, need to go south ~${Math.abs(dzNeeded)} blocks). explore SOUTH ${stepsNeeded}+ times until trees appear. Do NOT explore north (ocean). The new forest is SOUTH, not in the old area.`;
+          // The lake (inland water) is to the WEST and NORTH, blocking access to some trees.
+          // Going EAST (increasing X) gets around the lake and reaches fresh forest.
+          // The old forest zone (Z=-210 to Z=-270, X=-100 to X=100) is depleted.
+          const nearLake = botX <= 20; // near or west of lake — need to go east
+          if (nearLake) {
+            const targetX = 80; // fresh forest east of the lake
+            const dxNeeded = targetX - botX;
+            const stepsNeeded = Math.max(2, Math.ceil(Math.abs(dxNeeded) / 35));
+            contextStr += `\n\n⚠️ WOOD SHORTAGE: No trees reachable — a lake blocks the path to the west and north. You MUST explore EAST (positive X direction) to get around the lake and reach fresh forest. You are at X=${botX}, Z=${botZ}. Target: X=${targetX} (~${Math.abs(dxNeeded)} blocks east). Explore EAST ${stepsNeeded}+ times until "Found trees nearby!" appears. Do NOT explore west (lake), do NOT explore north (ocean).`;
           } else {
-            // Bot is not yet in the forest zone — direct them south/west toward it
-            const forestX = -15;
-            const forestZ = -150; // aim for further south than the depleted zone
-            const dxToForest = forestX - botX;
-            const dzToForest = forestZ - botZ;
-            const distToForest = Math.sqrt(dxToForest * dxToForest + dzToForest * dzToForest);
-            const primaryDir = Math.abs(dxToForest) >= Math.abs(dzToForest)
-              ? (dxToForest < 0 ? "west" : "east")
-              : (dzToForest > 0 ? "south" : "north");
-            const stepsNeeded = Math.max(2, Math.ceil(distToForest / 35));
-            contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 256 blocks and found nothing. The old forest (Z=-220 to -270) is depleted. Explore toward Z=${forestZ}. You are at X=${botX}, Z=${botZ} (${Math.round(distToForest)} blocks away). Explore ${primaryDir.toUpperCase()} ${stepsNeeded}+ times. Do NOT explore north.`;
+            // Already east of the lake — explore in any direction except west
+            const stepsNeeded = 3;
+            contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood found no reachable trees. Try exploring EAST or SOUTH to find fresh forest — the old area near X=0 to X=100 may be depleted. You are at X=${botX}, Z=${botZ}. Explore ${stepsNeeded}+ times in EAST or SOUTH direction until trees appear.`;
           }
         } else {
           contextStr += `\n\n⚠️ WOOD SHORTAGE: You have ${logCount} logs and ${plankCount} planks — NOT enough to craft. Use gather_wood NOW (searches 256 blocks including trees across water). Do NOT keep crafting, do NOT explore yet.`;
@@ -264,7 +273,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       // Warn LLM about ocean directions that lead to water (from past water-escape teleports)
       if (waterDirections.size > 0) {
         const dirs = Array.from(waterDirections).join(", ");
-        contextStr += `\n\n⚠️ OCEAN WARNING: Exploring ${dirs} leads directly into the ocean. Use a DIFFERENT direction (${["north","south","east","west"].filter(d => !waterDirections.has(d)).join(", ")}) to find land, trees, and resources.`;
+        contextStr += `\n\n⚠️ LAKE/WATER WARNING: Exploring ${dirs} leads into water (lake or ocean). Go EAST to get around the lake — there is dry land and trees to the east (positive X direction). Safe directions: ${["north","south","east","west"].filter(d => !waterDirections.has(d)).join(", ")}.`;
       }
 
       contextStr += "\n\nWhat should you do next? Respond with a JSON action.";
@@ -275,6 +284,14 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       const waterFeet = bot.blockAt(bot.entity.position);
       const waterHead = bot.blockAt(bot.entity.position.offset(0, 1, 0));
       if (waterFeet?.name === "water" || waterHead?.name === "water") {
+        // Cooldown: only attempt escape once per 8 seconds to avoid TP spam while server processes
+        const nowMs = Date.now();
+        if (nowMs - lastWaterEscapeMs < 8000) {
+          await new Promise((r) => setTimeout(r, 500));
+          return;
+        }
+        lastWaterEscapeMs = nowMs;
+
         const wx = Math.floor(bot.entity.position.x);
         const wz = Math.floor(bot.entity.position.z);
         const wy = bot.entity.position.y.toFixed(1);
@@ -290,7 +307,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           }
           console.log(`[Bot] In water — teleporting back to safeSpawn area (${sx},80,${sz})`);
           bot.chat(`/tp ${sx} 80 ${sz}`);
-          await new Promise((r) => setTimeout(r, 3000));
+          await new Promise((r) => setTimeout(r, 4000));
           // Clear location-specific failures — they triggered away from home base and
           // are not relevant once we're back in the forest area.
           for (const k of ["skill:build_house", "skill:build_farm"]) {
@@ -553,7 +570,19 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           // Precondition failures (missing materials, no water, etc.) shouldn't be permanently
           // blacklisted — once the bot gets the required resource, the action should work.
           const isPreconditionFailure = /missing:|need \d|no water|no trees|no coal|no iron|no pickaxe|Can't craft|could not find|not enough|need to (mine|craft|find|smelt)|Can't sleep|terrain too rough|not nighttime|already sleeping|zzz/i.test(result);
-          if (!isAlreadyRunning && !isPreconditionFailure) {
+          // Special case: build_house/gather_wood failing because "no trees nearby" should get
+          // a SOFT temporary blacklist — block it for a few actions to force exploration first.
+          // Without this the LLM loops on build_house despite the "MUST choose different action" hint.
+          const isBuildNoTrees = /build_house|gather_wood/.test(actionKey) && /no trees/i.test(result);
+          // Soft blacklist craft when it fails for missing materials — prevents "craft torch"
+          // loops when the bot has no coal. Once something else is done 8+ times the blacklist
+          // naturally expires via the successesSinceLastExpiry mechanism.
+          const isCraftMissingMaterial = decision.action === "craft" && /missing:/i.test(result);
+          if (!isAlreadyRunning && isBuildNoTrees) {
+            recentFailures.set(actionKey, "No trees found — explore EAST or SOUTH several times first, then retry");
+          } else if (!isAlreadyRunning && isCraftMissingMaterial) {
+            recentFailures.set(actionKey, `Missing materials — gather the required resource first: ${result.slice(0, 80)}`);
+          } else if (!isAlreadyRunning && !isPreconditionFailure) {
             const prevCount = (failureCounts.get(actionKey) ?? 0) + 1;
             failureCounts.set(actionKey, prevCount);
             // Only hard-blacklist after 2+ consecutive failures (single failures may be transient)
