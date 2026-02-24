@@ -30,22 +30,35 @@ export function explorerMoves(bot: Bot): InstanceType<typeof Movements> {
 /**
  * Wraps pathfinder.goto with a timeout and stall detection.
  * - Times out after `timeoutMs` (default 15s)
- * - Cancels if bot hasn't moved more than 1.5 blocks in 5 seconds
+ * - Cancels if bot hasn't moved more than 0.3 blocks in 5 seconds AFTER movement begins
+ * - `stallStartDelayMs`: grace period before stall detection activates (use when thinkTimeout is high)
  */
-export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000): Promise<void> {
+export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStartDelayMs = 0): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let lastPos = bot.entity.position.clone();
     let stallTicks = 0;
+    let stallActive = stallStartDelayMs === 0;
     const STALL_CHECK_MS = 1000;
     const STALL_THRESHOLD = 5; // 5 checks of 1s = 5 seconds without progress
 
+    // Delay stall detection to let pathfinder finish computing the path first
+    const stallDelayTimer = stallStartDelayMs > 0
+      ? setTimeout(() => {
+          stallActive = true;
+          lastPos = bot.entity.position.clone(); // fresh baseline after think phase
+          stallTicks = 0;
+        }, stallStartDelayMs)
+      : null;
+
     const timeout = setTimeout(() => {
       clearInterval(stallCheck);
+      if (stallDelayTimer) clearTimeout(stallDelayTimer);
       bot.pathfinder.stop();
       reject(new Error("Navigation timed out — goal may be unreachable."));
     }, timeoutMs);
 
     const stallCheck = setInterval(() => {
+      if (!stallActive) return;
       const currentPos = bot.entity.position;
       const moved = currentPos.distanceTo(lastPos);
       if (moved < 0.3) {
@@ -53,6 +66,7 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000): Promise<
         if (stallTicks >= STALL_THRESHOLD) {
           clearTimeout(timeout);
           clearInterval(stallCheck);
+          if (stallDelayTimer) clearTimeout(stallDelayTimer);
           bot.pathfinder.stop();
           reject(new Error("Stuck — not making progress toward goal."));
         }
@@ -65,10 +79,12 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000): Promise<
     bot.pathfinder.goto(goal).then(() => {
       clearTimeout(timeout);
       clearInterval(stallCheck);
+      if (stallDelayTimer) clearTimeout(stallDelayTimer);
       resolve();
     }).catch((err: any) => {
       clearTimeout(timeout);
       clearInterval(stallCheck);
+      if (stallDelayTimer) clearTimeout(stallDelayTimer);
       reject(err);
     });
   });
@@ -212,10 +228,11 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
       // explorerMoves allows swimming — essential when trees are across water
       bot.pathfinder.setMovements(explorerMoves(bot));
       // Increase think timeout for long-distance pathing around lakes (default 10s is too short)
+      // Also delay stall detection by 32s to match — stall fires only AFTER bot starts moving
       const prevThinkTimeout = bot.pathfinder.thinkTimeout;
       bot.pathfinder.thinkTimeout = 30000;
       try {
-        await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 3), 90000);
+        await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 3), 90000, 32000);
         await bot.dig(log);
         gathered++;
       } finally {
