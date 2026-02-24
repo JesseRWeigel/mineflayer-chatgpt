@@ -536,7 +536,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         decision.action === "neural_combat" ||
         decision.action === "generate_skill" ||
         decision.action === "craft";
-      const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished/i.test(result);
+      const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished|sleep|zzz/i.test(result);
 
       // go_to "Already here!" is a soft-loop — blacklist this destination so the bot moves on
       if (decision.action === "go_to" && result === "Already here!") {

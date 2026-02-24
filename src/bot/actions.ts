@@ -722,6 +722,9 @@ async function tryPlace(bot: Bot, refBlock: any, face: Vec3): Promise<boolean> {
 }
 
 async function sleepInBed(bot: Bot): Promise<string> {
+  // Already in bed — just wait for morning (counts as success so no blacklisting)
+  if ((bot as any).isSleeping) return "Sleeping... zzz (waiting for morning)";
+
   let bed = bot.findBlock({
     matching: (b) => b.name.includes("bed"),
     maxDistance: 32,
