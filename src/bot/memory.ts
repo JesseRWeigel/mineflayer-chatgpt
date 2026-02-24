@@ -353,6 +353,25 @@ export class BotMemoryStore {
     return broken;
   }
 
+  /**
+   * Remove skills from brokenSkillNames that are now in the skill registry.
+   * Call this after loadDynamicSkills() so newly-created skill files auto-heal
+   * any blacklist entries that accumulated before the file existed.
+   */
+  healBrokenSkillsFromRegistry(registeredNames: Set<string>): void {
+    const before = this.memory.brokenSkillNames.length;
+    this.memory.brokenSkillNames = this.memory.brokenSkillNames.filter(
+      s => !registeredNames.has(s)
+    );
+    const healed = before - this.memory.brokenSkillNames.length;
+    if (healed > 0) {
+      console.log(`[Memory] Auto-healed ${healed} skill(s) now in registry: ${
+        this.memory.brokenSkillNames.length === before ? "none" : "saved"
+      }`);
+      this.save();
+    }
+  }
+
   /** Returns only the persistent brokenSkillNames list (for execution-layer gating). */
   getPersistentBrokenSkillNames(): Set<string> {
     return new Set(this.memory.brokenSkillNames);

@@ -9,7 +9,7 @@ async function craftBed(bot) {
     const count = bot.inventory.count(mcData.itemsByName[color + "_wool"]?.id);
     if (count >= 3) { woolName = color + "_wool"; break; }
   }
-  if (!woolName) throw new Error("Need at least 3 wool of the same color to craft a bed. Kill sheep to get wool.");
+  if (!woolName) throw new Error("Cannot find 3 wool of the same color — kill sheep to collect wool first");
 
   // Need at least 3 planks
   const plankTypes = ["oak_planks", "birch_planks", "spruce_planks", "jungle_planks", "acacia_planks", "dark_oak_planks"];
@@ -19,7 +19,7 @@ async function craftBed(bot) {
       planksName = p; break;
     }
   }
-  if (!planksName) throw new Error("Need at least 3 wooden planks to craft a bed. Chop trees for wood.");
+  if (!planksName) throw new Error("Not enough wooden planks to craft a bed — need wood first");
 
   // Place a crafting table nearby if not already there
   const craftingTablePosition = bot.entity.position.offset(1, 0, 0);

@@ -63,6 +63,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   // Load memory at startup — register with executor so skill results go to this bot's file.
   const memStore = new BotMemoryStore(roleConfig.memoryFile);
   memStore.load();
+  // Auto-heal blacklisted skills that now have working files in the registry.
+  // This prevents a skill from staying permanently broken after its file is created.
+  memStore.healBrokenSkillsFromRegistry(new Set(skillRegistry.keys()));
 
   console.log(
     `[Bot] Connecting to ${config.mc.host}:${config.mc.port} as ${roleConfig.username}...`

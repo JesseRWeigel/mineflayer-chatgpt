@@ -4,7 +4,7 @@ async function craftTorch(bot) {
   if (!coal) throw new Error("Could not find coal or charcoal — mine coal_ore with a pickaxe first");
 
   const stick = bot.inventory.items().find(i => i.name === "stick");
-  if (!stick) throw new Error("Need sticks — craft 2 planks into 4 sticks first");
+  if (!stick) throw new Error("Cannot find sticks in inventory — need wood to craft planks then sticks");
 
   // Use charcoal name if that's what we have
   const fuelName = coal.name;
