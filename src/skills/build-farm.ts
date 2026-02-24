@@ -52,11 +52,11 @@ export const buildFarmSkill: Skill = {
         // If above is null (chunk edge, unloaded), assume surface — better to try than skip.
         return !above || above.name !== "water";
       },
-      maxDistance: 64,
+      maxDistance: 96,
     });
 
     if (!water) {
-      return { success: false, message: "No water found within 64 blocks! Explore to find a river or pond." };
+      return { success: false, message: "No water found within 96 blocks! Explore to find a river or pond." };
     }
 
     // Pre-scan a 9x9 area around the water for tillable dirt/grass at the same Y level.
