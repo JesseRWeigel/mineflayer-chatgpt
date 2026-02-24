@@ -1,33 +1,31 @@
 async function craftWoodenHoe(bot) {
-  // Check if there are enough oak planks in the inventory
-  const oakPlanksCount = bot.inventory.count(mcData.itemsByName.oak_planks.id);
+  const planksCount = bot.inventory.items()
+    .filter(i => i.name.endsWith("_planks"))
+    .reduce((s, i) => s + i.count, 0);
 
-  // If not, craft oak planks from oak logs
-  if (oakPlanksCount < 2) {
-    const oakLogsCount = bot.inventory.count(mcData.itemsByName.oak_log.id);
-    const planksToCraft = Math.ceil((2 - oakPlanksCount) / 4);
-    if (oakLogsCount >= planksToCraft) {
-      await craftItem(bot, "oak_planks", planksToCraft);
-      bot.chat("Crafted oak planks.");
+  if (planksCount < 2) {
+    const logItem = bot.inventory.items().find(i => i.name.endsWith("_log"));
+    const planksToCraft = Math.ceil((2 - planksCount) / 4);
+    const logsCount = bot.inventory.items()
+      .filter(i => i.name.endsWith("_log"))
+      .reduce((s, i) => s + i.count, 0);
+    if (logsCount >= planksToCraft) {
+      await craftItem(bot, logItem.name.replace("_log", "_planks"), planksToCraft);
+      bot.chat("Crafted planks.");
     } else {
-      throw new Error("Not enough oak logs to craft planks for wooden hoe — gather wood first");
+      throw new Error("Not enough wood to craft planks for wooden hoe — gather wood first");
     }
   }
 
-  // Check if there are enough sticks in the inventory
   const sticksCount = bot.inventory.count(mcData.itemsByName.stick.id);
-
-  // If not, craft sticks from oak planks
   if (sticksCount < 2) {
     await craftItem(bot, "stick", 1);
     bot.chat("Crafted sticks.");
   }
 
-  // Place the crafting table near the bot
   const craftingTablePosition = bot.entity.position.offset(1, 0, 0);
   await placeItem(bot, "crafting_table", craftingTablePosition);
 
-  // Craft a wooden hoe using the crafting table
   await craftItem(bot, "wooden_hoe", 1);
   bot.chat("Crafted a wooden hoe.");
 }

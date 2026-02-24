@@ -1,20 +1,18 @@
 async function craftCraftingTable(bot) {
-  // Check if there are enough oak planks in the inventory
-  const oakPlanksCount = bot.inventory.count(mcData.itemsByName.oak_planks.id);
+  const planksCount = bot.inventory.items()
+    .filter(i => i.name.endsWith("_planks"))
+    .reduce((s, i) => s + i.count, 0);
 
-  // If not, craft oak planks from oak logs
-  if (oakPlanksCount < 4) {
-    const oakLogsCount = bot.inventory.count(mcData.itemsByName.oak_log.id);
-    const planksToCraft = Math.ceil((4 - oakPlanksCount) / 4);
-    if (oakLogsCount >= planksToCraft) {
-      await craftItem(bot, "oak_planks", planksToCraft);
-      bot.chat("Crafted oak planks.");
-    } else {
-      throw new Error("Not enough oak logs to craft planks for crafting table — gather wood first");
+  if (planksCount < 4) {
+    const logItem = bot.inventory.items().find(i => i.name.endsWith("_log"));
+    if (!logItem) {
+      throw new Error("Not enough wood to craft a crafting table — gather wood first");
     }
+    const planksToCraft = Math.ceil((4 - planksCount) / 4);
+    await craftItem(bot, logItem.name.replace("_log", "_planks"), planksToCraft);
+    bot.chat("Crafted planks.");
   }
 
-  // Craft a crafting table using oak planks
   await craftItem(bot, "crafting_table", 1);
   bot.chat("Crafted a crafting table.");
 }

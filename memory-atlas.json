@@ -7,6 +7,30 @@
       "z": -333,
       "builtAt": "2026-02-23T23:19:44.082Z",
       "notes": "Oak House (partial)"
+    },
+    {
+      "type": "house",
+      "x": 95,
+      "y": 77,
+      "z": -337,
+      "builtAt": "2026-02-24T00:24:36.649Z",
+      "notes": "Oak House"
+    },
+    {
+      "type": "house",
+      "x": -30,
+      "y": 66,
+      "z": -228,
+      "builtAt": "2026-02-24T00:32:20.258Z",
+      "notes": "Oak House (partial)"
+    },
+    {
+      "type": "house",
+      "x": 62,
+      "y": 67,
+      "z": -210,
+      "builtAt": "2026-02-24T04:53:37.383Z",
+      "notes": "Oak House (partial)"
     }
   ],
   "deaths": [
@@ -83,587 +107,711 @@
   "skillHistory": [
     {
       "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T17:13:07.723Z"
+    },
+    {
+      "skill": "light_area",
       "success": false,
-      "durationSeconds": 0.166,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T21:20:25.870Z"
-    },
-    {
-      "skill": "mineWoodLog",
-      "success": false,
-      "durationSeconds": 60.069,
-      "notes": "mineWoodLog failed: mineWoodLog timed out after 60s",
-      "timestamp": "2026-02-23T22:34:14.169Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 15.029,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:12.672Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.063,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:14.472Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.017,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:35:32.181Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 60.016,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T22:36:34.558Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.079,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:53.758Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.082,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:55.409Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.079,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:57.293Z"
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:13:32.910Z"
     },
     {
       "skill": "craftWoodenPickaxe",
       "success": false,
-      "durationSeconds": 20.021,
-      "notes": "craftWoodenPickaxe failed: Error: Event windowOpen did not fire within timeout of 20000ms",
-      "timestamp": "2026-02-23T22:37:19.649Z"
+      "durationSeconds": 0.071,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby",
+      "timestamp": "2026-02-24T17:13:58.553Z"
     },
     {
-      "skill": "killFourSheep",
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:14:41.084Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
       "success": true,
-      "durationSeconds": 0.084,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:37:21.297Z"
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
+      "timestamp": "2026-02-24T17:14:50.849Z"
+    },
+    {
+      "skill": "mineFiveCoalOres",
+      "success": false,
+      "durationSeconds": 63.585,
+      "notes": "mineFiveCoalOres failed: mineFiveCoalOres timed out after 60s",
+      "timestamp": "2026-02-24T17:16:10.127Z"
+    },
+    {
+      "skill": "eatTwoCookedMutton",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "eatTwoCookedMutton completed.",
+      "timestamp": "2026-02-24T17:16:12.988Z"
+    },
+    {
+      "skill": "mineFiveCoalOresV2",
+      "success": true,
+      "durationSeconds": 15.969,
+      "notes": "mineFiveCoalOresV2 completed.",
+      "timestamp": "2026-02-24T17:16:39.346Z"
     },
     {
       "skill": "equipIronArmor",
       "success": true,
       "durationSeconds": 0.001,
       "notes": "equipIronArmor completed.",
-      "timestamp": "2026-02-23T22:37:23.057Z"
+      "timestamp": "2026-02-24T17:17:59.053Z"
     },
     {
-      "skill": "build_house",
+      "skill": "equipIronArmor",
       "success": true,
-      "durationSeconds": 172.479,
-      "notes": "House partially built (45/174 blocks). It has... character. Maybe patch the holes later.",
-      "timestamp": "2026-02-23T22:40:20.367Z"
+      "durationSeconds": 0.001,
+      "notes": "equipIronArmor completed.",
+      "timestamp": "2026-02-24T17:18:28.917Z"
     },
     {
-      "skill": "craftWhiteBed",
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.12,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:19:06.332Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 6.606,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:21:48.283Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 2.717,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:22:10.075Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
       "success": true,
       "durationSeconds": 0.002,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:40:22.484Z"
+      "notes": "craftWoodenHoe completed.",
+      "timestamp": "2026-02-24T17:22:29.837Z"
     },
     {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.194,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:40:24.333Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.188,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:40:26.315Z"
-    },
-    {
-      "skill": "craftWhiteBed",
+      "skill": "craftWoodenHoe",
       "success": true,
       "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:40:28.116Z"
+      "notes": "craftWoodenHoe completed.",
+      "timestamp": "2026-02-24T17:22:30.996Z"
     },
     {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.088,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:29.835Z"
-    },
-    {
-      "skill": "craftWhiteBed",
+      "skill": "craftWoodenHoe",
       "success": true,
       "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:40:31.442Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:40:32.938Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.083,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:35.221Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.085,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:37.881Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.186,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:40:40.109Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.083,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:42.184Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.084,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:43.633Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.084,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:45.068Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.082,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:57.913Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.082,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:40:59.771Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.085,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:41:01.373Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:41:02.885Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.093,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:41:04.619Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.091,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:41:06.417Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.092,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:41:08.227Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.002,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:46:06.489Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.063,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:08.977Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:46:11.145Z"
-    },
-    {
-      "skill": "mineWoodLog",
-      "success": false,
-      "durationSeconds": 13.564,
-      "notes": "mineWoodLog failed: Took to long to decide path to goal!",
-      "timestamp": "2026-02-23T22:46:35.380Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T22:46:45.517Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 60.292,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T22:47:48.345Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 60.003,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T22:50:26.467Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 60.121,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T22:53:43.944Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 60.011,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T22:54:58.594Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.075,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:55:13.908Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.072,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:55:16.524Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 60.223,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T22:56:38.525Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.512,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:57:05.607Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 460.649,
-      "notes": "HOUSE BUILT! \"Oak House\" at 2, 63, -327. Placed 150 blocks (24 skipped). It's GORGEOUS. It's HOME.",
-      "timestamp": "2026-02-23T23:04:47.702Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 173.867,
-      "notes": "HOUSE BUILT! \"Oak House\" at 2, 63, -327. Placed 169 blocks (5 skipped). It's GORGEOUS. It's HOME.",
-      "timestamp": "2026-02-23T23:07:47.314Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 61.188,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:11:02.166Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 61.078,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:13:17.192Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 60.747,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:16:00.804Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 175.633,
-      "notes": "House partially built (104/174 blocks). It has... character. Maybe patch the holes later.",
-      "timestamp": "2026-02-23T23:19:44.082Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.002,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T23:19:45.683Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 159,
-      "notes": "House partially built (107/174 blocks). It has... character. Maybe patch the holes later.",
-      "timestamp": "2026-02-23T23:26:43.628Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 61.457,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:27:46.474Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": true,
-      "durationSeconds": 60.799,
-      "notes": "killOneZombie completed.",
-      "timestamp": "2026-02-23T23:29:04.367Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 15.127,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:30:11.784Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.084,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:36:43.844Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.084,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:36:45.286Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.084,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:36:46.600Z"
-    },
-    {
-      "skill": "craftWoodenPickaxe",
-      "success": false,
-      "durationSeconds": 0.101,
-      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby",
-      "timestamp": "2026-02-23T23:36:47.991Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.098,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:37:01.428Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T23:37:09.555Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.089,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:37:10.893Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 61.518,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:38:13.625Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 0.001,
-      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
-      "timestamp": "2026-02-23T23:38:35.787Z"
+      "notes": "craftWoodenHoe completed.",
+      "timestamp": "2026-02-24T17:22:32.148Z"
     },
     {
       "skill": "build_house",
       "success": true,
       "durationSeconds": 0,
       "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
-      "timestamp": "2026-02-23T23:38:37.257Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 61.42,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:39:40.140Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 154.707,
-      "notes": "HOUSE BUILT! \"Oak House\" at 9, 64, -333. Placed 148 blocks (26 skipped). It's GORGEOUS. It's HOME.",
-      "timestamp": "2026-02-23T23:42:27.278Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 61.402,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:44:44.611Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.237,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T23:45:06.379Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.002,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T23:45:07.848Z"
-    },
-    {
-      "skill": "killOneZombie",
-      "success": false,
-      "durationSeconds": 61.243,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:46:10.553Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.102,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:48:11.359Z"
-    },
-    {
-      "skill": "craftWhiteBed",
-      "success": true,
-      "durationSeconds": 0.001,
-      "notes": "craftWhiteBed completed.",
-      "timestamp": "2026-02-23T23:48:32.696Z"
+      "timestamp": "2026-02-24T17:22:33.401Z"
     },
     {
       "skill": "build_farm",
       "success": false,
-      "durationSeconds": 0.112,
+      "durationSeconds": 0.365,
       "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
-      "timestamp": "2026-02-23T23:49:10.318Z"
+      "timestamp": "2026-02-24T17:22:35.116Z"
+    },
+    {
+      "skill": "craftAStonePickaxeUsingAvailableMaterial",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftAStonePickaxeUsingAvailableMaterial completed.",
+      "timestamp": "2026-02-24T17:22:37.899Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.378,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:22:39.608Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenHoe completed.",
+      "timestamp": "2026-02-24T17:22:52.696Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.501,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:22:54.353Z"
     },
     {
       "skill": "craftWoodenPickaxe",
       "success": false,
-      "durationSeconds": 0.099,
-      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby",
-      "timestamp": "2026-02-23T23:49:24.978Z"
+      "durationSeconds": 0.077,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby — need wood to craft planks",
+      "timestamp": "2026-02-24T17:22:56.901Z"
     },
     {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.086,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:49:26.354Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.087,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:49:28.226Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.083,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:49:29.515Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.098,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T23:50:18.788Z"
-    },
-    {
-      "skill": "killOneZombie",
+      "skill": "craftWoodenPickaxe",
       "success": false,
-      "durationSeconds": 61.425,
-      "notes": "killOneZombie failed: killOneZombie timed out after 60s",
-      "timestamp": "2026-02-23T23:51:21.687Z"
+      "durationSeconds": 0.034,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby — need wood to craft planks",
+      "timestamp": "2026-02-24T17:22:58.093Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenHoe completed.",
+      "timestamp": "2026-02-24T17:24:12.612Z"
+    },
+    {
+      "skill": "craftAStonePickaxeUsingAvailableMaterial",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftAStonePickaxeUsingAvailableMaterial completed.",
+      "timestamp": "2026-02-24T17:25:30.582Z"
+    },
+    {
+      "skill": "craftCraftingTable",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftCraftingTable completed.",
+      "timestamp": "2026-02-24T17:26:41.665Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Need at least 3 wooden planks to craft a bed. Chop trees for wood.",
+      "timestamp": "2026-02-24T17:27:11.525Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Need at least 3 wooden planks to craft a bed. Chop trees for wood.",
+      "timestamp": "2026-02-24T17:27:12.746Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Need at least 3 wooden planks to craft a bed. Chop trees for wood.",
+      "timestamp": "2026-02-24T17:27:13.943Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
+      "timestamp": "2026-02-24T17:27:24.143Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
+      "timestamp": "2026-02-24T17:27:25.438Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.083,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby — need wood to craft planks",
+      "timestamp": "2026-02-24T17:27:26.719Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
+      "timestamp": "2026-02-24T17:28:34.893Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 1.747,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:28:38.006Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenHoe completed.",
+      "timestamp": "2026-02-24T17:28:58.339Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.069,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby — need wood to craft planks",
+      "timestamp": "2026-02-24T17:29:05.236Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftBed failed: Need at least 3 wooden planks to craft a bed. Chop trees for wood.",
+      "timestamp": "2026-02-24T17:29:48.827Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Need at least 3 wooden planks to craft a bed. Chop trees for wood.",
+      "timestamp": "2026-02-24T17:30:51.662Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.062,
+      "notes": "craftWoodenPickaxe failed: Cannot find oak_log nearby — need wood to craft planks",
+      "timestamp": "2026-02-24T17:31:18.085Z"
+    },
+    {
+      "skill": "eatTwoCookedMutton",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "eatTwoCookedMutton completed.",
+      "timestamp": "2026-02-24T17:34:36.252Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenHoe failed: Not enough oak logs to craft planks for wooden hoe — gather wood first",
+      "timestamp": "2026-02-24T17:35:23.967Z"
+    },
+    {
+      "skill": "eatTwoCookedMutton",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "eatTwoCookedMutton failed: Not enough cooked mutton in inventory",
+      "timestamp": "2026-02-24T17:35:33.464Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenHoe completed.",
+      "timestamp": "2026-02-24T17:36:27.351Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Need at least 3 wooden planks to craft a bed. Chop trees for wood.",
+      "timestamp": "2026-02-24T17:37:49.916Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 2.625,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:37:56.661Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:38:09.947Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T17:41:09.097Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T17:41:10.376Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T17:41:11.677Z"
+    },
+    {
+      "skill": "mineWoodLog",
+      "success": false,
+      "durationSeconds": 67.221,
+      "notes": "mineWoodLog failed: mineWoodLog timed out after 60s",
+      "timestamp": "2026-02-24T17:42:20.187Z"
+    },
+    {
+      "skill": "killOnePig",
+      "success": true,
+      "durationSeconds": 17.254,
+      "notes": "killOnePig completed.",
+      "timestamp": "2026-02-24T17:43:50.096Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 2.038,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:43:53.454Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPickaxe failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:43:54.628Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T17:44:03.734Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPickaxe failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:46:27.857Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:46:28.989Z"
+    },
+    {
+      "skill": "craftAStonePickaxeUsingAvailableMaterial",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftAStonePickaxeUsingAvailableMaterial completed.",
+      "timestamp": "2026-02-24T17:47:23.728Z"
+    },
+    {
+      "skill": "craftCraftingTable",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftCraftingTable failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:47:40.090Z"
+    },
+    {
+      "skill": "craftCraftingTable",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftCraftingTable failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:47:41.320Z"
+    },
+    {
+      "skill": "killOnePig",
+      "success": true,
+      "durationSeconds": 13.137,
+      "notes": "killOnePig completed.",
+      "timestamp": "2026-02-24T17:48:01.100Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenHoe failed: Not enough oak logs to craft planks for wooden hoe — gather wood first",
+      "timestamp": "2026-02-24T17:48:23.817Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenHoe failed: Not enough oak logs to craft planks for wooden hoe — gather wood first",
+      "timestamp": "2026-02-24T17:51:36.440Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:51:38.083Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:51:39.477Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:51:48.331Z"
+    },
+    {
+      "skill": "craftAStonePickaxeUsingAvailableMaterial",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftAStonePickaxeUsingAvailableMaterial completed.",
+      "timestamp": "2026-02-24T17:52:48.044Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 2.284,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T17:53:46.582Z"
+    },
+    {
+      "skill": "craftCraftingTable",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftCraftingTable failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:54:18.384Z"
+    },
+    {
+      "skill": "craftCraftingTable",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftCraftingTable failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:56:01.748Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPickaxe failed: Not enough oak logs to craft planks for crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:56:34.263Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T17:56:47.986Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T17:57:06.098Z"
+    },
+    {
+      "skill": "eatTwoCookedMutton",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "eatTwoCookedMutton failed: Not enough cooked mutton in inventory",
+      "timestamp": "2026-02-24T17:57:10.494Z"
+    },
+    {
+      "skill": "eatTwoCookedMutton",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "eatTwoCookedMutton failed: Not enough cooked mutton in inventory",
+      "timestamp": "2026-02-24T17:57:22.755Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T17:57:31.053Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T17:57:32.392Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:57:40.451Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
+      "timestamp": "2026-02-24T17:58:27.087Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough wood to craft a crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:58:28.400Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
+      "timestamp": "2026-02-24T17:58:29.797Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough wood to craft a crafting table — gather wood first",
+      "timestamp": "2026-02-24T17:58:30.986Z"
+    },
+    {
+      "skill": "mineWoodLog",
+      "success": true,
+      "durationSeconds": 26.935,
+      "notes": "mineWoodLog completed.",
+      "timestamp": "2026-02-24T17:59:38.922Z"
+    },
+    {
+      "skill": "mineWoodLog",
+      "success": true,
+      "durationSeconds": 20.363,
+      "notes": "mineWoodLog completed.",
+      "timestamp": "2026-02-24T18:01:20.023Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T18:01:29.468Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T18:03:22.686Z"
+    },
+    {
+      "skill": "mineWoodLog",
+      "success": false,
+      "durationSeconds": 63.632,
+      "notes": "mineWoodLog failed: mineWoodLog timed out after 60s",
+      "timestamp": "2026-02-24T18:04:31.135Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T18:04:43.106Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T18:04:44.413Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T18:04:49.744Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPlanksFromAvailableLogs failed: Not enough wood to craft planks — gather wood first",
+      "timestamp": "2026-02-24T18:04:51.303Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPlanksFromAvailableLogs failed: Not enough wood to craft planks — gather wood first",
+      "timestamp": "2026-02-24T18:04:53.067Z"
+    },
+    {
+      "skill": "mineWoodLog",
+      "success": false,
+      "durationSeconds": 67.223,
+      "notes": "mineWoodLog failed: mineWoodLog timed out after 60s",
+      "timestamp": "2026-02-24T18:06:11.007Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenHoe failed: Not enough wood to craft planks for wooden hoe — gather wood first",
+      "timestamp": "2026-02-24T18:06:20.651Z"
+    },
+    {
+      "skill": "craftWoodenPlanksFromAvailableLogs",
+      "success": false,
+      "durationSeconds": 0.002,
+      "notes": "craftWoodenPlanksFromAvailableLogs failed: Not enough wood to craft planks — gather wood first",
+      "timestamp": "2026-02-24T18:06:21.998Z"
+    },
+    {
+      "skill": "craftWoodenHoe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenHoe failed: Not enough wood to craft planks for wooden hoe — gather wood first",
+      "timestamp": "2026-02-24T18:06:26.883Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 12.497,
+      "notes": "Can't craft a hoe! Need planks + sticks + a crafting table.",
+      "timestamp": "2026-02-24T18:07:09.289Z"
+    },
+    {
+      "skill": "craftBed",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftBed failed: Not enough wooden planks to craft a bed — need wood first",
+      "timestamp": "2026-02-24T18:07:20.753Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough wood to craft a crafting table — gather wood first",
+      "timestamp": "2026-02-24T18:07:21.938Z"
+    },
+    {
+      "skill": "craftWoodenPickaxe",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "craftWoodenPickaxe failed: Not enough wood to craft a crafting table — gather wood first",
+      "timestamp": "2026-02-24T18:07:29.435Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T23:51:21.687Z",
+  "lastUpdated": "2026-02-24T18:07:29.435Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",
     "craftABedUsingAvailableResourcesLikeWool",
-    "craftABedUsingWoolAndACraftingTableThenU",
-    "mineFiveCoalOres",
-    "mineFiveCoalOresV2"
+    "craftABedUsingWoolAndACraftingTableThenU"
   ]
 }

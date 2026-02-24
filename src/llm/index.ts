@@ -127,8 +127,8 @@ SURVIVAL PRIORITIES (when chat isn't commanding you):
 1. If hostile mob within 8 blocks: use neural_combat (duration: 5) — it reacts at 20Hz, far better than manual attack
 2. If health < 6 and mobs nearby AND no tools: flee first, then fight when safe
 3. If hunger < 8: eat (complain about the food quality)
-4. If inventory has NO logs/wood AND "trees nearby" was just reported: use gather_wood IMMEDIATELY — trees won't wait!
-5. If no logs/wood in inventory: gather_wood (searches 64 blocks including across water — try this BEFORE exploring!)
+4. ⚠️ If you have 0 logs AND 0 planks in inventory: USE gather_wood RIGHT NOW. Do NOT use explore, do NOT try crafting. gather_wood finds and chops trees within 64 blocks automatically — it does NOT require trees to be visible first!
+5. If gather_wood fails (no trees within 64 blocks): THEN use explore to find a forest, then use gather_wood again
 6. If have wood but no tools: use craft_gear skill to make a full tool set
 7. If have tools but no shelter: use build_house (it needs an inventory of wood logs to work!)
 8. Otherwise: follow the PROGRESSION below, or do whatever seems fun/chaotic
@@ -144,6 +144,7 @@ PROGRESSION (follow this order like a real Minecraft player):
 
 IMPORTANT RULES:
 - READ your inventory before choosing actions. Don't build without blocks. Don't eat without food. Don't craft without materials.
+- If a craft action fails saying "need wood" or "not enough planks": use gather_wood NEXT — do NOT explore, do NOT try the same craft again.
 - If an action fails, try something COMPLETELY different next time. Don't repeat failed actions.
 - Gather resources first, then use them. The loop is: gather → craft → use.
 - NEVER mine straight down. You can't dig while navigating — you walk to blocks and then mine them.
@@ -322,8 +323,8 @@ export async function queryLLM(
       "craft gear": "craft_gear", "strip mine": "strip_mine",
       "craft_item": "craft", "crafting": "craft",
     };
-    const rawAction = (parsed.action || "idle").toLowerCase().trim();
-    let action = ACTION_ALIASES[rawAction] ?? parsed.action ?? "idle";
+    const rawAction = (typeof parsed.action === "string" ? parsed.action : "idle").toLowerCase().trim();
+    let action = ACTION_ALIASES[rawAction] ?? (typeof parsed.action === "string" ? parsed.action : "idle");
 
     // Normalize params — model sometimes uses "parameters" instead of "params"
     const params = parsed.params ?? parsed.parameters ?? {};

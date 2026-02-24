@@ -7,6 +7,14 @@
       "z": -333,
       "builtAt": "2026-02-23T23:13:12.161Z",
       "notes": "Oak House (partial)"
+    },
+    {
+      "type": "house",
+      "x": 95,
+      "y": 77,
+      "z": -337,
+      "builtAt": "2026-02-24T00:17:17.029Z",
+      "notes": "Oak House"
     }
   ],
   "deaths": [
@@ -66,573 +74,712 @@
   ],
   "skillHistory": [
     {
-      "skill": "smelt_ores",
+      "skill": "build_farm",
       "success": false,
+      "durationSeconds": 0.01,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-24T10:07:06.954Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.01,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-24T10:09:56.101Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.01,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-24T10:11:09.204Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:13:05.925Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:13:28.284Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:13:29.556Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:14:07.261Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:14:27.626Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:18:24.250Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:18:44.296Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
       "durationSeconds": 0.001,
-      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
-      "timestamp": "2026-02-23T21:12:13.850Z"
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:19:28.889Z"
     },
     {
-      "skill": "strip_mine",
-      "success": false,
-      "durationSeconds": 0.001,
-      "notes": "Need a pickaxe! Use craft_gear first, then strip_mine.",
-      "timestamp": "2026-02-23T21:12:19.131Z"
-    },
-    {
-      "skill": "mineFiveCoalOres",
-      "success": false,
-      "durationSeconds": 60.001,
-      "notes": "mineFiveCoalOres failed: mineFiveCoalOres timed out after 60s",
-      "timestamp": "2026-02-23T21:13:22.004Z"
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:19:30.334Z"
     },
     {
       "skill": "build_farm",
       "success": false,
-      "durationSeconds": 15.115,
-      "notes": "Couldn't plant anything. Need dirt blocks near water!",
-      "timestamp": "2026-02-23T22:31:46.179Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.151,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:32:27.421Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.148,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:32:48.364Z"
+      "durationSeconds": 0.01,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-24T10:25:52.608Z"
     },
     {
       "skill": "build_farm",
       "success": false,
-      "durationSeconds": 0.058,
-      "notes": "Couldn't plant anything. Need dirt blocks near water!",
-      "timestamp": "2026-02-23T22:33:06.882Z"
+      "durationSeconds": 0.01,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-24T10:29:18.422Z"
     },
     {
       "skill": "build_farm",
       "success": false,
-      "durationSeconds": 4.21,
-      "notes": "Couldn't plant anything. Need dirt blocks near water!",
-      "timestamp": "2026-02-23T22:33:27.682Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": false,
-      "durationSeconds": 9.431,
-      "notes": "killFourSheep failed: Path was stopped before it could be completed! Thus, the desired goal was not reached.",
-      "timestamp": "2026-02-23T22:33:38.767Z"
-    },
-    {
-      "skill": "build_farm",
-      "success": false,
-      "durationSeconds": 10.204,
-      "notes": "Couldn't plant anything. Need dirt blocks near water!",
-      "timestamp": "2026-02-23T22:33:57.675Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.082,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:34:01.984Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.082,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:34:03.955Z"
-    },
-    {
-      "skill": "craftWoodenPlanksFromAvailableLogs",
-      "success": true,
-      "durationSeconds": 0.005,
-      "notes": "craftWoodenPlanksFromAvailableLogs completed.",
-      "timestamp": "2026-02-23T22:34:19.339Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.078,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:34:21.462Z"
+      "durationSeconds": 0.009,
+      "notes": "Crashed: Cannot read properties of null (reading 'offset')",
+      "timestamp": "2026-02-24T10:33:52.843Z"
     },
     {
       "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T10:36:05.488Z"
+    },
+    {
+      "skill": "cookSevenMutton",
       "success": false,
-      "durationSeconds": 0.184,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:34:29.130Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 13.468,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:34:49.183Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.094,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:34:51.289Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.093,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:34:53.119Z"
-    },
-    {
-      "skill": "craft_gear",
-      "success": true,
-      "durationSeconds": 4.56,
-      "notes": "Gear crafted! Got: wooden_sword, wooden_shovel. Ready for action!",
-      "timestamp": "2026-02-23T22:34:59.532Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.076,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:01.289Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.076,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:03.217Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.073,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:05.046Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.078,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:09.045Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.074,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:10.954Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.073,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:13.130Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.166,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:35:15.912Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.077,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:19.889Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.078,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:25.445Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.076,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:27.287Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.075,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:31.345Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.075,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:37.941Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.078,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:40.153Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.079,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:42.144Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.079,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:48.330Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.077,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:52.497Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.077,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:54.395Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.078,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:35:58.251Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.08,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:03.696Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.08,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:05.543Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.071,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:16.679Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.069,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:18.528Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.065,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:22.454Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.066,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:24.479Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.066,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:26.333Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.066,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:31.935Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.063,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:33.795Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.061,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:36:35.845Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 0.184,
-      "notes": "No trees found nearby! Explore to find a forest, then try build_house again.",
-      "timestamp": "2026-02-23T22:37:47.800Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.065,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:37:59.124Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.069,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:38:25.993Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.063,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:38:28.504Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.059,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:38:46.360Z"
-    },
-    {
-      "skill": "light_area",
-      "success": false,
-      "durationSeconds": 0.001,
-      "notes": "No torches in inventory! Craft some first (coal + sticks).",
-      "timestamp": "2026-02-23T22:41:39.782Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.073,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:41:44.654Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.079,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:41:46.655Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.079,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:41:48.503Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.086,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:43:12.685Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.082,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:43:30.595Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.09,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:45:43.854Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.088,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:45:47.711Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.092,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:45:51.901Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.072,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:05.310Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.077,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:08.092Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.064,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:20.196Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.063,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:23.664Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.086,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:32.193Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.085,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:34.450Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.083,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:36.446Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.078,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:42.807Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.08,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:44.680Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.077,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:46:57.052Z"
-    },
-    {
-      "skill": "killFourSheep",
-      "success": true,
-      "durationSeconds": 0.076,
-      "notes": "killFourSheep completed.",
-      "timestamp": "2026-02-23T22:47:01.045Z"
-    },
-    {
-      "skill": "build_house",
-      "success": false,
-      "durationSeconds": 480.415,
-      "notes": "Interrupted while gathering wood!",
-      "timestamp": "2026-02-23T23:02:17.104Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 189.407,
-      "notes": "HOUSE BUILT! \"Oak House\" at 2, 63, -327. Placed 169 blocks (5 skipped). It's GORGEOUS. It's HOME.",
-      "timestamp": "2026-02-23T23:05:39.040Z"
-    },
-    {
-      "skill": "build_house",
-      "success": true,
-      "durationSeconds": 199.448,
-      "notes": "House partially built (89/174 blocks). It has... character. Maybe patch the holes later.",
-      "timestamp": "2026-02-23T23:13:12.161Z"
+      "durationSeconds": 66.165,
+      "notes": "cookSevenMutton failed: cookSevenMutton timed out after 60s",
+      "timestamp": "2026-02-24T10:37:51.940Z"
     },
     {
       "skill": "light_area",
       "success": false,
       "durationSeconds": 0,
       "notes": "No torches in inventory! Craft some first (coal + sticks).",
-      "timestamp": "2026-02-23T23:28:45.369Z"
+      "timestamp": "2026-02-24T16:30:33.661Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T16:30:37.109Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.138,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T16:30:46.558Z"
     },
     {
       "skill": "build_house",
       "success": true,
-      "durationSeconds": 438.725,
-      "notes": "HOUSE BUILT! \"Oak House\" at 9, 64, -333. Placed 136 blocks (38 skipped). It's GORGEOUS. It's HOME.",
-      "timestamp": "2026-02-23T23:36:05.560Z"
+      "durationSeconds": 0.001,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T16:31:11.658Z"
     },
     {
-      "skill": "craft_gear",
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.014,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T16:31:17.413Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.012,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T16:31:24.219Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.014,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T16:31:26.984Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T16:32:50.009Z"
+    },
+    {
+      "skill": "build_house",
       "success": true,
-      "durationSeconds": 10.301,
-      "notes": "Gear crafted! Got: wooden_shovel. Ready for action!",
-      "timestamp": "2026-02-23T23:36:32.666Z"
+      "durationSeconds": 0,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T16:36:27.718Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T16:36:29.129Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T16:36:38.971Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T16:37:59.085Z"
+    },
+    {
+      "skill": "strip_mine",
+      "success": true,
+      "durationSeconds": 628.487,
+      "notes": "Strip mine complete! Dug 30-block tunnel, mined 227 blocks total. Found: 1x gold_ore!",
+      "timestamp": "2026-02-24T16:54:45.736Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.033,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T16:56:01.525Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T16:56:02.865Z"
     },
     {
       "skill": "light_area",
       "success": false,
       "durationSeconds": 0.001,
       "notes": "No torches in inventory! Craft some first (coal + sticks).",
-      "timestamp": "2026-02-23T23:36:34.180Z"
+      "timestamp": "2026-02-24T16:56:10.984Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T16:56:13.973Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.032,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T16:56:21.065Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T16:56:25.225Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T16:56:42.176Z"
     },
     {
       "skill": "build_house",
       "success": true,
-      "durationSeconds": 546.854,
-      "notes": "HOUSE BUILT! \"Oak House\" at 9, 64, -333. Placed 151 blocks (23 skipped). It's GORGEOUS. It's HOME.",
-      "timestamp": "2026-02-23T23:45:55.639Z"
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T16:56:51.065Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T16:57:47.855Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T16:58:00.275Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T16:58:25.801Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T16:58:27.254Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:06:19.061Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T17:06:44.533Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T17:06:45.998Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T17:06:47.626Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:20:30.035Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:20:31.305Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.015,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T17:20:32.521Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T17:21:13.582Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:21:14.890Z"
+    },
+    {
+      "skill": "strip_mine",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Need a pickaxe! Use craft_gear first, then strip_mine.",
+      "timestamp": "2026-02-24T17:21:25.828Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T17:21:40.965Z"
+    },
+    {
+      "skill": "strip_mine",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Need a pickaxe! Use craft_gear first, then strip_mine.",
+      "timestamp": "2026-02-24T17:21:42.385Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.132,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T17:22:27.631Z"
+    },
+    {
+      "skill": "strip_mine",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "Need a pickaxe! Use craft_gear first, then strip_mine.",
+      "timestamp": "2026-02-24T17:23:06.286Z"
+    },
+    {
+      "skill": "strip_mine",
+      "success": true,
+      "durationSeconds": 415.277,
+      "notes": "Strip mine complete! Dug 30-block tunnel, mined 222 blocks total. Found: 3x copper_ore, 1x lapis_ore!",
+      "timestamp": "2026-02-24T17:30:39.350Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": true,
+      "durationSeconds": 125.661,
+      "notes": "Smelting done! Got: 9x copper_ingot. Time to upgrade your gear with craft_gear!",
+      "timestamp": "2026-02-24T17:33:30.689Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.02,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T17:34:42.365Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T17:35:00.041Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:35:09.879Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:35:11.330Z"
+    },
+    {
+      "skill": "mineTenCobblestone",
+      "success": false,
+      "durationSeconds": 67.127,
+      "notes": "mineTenCobblestone failed: mineTenCobblestone timed out after 60s",
+      "timestamp": "2026-02-24T17:36:50.644Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:37:59.670Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:41:17.212Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "House already built at (95, 77, -337). Use go_to 95 77 -337 to visit the existing home.",
+      "timestamp": "2026-02-24T17:41:40.062Z"
+    },
+    {
+      "skill": "mineTenCobblestone",
+      "success": false,
+      "durationSeconds": 67.171,
+      "notes": "mineTenCobblestone failed: mineTenCobblestone timed out after 60s",
+      "timestamp": "2026-02-24T17:42:52.753Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T17:42:54.146Z"
+    },
+    {
+      "skill": "mineTenCobblestone",
+      "success": true,
+      "durationSeconds": 31.566,
+      "notes": "mineTenCobblestone completed.",
+      "timestamp": "2026-02-24T17:43:27.050Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:43:31.308Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": true,
+      "durationSeconds": 149.457,
+      "notes": "Smelting done! Got: 2x iron_ingot, 8x copper_ingot. Time to upgrade your gear with craft_gear!",
+      "timestamp": "2026-02-24T17:49:23.486Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.039,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T17:49:25.073Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 67.031,
+      "notes": "Couldn't plant anything near water at 1,-326 — navigation or tilling failed. Try 'explore' first.",
+      "timestamp": "2026-02-24T17:50:59.817Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:51:34.536Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.168,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T17:51:35.936Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:51:37.437Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T17:51:38.878Z"
+    },
+    {
+      "skill": "smeltRawCopper",
+      "success": false,
+      "durationSeconds": 9.462,
+      "notes": "smeltRawCopper failed: No raw_copper in inventory",
+      "timestamp": "2026-02-24T17:52:07.785Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T17:52:09.948Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T17:52:18.861Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T17:52:20.343Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T17:52:21.757Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 9.171,
+      "notes": "Couldn't plant anything near water at 134,-274 — navigation or tilling failed. Try 'explore' first.",
+      "timestamp": "2026-02-24T17:52:32.460Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.026,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T17:53:29.966Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.031,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T17:54:36.808Z"
+    },
+    {
+      "skill": "smelt_ores",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper).",
+      "timestamp": "2026-02-24T17:54:47.239Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.002,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T17:57:15.930Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:57:23.479Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T17:57:30.082Z"
+    },
+    {
+      "skill": "build_house",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "House already built at (9, 64, -333). Use go_to 9 64 -333 to visit the existing home.",
+      "timestamp": "2026-02-24T18:03:46.671Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T18:04:19.076Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T18:04:53.265Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T18:05:29.289Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.149,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T18:05:35.036Z"
+    },
+    {
+      "skill": "smeltRawCopper",
+      "success": false,
+      "durationSeconds": 13.615,
+      "notes": "smeltRawCopper failed: Took to long to decide path to goal!",
+      "timestamp": "2026-02-24T18:05:57.584Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T18:06:32.587Z"
+    },
+    {
+      "skill": "craftACopperBlockUsingAvailableResources",
+      "success": true,
+      "durationSeconds": 0.001,
+      "notes": "craftACopperBlockUsingAvailableResources completed.",
+      "timestamp": "2026-02-24T18:06:47.283Z"
+    },
+    {
+      "skill": "build_farm",
+      "success": false,
+      "durationSeconds": 0.016,
+      "notes": "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      "timestamp": "2026-02-24T18:06:57.637Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T18:07:07.450Z"
+    },
+    {
+      "skill": "light_area",
+      "success": false,
+      "durationSeconds": 0.001,
+      "notes": "No torches in inventory! Craft some first (coal + sticks).",
+      "timestamp": "2026-02-24T18:07:15.918Z"
     }
   ],
   "lessons": [],
-  "lastUpdated": "2026-02-23T23:45:55.639Z",
+  "lastUpdated": "2026-02-24T18:07:15.918Z",
   "brokenSkillNames": [
     "findNearbySheepAndShearThemToCollectWool",
     "craftABedUsing3WoolAnd3Planks",
     "craftABedUsingAvailableResourcesLikeWool",
-    "craftABedUsingWoolAndACraftingTableThenU",
-    "mineFiveCoalOres"
+    "craftABedUsingWoolAndACraftingTableThenU"
   ]
 }
