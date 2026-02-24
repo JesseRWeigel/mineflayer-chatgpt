@@ -377,6 +377,42 @@ export class BotMemoryStore {
     return new Set(this.memory.brokenSkillNames);
   }
 
+  /**
+   * Returns a map of skill → soft-blacklist message for skills whose last 2+
+   * attempts were all precondition failures with a known pattern.
+   * Used to pre-populate recentFailures on restart so the bot doesn't re-run
+   * the same failing actions immediately after a server disconnect.
+   *
+   * Only covers patterns that don't self-resolve with time (water proximity,
+   * wool count). "No trees found" is intentionally excluded — the bot may have
+   * moved to a new forest area since the last session.
+   */
+  getSessionPreconditionBlocks(): Map<string, string> {
+    const result = new Map<string, string>();
+    const skills = [...new Set(this.memory.skillHistory.map(s => s.skill))];
+    for (const skill of skills) {
+      const attempts = this.memory.skillHistory.filter(s => s.skill === skill);
+      const recent = attempts.slice(-3);
+      // Only pre-block if the last 2+ attempts were all precondition failures
+      if (recent.length < 2) continue;
+      const allPrecondition = recent.every(
+        a => !a.success && PRECONDITION_KEYWORDS.some(k => a.notes.toLowerCase().includes(k.toLowerCase()))
+      );
+      if (!allPrecondition) continue;
+
+      const lastNotes = recent[recent.length - 1].notes;
+      if (/no water found/i.test(lastNotes)) {
+        result.set(skill, "No water found within 96 blocks — explore to find a river or pond, then retry build_farm");
+      } else if (/cannot find.*wool|need.*wool/i.test(lastNotes)) {
+        result.set(skill, "Need 3 wool of same color — first EXPLORE to find a sheep flock, then use 'attack' on a sheep mob to get wool");
+      } else if (/no torch/i.test(lastNotes)) {
+        result.set(skill, "No torches — mine coal_ore first, then craft torches (coal + stick), then retry light_area");
+      }
+      // "No trees found" excluded — bot may have moved to a new forest area.
+    }
+    return result;
+  }
+
   shouldAvoidLocation(x: number, y: number, z: number, radius = 10): boolean {
     return this.memory.deaths.some(
       (d) => Math.abs(d.x - x) < radius && Math.abs(d.z - z) < radius

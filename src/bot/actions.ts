@@ -6,6 +6,7 @@ import { isHostile } from "./perception.js";
 import { skillRegistry } from "../skills/registry.js";
 import { runSkill } from "../skills/executor.js";
 import { runNeuralCombat } from "../neural/combat.js";
+import { LOG_TYPES } from "../skills/materials.js";
 
 /** Create safe movement defaults — no digging, no block placement, just walk/jump */
 export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
@@ -191,16 +192,8 @@ export async function executeAction(
 }
 
 async function gatherWood(bot: Bot, count: number): Promise<string> {
-  const logTypes = [
-    "oak_log",
-    "birch_log",
-    "spruce_log",
-    "jungle_log",
-    "acacia_log",
-    "dark_oak_log",
-    "cherry_log",
-    "mangrove_log",
-  ];
+  // Use shared LOG_TYPES so pale_oak_log (MC 1.21.4) and future wood types are included
+  const logTypes = LOG_TYPES as readonly string[];
 
   // Collect all nearby logs — use 256 block radius to find trees even after local depletion
   const allLogs = bot.findBlocks({
@@ -229,7 +222,7 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
   for (const pos of allLogs) {
     if (gathered >= count) break;
     const log = bot.blockAt(pos);
-    if (!log || !logTypes.includes(log.name)) continue;
+    if (!log || !(logTypes as readonly string[]).includes(log.name)) continue;
 
     tried++;
     try {
@@ -321,8 +314,8 @@ async function explore(bot: Bot, direction: string): Promise<string> {
     }
   }
 
-  // If underground (below y=64), try to dig/climb to the surface before exploring laterally.
-  if (bot.entity.position.y < 64) {
+  // If underground (below y=67), try to dig/climb to the surface before exploring laterally.
+  if (bot.entity.position.y < 67) {
     const digMoves = new Movements(bot);
     digMoves.canDig = true;
     digMoves.allowFreeMotion = true;
@@ -334,9 +327,10 @@ async function explore(bot: Bot, direction: string): Promise<string> {
     bot.pathfinder.setMovements(explorerMoves(bot));
   }
 
-  // Shorter hops (20-40 blocks) — pathfinder can compute these reliably
+  // Hops of 60-120 blocks — large enough to escape stripped biomes quickly,
+  // small enough to not skip entire forest biomes. TP fallback handles stuck cases.
   const currentPos = bot.entity.position;
-  const dist = 20 + Math.floor(Math.random() * 20);
+  const dist = 60 + Math.floor(Math.random() * 60);
   const jitter = () => (Math.random() - 0.5) * 20;
   let target: Vec3;
 
@@ -349,15 +343,24 @@ async function explore(bot: Bot, direction: string): Promise<string> {
   }
 
   bot.pathfinder.setMovements(explorerMoves(bot));
+  const startPos = bot.entity.position.clone();
   try {
     await safeGoto(bot, new goals.GoalNear(target.x, target.y, target.z, 5), 20000);
-  } catch {
-    // Non-fatal — report partial progress below
+  } catch { /* ignore — stuck check below fires either way */ }
+
+  // TP fallback: runs whether safeGoto threw OR resolved without moving.
+  // The pathfinder can resolve its promise without error when it gives up on an unreachable
+  // goal, leaving the bot at the same position. Checking AFTER try/catch ensures we catch both.
+  const movedDist = bot.entity.position.distanceTo(startPos);
+  if (movedDist < 2) {
+    bot.chat(`/tp ${Math.round(target.x)} 80 ${Math.round(target.z)}`);
+    await new Promise((r) => setTimeout(r, 3000)); // wait for TP + fall
   }
 
   // Report what we can see from wherever we ended up
-  const logTypes = ["oak_log", "birch_log", "spruce_log", "jungle_log", "acacia_log", "dark_oak_log"];
-  const nearbyTree = bot.findBlock({ matching: (b) => logTypes.includes(b.name), maxDistance: 32 });
+  // MC 1.21.4 adds pale_oak_log (Pale Garden biome); scan at 64 blocks to catch nearby forests.
+  const logTypes = ["oak_log", "birch_log", "spruce_log", "jungle_log", "acacia_log", "dark_oak_log", "pale_oak_log"];
+  const nearbyTree = bot.findBlock({ matching: (b) => logTypes.includes(b.name), maxDistance: 64 });
   const nearbyOre = bot.findBlock({ matching: (b) => b.name.includes("ore"), maxDistance: 16 });
   const nearbyWater = bot.findBlock({ matching: (b) => b.name === "water", maxDistance: 16 });
 

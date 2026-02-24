@@ -29,11 +29,13 @@ const CRAFT_TREE: Record<string, { inputs: Record<string, number>; yields: numbe
 export const LOG_TYPES = [
   "oak_log", "spruce_log", "birch_log", "jungle_log",
   "acacia_log", "dark_oak_log", "cherry_log", "mangrove_log",
+  "pale_oak_log", // MC 1.21.4 Pale Garden biome
 ] as const;
 
 export const PLANK_TYPES = [
   "oak_planks", "spruce_planks", "birch_planks", "jungle_planks",
   "acacia_planks", "dark_oak_planks", "cherry_planks", "mangrove_planks",
+  "pale_oak_planks", // MC 1.21.4 Pale Garden biome
 ] as const;
 
 /** Count all logs (any type) in inventory */

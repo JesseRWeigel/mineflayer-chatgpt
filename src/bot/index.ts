@@ -94,9 +94,15 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   const pendingChatMessages: ChatMessage[] = [];
   const recentHistory: LLMMessage[] = [];
   // Maps canonical skill/action key → last failure message (cleared on success).
-  // NOT pre-populated from memory — let the bot try fresh each session.
-  // Memory context already warns the LLM about historically broken skills.
+  // Pre-populated from memory so the bot doesn't re-run known-failing actions
+  // after a server disconnect / restart (ECONNRESET wipes the in-memory map).
   const recentFailures = new Map<string, string>();
+  for (const [skill, msg] of memStore.getSessionPreconditionBlocks()) {
+    recentFailures.set(`skill:${skill}`, msg);
+  }
+  if (recentFailures.size > 0) {
+    console.log(`[Bot] Pre-populated ${recentFailures.size} soft-blacklist entries from memory: ${[...recentFailures.keys()].join(", ")}`);
+  }
   // Count consecutive failures per action — only hard-blacklist after 2+ consecutive failures
   const failureCounts = new Map<string, number>();
   let successesSinceLastExpiry = 0;
@@ -204,13 +210,26 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         contextStr += `\n\nTHE STASH: Shared chest area at (${sx}, ${sy}, ${sz}). When your inventory is nearly full or you have excess materials, go_to The Stash and deposit them. Pick up materials from The Stash when you need them.`;
       }
 
-      // Recent failures: show the LLM exactly what failed and why so it stops retrying
-      // Strip the internal "skill:" prefix so the LLM sees the same name it would type
+      // Recent failures: show the LLM exactly what failed and why.
+      // Split into "needs resource" (can retry once prerequisite is met) vs "hard failures".
       if (recentFailures.size > 0) {
-        const failLines = Array.from(recentFailures.entries())
-          .map(([k, v]) => `- ${k.replace(/^skill:/, "")}: ${v}`)
-          .join("\n");
-        contextStr += `\n\nSKILLS/ACTIONS THAT JUST FAILED (DO NOT RETRY THESE):\n${failLines}\nChoose a DIFFERENT action.`;
+        const resourceGated: string[] = [];
+        const hardFailed: string[] = [];
+        for (const [k, v] of recentFailures.entries()) {
+          const name = k.replace(/^skill:/, "");
+          const line = `- ${name}: ${v}`;
+          if (/no water found|need 3 wool|no torch|no mobs nearby/i.test(v)) {
+            resourceGated.push(line);
+          } else {
+            hardFailed.push(line);
+          }
+        }
+        if (resourceGated.length > 0) {
+          contextStr += `\n\nSKILLS WAITING FOR RESOURCES (you CAN try these once you have the resource):\n${resourceGated.join("\n")}`;
+        }
+        if (hardFailed.length > 0) {
+          contextStr += `\n\nSKILLS/ACTIONS THAT JUST FAILED (DO NOT RETRY THESE NOW):\n${hardFailed.join("\n")}\nChoose a DIFFERENT action.`;
+        }
       }
 
       // If the last action found trees AND the bot still needs wood, hint to gather now
@@ -232,6 +251,11 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         contextStr += `\n\n⚠️ NO COAL: Can't craft torches — you need COAL first! Use strip_mine to find coal underground, OR use mine_block with blockType='coal_ore' if coal_ore is nearby. Check your memory context for discovered ore locations. Do NOT keep trying craft torch until you have coal.`;
       }
 
+      // craftBed "no matching wool" hint — direct bot to kill sheep
+      if (/craftBed/i.test(lastAction) && !lastActionWasSuccess && /Cannot find 3 wool|no wool|kill sheep/i.test(lastResult)) {
+        contextStr += `\n\n⚠️ NO MATCHING WOOL: craftBed needs 3 wool of the SAME color. Use 'attack' on sheep mobs to get wool (kill them — they drop 0-2 wool each). Find white sheep and kill 2-3 of them for white wool. Do NOT keep retrying craftBed until you have 3 matching wool.`;
+      }
+
       // Wood shortage warning: inject explicit gather_wood (or explore) instruction
       const logCount = currentLogCount;
       const plankCount = currentPlankCount;
@@ -245,6 +269,19 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         } else {
           contextStr += `\n\n⚠️ NO TREES: build_house can't find trees at X=${botX}. The local forest is stripped. Use gather_wood to search 256 blocks, or explore EAST or SOUTH to find untouched trees. Do NOT keep retrying build_house.`;
         }
+      }
+
+      // build_farm "no water" hint — explore to find a river/pond before retrying
+      const buildFarmNoWater = /build_farm/.test(lastAction) && !lastActionWasSuccess && /no water/i.test(lastResult);
+      if (buildFarmNoWater) {
+        contextStr += `\n\n⚠️ NO WATER: build_farm can't find water within 96 blocks at your current position. Explore more widely — rivers and ponds exist further away. Try explore SOUTH or EAST several times. Do NOT keep retrying build_farm until you find water.`;
+      }
+
+      // Coal/ore nearby hint — when explore spots ore, suggest mine_block directly
+      if (lastResult && /Spotted (\w+_ore)/i.test(lastResult)) {
+        const oreMatch = lastResult.match(/Spotted (\w+_ore)/i);
+        const oreName = oreMatch?.[1] ?? "ore";
+        contextStr += `\n\n💡 ORE NEARBY: You just spotted ${oreName}! Use mine_block with blockType='${oreName}' to collect it RIGHT NOW — don't explore further, you're standing next to resources.`;
       }
       if (logCount === 0 && plankCount < 4) {
         const gatherWoodJustFailed = lastAction === "gather_wood" && !lastActionWasSuccess;
@@ -270,10 +307,11 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         }
       }
 
-      // Warn LLM about ocean directions that lead to water (from past water-escape teleports)
+      // Warn LLM about ocean directions that lead to open water (from past water-escape teleports)
       if (waterDirections.size > 0) {
         const dirs = Array.from(waterDirections).join(", ");
-        contextStr += `\n\n⚠️ LAKE/WATER WARNING: Exploring ${dirs} leads into water (lake or ocean). Go EAST to get around the lake — there is dry land and trees to the east (positive X direction). Safe directions: ${["north","south","east","west"].filter(d => !waterDirections.has(d)).join(", ")}.`;
+        const safeDirs = ["north","south","east","west"].filter(d => !waterDirections.has(d)).join(", ");
+        contextStr += `\n\n⚠️ WATER WARNING: Exploring ${dirs} drops into open water. Try a different direction. Safe directions: ${safeDirs || "unknown — try explore up"}.`;
       }
 
       contextStr += "\n\nWhat should you do next? Respond with a JSON action.";
@@ -290,6 +328,14 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           await new Promise((r) => setTimeout(r, 500));
           return;
         }
+
+        // Wait 3s — let the bot swim out of shallow rivers/streams naturally before force-TPing.
+        // Only force-TP if still in water after the swim attempt.
+        await new Promise((r) => setTimeout(r, 3000));
+        const feetNow = bot.blockAt(bot.entity.position);
+        const headNow = bot.blockAt(bot.entity.position.offset(0, 1, 0));
+        if (feetNow?.name !== "water" && headNow?.name !== "water") return; // swam out naturally
+
         lastWaterEscapeMs = nowMs;
 
         const wx = Math.floor(bot.entity.position.x);
@@ -300,10 +346,12 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         // If safeSpawn is configured, always escape back to the known-safe area
         if (roleConfig.safeSpawn) {
           const { x: sx, z: sz } = roleConfig.safeSpawn;
-          // Record which direction led to water so the LLM can avoid it
+          // Record direction that led to open water — only if no trees were found nearby
+          // (trees nearby = useful river/lake, not ocean; don't block that direction)
           if (lastAction === "explore" || lastAction.startsWith("explore")) {
             const lastDir = lastResult.match(/Explored (\w+)/)?.[1]?.toLowerCase();
-            if (lastDir) waterDirections.add(lastDir);
+            const hadTreesNearby = /found trees nearby/i.test(lastResult);
+            if (lastDir && !hadTreesNearby) waterDirections.add(lastDir);
           }
           console.log(`[Bot] In water — teleporting back to safeSpawn area (${sx},80,${sz})`);
           bot.chat(`/tp ${sx} 80 ${sz}`);
@@ -467,14 +515,40 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         || recentFailures.has(`skill:${actionKey}`)
         || (goToCoordKey !== null && recentFailures.has(goToCoordKey));
       if (isBlacklisted) {
-        const blockMsg = `Blocked: "${actionKey}" is in the failure blacklist. Choose a different action.`;
-        console.log(`[Bot] ${blockMsg}`);
-        events.onAction(decision.action, blockMsg);
-        // Do NOT push to recentHistory — flooding history with block messages causes
-        // the LLM to obsessively keep picking the same blocked action. The recentFailures
-        // section in contextStr already tells the LLM what not to retry.
-        isActing = false;
-        return;
+        // At-dispatch reprieve: if build_farm is blocked for "no water" but water is NOW
+        // within 96 blocks (bot just explored close to a river), clear and allow it.
+        // We do this at dispatch time so the bot must actually be NEAR the water when it runs —
+        // periodic background clearing fires too early (when exploring near water while not farming).
+        const buildFarmKey = "skill:build_farm";
+        const buildFarmMsg = recentFailures.get(buildFarmKey) ?? recentFailures.get("build_farm") ?? "";
+        if (
+          (actionKey === "skill:build_farm" || actionKey === "build_farm") &&
+          /no water found/i.test(buildFarmMsg)
+        ) {
+          const nearWater = bot.findBlock({ matching: (b: any) => b.name === "water", maxDistance: 96 });
+          if (nearWater) {
+            recentFailures.delete(buildFarmKey);
+            recentFailures.delete("build_farm");
+            failureCounts.delete(buildFarmKey);
+            failureCounts.delete("build_farm");
+            // Fall through — let build_farm run this cycle
+          } else {
+            const blockMsg = `Blocked: "${actionKey}" is in the failure blacklist. Choose a different action.`;
+            console.log(`[Bot] ${blockMsg}`);
+            events.onAction(decision.action, blockMsg);
+            isActing = false;
+            return;
+          }
+        } else {
+          const blockMsg = `Blocked: "${actionKey}" is in the failure blacklist. Choose a different action.`;
+          console.log(`[Bot] ${blockMsg}`);
+          events.onAction(decision.action, blockMsg);
+          // Do NOT push to recentHistory — flooding history with block messages causes
+          // the LLM to obsessively keep picking the same blocked action. The recentFailures
+          // section in contextStr already tells the LLM what not to retry.
+          isActing = false;
+          return;
+        }
       }
 
       // Persistent broken-skills gate: block invoke_skill, generate_skill, AND direct dynamic
@@ -553,6 +627,19 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         decision.action === "neural_combat" ||
         decision.action === "generate_skill" ||
         decision.action === "craft";
+
+      // Track "attack" with no target separately — after 3 consecutive no-mob failures,
+      // soft-blacklist attack so the bot explores to find animals instead of spinning.
+      if (decision.action === "attack" && /no mobs to attack nearby/i.test(result)) {
+        const prevCount = (failureCounts.get("attack") ?? 0) + 1;
+        failureCounts.set("attack", prevCount);
+        if (prevCount >= 3) {
+          recentFailures.set("attack", "No mobs nearby — explore to find animals (sheep for wool, cows for food) before attacking");
+        }
+      } else if (decision.action === "attack" && isSuccess) {
+        failureCounts.delete("attack");
+        recentFailures.delete("attack");
+      }
       const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished|sleep|zzz/i.test(result);
 
       // go_to "Already here!" is a soft-loop — blacklist this destination so the bot moves on
@@ -574,12 +661,26 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           // a SOFT temporary blacklist — block it for a few actions to force exploration first.
           // Without this the LLM loops on build_house despite the "MUST choose different action" hint.
           const isBuildNoTrees = /build_house|gather_wood/.test(actionKey) && /no trees/i.test(result);
+          // Same pattern for build_farm: "no water" is a precondition failure but we still want to
+          // soft-blacklist it temporarily so the LLM explores rather than spamming build_farm.
+          const isBuildFarmNoWater = /build_farm/.test(actionKey) && /no water/i.test(result);
           // Soft blacklist craft when it fails for missing materials — prevents "craft torch"
           // loops when the bot has no coal. Once something else is done 8+ times the blacklist
           // naturally expires via the successesSinceLastExpiry mechanism.
           const isCraftMissingMaterial = decision.action === "craft" && /missing:/i.test(result);
+          // Soft blacklist craftBed when missing wool — prevents 27+ attempt loops. The bot needs
+          // to KILL SHEEP to get matching wool before it can retry.
+          const isCraftBedNoWool = /craftBed/i.test(actionKey) && /Cannot find 3 wool|no wool|kill sheep/i.test(result);
+          // Soft-blacklist light_area when no torches — bot must mine coal and craft torches first.
+          const isLightAreaNoTorches = /light_area/i.test(actionKey) && /no torch/i.test(result);
           if (!isAlreadyRunning && isBuildNoTrees) {
             recentFailures.set(actionKey, "No trees found — explore EAST or SOUTH several times first, then retry");
+          } else if (!isAlreadyRunning && isBuildFarmNoWater) {
+            recentFailures.set(actionKey, "No water found within 96 blocks — explore to find a river or pond, then retry build_farm");
+          } else if (!isAlreadyRunning && isCraftBedNoWool) {
+            recentFailures.set(actionKey, "Need 3 wool of same color — first EXPLORE to find a sheep flock, then use 'attack' on a sheep mob to get wool");
+          } else if (!isAlreadyRunning && isLightAreaNoTorches) {
+            recentFailures.set(actionKey, "No torches — mine coal_ore first, then craft torches (coal + stick), then retry light_area");
           } else if (!isAlreadyRunning && isCraftMissingMaterial) {
             recentFailures.set(actionKey, `Missing materials — gather the required resource first: ${result.slice(0, 80)}`);
           } else if (!isAlreadyRunning && !isPreconditionFailure) {
@@ -598,12 +699,55 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       }
       // Every 8 successes (any action, including explore/go_to), expire the oldest blacklist
       // entry so stale location-specific failures don't linger forever.
+      // Skip entries that require environmental conditions (e.g. "no water" build_farm block)
+      // — those are cleared by the dynamic precondition loop below when the condition is met.
       if (isSuccess) {
         successesSinceLastExpiry++;
         if (successesSinceLastExpiry >= 8 && recentFailures.size > 0) {
           successesSinceLastExpiry = 0;
-          const firstKey = recentFailures.keys().next().value;
-          if (firstKey) recentFailures.delete(firstKey);
+          // Find the oldest entry that is NOT environment-condition-gated.
+          // "no water found" (build_farm) and "need 3 wool" (craftBed) are cleared by the
+          // dynamic loop below — not by success count — to prevent premature re-enabling.
+          for (const [firstKey, firstMsg] of recentFailures.entries()) {
+            if (!/no water found/i.test(firstMsg) && !/need 3 wool/i.test(firstMsg)) {
+              recentFailures.delete(firstKey);
+              break;
+            }
+          }
+        }
+      }
+
+      // Dynamic precondition clearing — remove "missing material" blacklists when the bot
+      // has acquired the needed resource. This prevents stale torch-craft blocks when the
+      // bot mines coal after being blocked for "missing: coal".
+      for (const [key, msg] of recentFailures.entries()) {
+        if (/missing.*coal/i.test(msg)) {
+          const coalCount = bot.inventory.items().filter((i: any) => i.name === "coal").reduce((s: number, i: any) => s + i.count, 0);
+          if (coalCount > 0) { recentFailures.delete(key); failureCounts.delete(key); }
+        } else if (/missing.*stick/i.test(msg)) {
+          const stickCount = bot.inventory.items().filter((i: any) => i.name === "stick").reduce((s: number, i: any) => s + i.count, 0);
+          if (stickCount > 0) { recentFailures.delete(key); failureCounts.delete(key); }
+        } else if (/missing.*wood|missing.*log|missing.*plank/i.test(msg)) {
+          const woodCount = bot.inventory.items().filter((i: any) => i.name.includes("log") || i.name.includes("planks")).reduce((s: number, i: any) => s + i.count, 0);
+          if (woodCount > 0) { recentFailures.delete(key); failureCounts.delete(key); }
+        } else if (/no water found/i.test(msg)) {
+          // build_farm "no water" is cleared at dispatch time (see blacklist check above),
+          // not via background polling. Background polling fires prematurely when the bot
+          // explores near water while not actively farming.
+          // No-op here intentionally — dispatch reprieve handles it.
+        } else if (/need 3 wool/i.test(msg)) {
+          // Clear craftBed block only when bot has 3+ wool of the same color.
+          const woolItems = bot.inventory.items().filter((i: any) => i.name.endsWith("_wool"));
+          const woolByColor: Record<string, number> = {};
+          for (const item of woolItems) {
+            woolByColor[item.name] = (woolByColor[item.name] ?? 0) + item.count;
+          }
+          const hasMatchingWool = Object.values(woolByColor).some((c) => c >= 3);
+          if (hasMatchingWool) { recentFailures.delete(key); failureCounts.delete(key); }
+        } else if (/no torch/i.test(msg)) {
+          // Clear light_area block when bot has torches in inventory.
+          const torchCount = bot.inventory.items().filter((i: any) => i.name === "torch").reduce((s: number, i: any) => s + i.count, 0);
+          if (torchCount > 0) { recentFailures.delete(key); failureCounts.delete(key); }
         }
       }
 
@@ -730,9 +874,20 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
     if (roleConfig.safeSpawn) {
       const { x, z } = roleConfig.safeSpawn;
       console.log(`[Bot] safeSpawn configured — teleporting to ${x},80,${z}`);
+      const preTpX = bot.entity.position.x;
+      const preTpZ = bot.entity.position.z;
       bot.chat(`/tp ${x} 80 ${z}`);
-      // Wait for landing (falling from Y=80 to Y~64 takes < 2 seconds)
-      const landDeadline = Date.now() + 8_000;
+      // First, wait for the bot to actually MOVE (TP processed by server).
+      // Without this delay, if the bot is already onGround at its spawn position,
+      // the while-loop below exits immediately before the TP takes effect.
+      const moveDeadline = Date.now() + 5_000;
+      while (Date.now() < moveDeadline) {
+        await new Promise((r) => setTimeout(r, 200));
+        const moved = Math.abs(bot.entity.position.x - preTpX) + Math.abs(bot.entity.position.z - preTpZ);
+        if (moved > 5) break; // TP took effect — bot is now at a different location
+      }
+      // Now wait for landing (falling from Y=80 to Y~64 takes < 2 seconds)
+      const landDeadline = Date.now() + 6_000;
       while (!bot.entity.onGround && Date.now() < landDeadline) {
         await new Promise((r) => setTimeout(r, 200));
         // Abort if we landed in water (safeSpawn coords are in ocean) — fall through to water handler

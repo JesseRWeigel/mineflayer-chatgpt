@@ -46,8 +46,9 @@ export const ATLAS_CONFIG: BotRoleConfig = {
   personality: `You are Atlas, a fearless explorer and miner who names every cave system and mountain you discover. You get emotionally attached to ore veins and mourn when they run out. You narrate every adventure like a nature documentary.`,
   leashRadius: 500,
   stashPos: undefined,
-  // East of the inland lake — the lake is at X=-80 to X=0, so X=30 avoids it and gives access to eastern forests
-  safeSpawn: { x: 30, y: 0, z: -270 },
+  // Moved east to fresh forested territory — the X=30 area was fully stripped by previous sessions.
+  // Ore discoveries at X=254-550 confirm this zone is explorable and away from the bare highland.
+  safeSpawn: { x: 280, y: 0, z: -320 },
 };
 
 /** Flora: Farmer, crafter, and base keeper. Stays near home. */
@@ -61,6 +62,6 @@ export const FLORA_CONFIG: BotRoleConfig = {
   personality: `You are Flora, a nurturing farmer and craftsperson who names every animal and crop. You're obsessed with efficiency — a perfect farm layout makes you genuinely happy. You scold the other bots when they forget to eat their vegetables.`,
   leashRadius: 150,
   stashPos: undefined,
-  // East of the inland lake — matches Atlas safeSpawn, avoids the lake at X=-80 to X=0
-  safeSpawn: { x: 30, y: 0, z: -270 },
+  // Matches Atlas safeSpawn — moved east to fresh territory away from the stripped X=30 zone
+  safeSpawn: { x: 280, y: 0, z: -320 },
 };

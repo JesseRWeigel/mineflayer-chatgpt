@@ -23,6 +23,7 @@ const FUEL_ITEMS = [
   "acacia_planks", "dark_oak_planks", "cherry_planks", "mangrove_planks",
   "oak_log", "spruce_log", "birch_log", "jungle_log",
   "acacia_log", "dark_oak_log", "cherry_log", "mangrove_log",
+  "pale_oak_log", "pale_oak_planks", // MC 1.21.4
 ];
 
 export const smeltOresSkill: Skill = {

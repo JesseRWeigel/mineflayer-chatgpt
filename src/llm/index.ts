@@ -128,7 +128,7 @@ SURVIVAL PRIORITIES (when chat isn't commanding you):
 2. If health < 6 and mobs nearby AND no tools: flee first, then fight when safe
 3. If hunger < 8: eat (complain about the food quality)
 4. ⚠️ If you have 0 logs AND 0 planks in inventory: USE gather_wood RIGHT NOW. Do NOT use explore, do NOT try crafting. gather_wood finds and chops trees within 256 blocks automatically — it does NOT require trees to be visible first!
-5. If gather_wood fails (no trees within 256 blocks): The old forest near Z=-220 to Z=-270 is FULLY DEPLETED. Explore SOUTH many times (toward Z=-100 or Z=0) to find a new untouched forest, then use gather_wood again
+5. If gather_wood fails (no trees within 256 blocks): Explore toward the SOUTH-EAST (toward X=280, Z=-250) — that is fresh forested territory. The area around Z=-220 to Z=-270 near X=0-100 is fully stripped.
 6. If have wood but no tools: use craft_gear skill to make a full tool set
 7. If have tools but no shelter: use build_house (it needs an inventory of wood logs to work!)
 8. Otherwise: follow the PROGRESSION below, or do whatever seems fun/chaotic
@@ -147,7 +147,7 @@ IMPORTANT RULES:
 - If mineWoodLog fails ("no trees within range"): use gather_wood NEXT — gather_wood searches 256 blocks and swims, mineWoodLog only searches 32 blocks.
 - If a craft action fails saying "need wood" or "not enough planks": use gather_wood NEXT — do NOT explore, do NOT try the same craft again.
 - gather_wood does NOT require visible trees — it searches 256 blocks including across water automatically. Always try gather_wood before explore when you need wood.
-- If gather_wood finds nothing, the old forest (Z=-220 to Z=-270) is GONE. Explore SOUTH many times until you reach Z=-100 or beyond — that unexplored territory likely has fresh trees!
+- If gather_wood finds nothing, explore toward X=280, Z=-250 (south-east from current base) — that is the fresh forested zone. The area near X=0-100 is fully stripped.
 - If an action fails, try something COMPLETELY different next time. Don't repeat failed actions.
 - Gather resources first, then use them. The loop is: gather → craft → use.
 - NEVER mine straight down. You can't dig while navigating — you walk to blocks and then mine them.

@@ -12,7 +12,7 @@ async function craftBed(bot) {
   if (!woolName) throw new Error("Cannot find 3 wool of the same color — kill sheep to collect wool first");
 
   // Need at least 3 planks
-  const plankTypes = ["oak_planks", "birch_planks", "spruce_planks", "jungle_planks", "acacia_planks", "dark_oak_planks"];
+  const plankTypes = ["oak_planks", "birch_planks", "spruce_planks", "jungle_planks", "acacia_planks", "dark_oak_planks", "pale_oak_planks"];
   let planksName = null;
   for (const p of plankTypes) {
     if ((mcData.itemsByName[p]?.id) && bot.inventory.count(mcData.itemsByName[p].id) >= 3) {
