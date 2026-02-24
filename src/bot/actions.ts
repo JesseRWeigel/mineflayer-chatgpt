@@ -17,12 +17,14 @@ export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
   return moves;
 }
 
-/** Movement config for exploring — allows swimming unlike safeMoves */
+/** Movement config for exploring — allows surface swimming but not deep diving */
 export function explorerMoves(bot: Bot): InstanceType<typeof Movements> {
   const moves = new Movements(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
-  moves.allowFreeMotion = true;
+  // allowFreeMotion = false: bot uses normal water physics (floats at surface)
+  // rather than 3D free-flight which causes deep-water drowning on lake crossings
+  moves.allowFreeMotion = false;
   moves.scafoldingBlocks = [];
   return moves;
 }
