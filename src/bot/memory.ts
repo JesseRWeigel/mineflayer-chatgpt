@@ -65,6 +65,11 @@ const PRECONDITION_KEYWORDS = [
   "No trees found", "need wood", "Need a pickaxe", "No torches",
   "Couldn't plant", "aborted", "No crafting_table",
   "No furnace", "Need more", "not enough", "missing materials",
+  // build_farm environment failures (not skill bugs — just wrong location)
+  "No water found", "No tillable dirt", "No seeds from grass", "Can't craft a hoe",
+  "chunk may not be loaded",
+  // voyager mineBlock: resource not nearby (precondition, not bug)
+  "Cannot find",
   // "timed out" removed — combat/mining skills that time out are real failures,
   // not precondition failures. exploreUntil timeouts use "aborted" instead.
 ];
