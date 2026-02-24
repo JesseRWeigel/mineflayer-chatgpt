@@ -43,8 +43,13 @@ export const buildFarmSkill: Skill = {
     // water re-search picks a different water source with no adjacent dirt.
     onProgress({ skillName: "build_farm", phase: "Finding farmable land", progress: 0.05, message: "Searching for water and nearby dirt...", active: true });
 
+    // Surface water only — underwater blocks would send the bot swimming into the lake.
     const water = bot.findBlock({
-      matching: (b) => b.name === "water",
+      matching: (b) => {
+        if (b.name !== "water") return false;
+        const above = bot.blockAt(b.position.offset(0, 1, 0));
+        return above !== null && above.name !== "water"; // block above is air/land = surface
+      },
       maxDistance: 64,
     });
 
@@ -75,11 +80,22 @@ export const buildFarmSkill: Skill = {
       return { success: false, message: "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river." };
     }
 
-    // Navigate to the water area
+    // Navigate to dry shore adjacent to water (not into the water block itself).
+    // Find the nearest non-water solid block at the same Y as the water surface.
+    let navigationTarget = waterPos;
+    const shoreOffsets: [number, number][] = [[1,0],[-1,0],[0,1],[0,-1],[2,0],[-2,0],[0,2],[0,-2]];
+    for (const [dx, dz] of shoreOffsets) {
+      const candidate = waterPos.offset(dx, 0, dz);
+      const block = bot.blockAt(candidate);
+      if (block && block.name !== "water" && block.name !== "air") {
+        navigationTarget = candidate; // dry shore block at water level
+        break;
+      }
+    }
     setMovements(bot);
     try {
       await Promise.race([
-        bot.pathfinder.goto(new goals.GoalNear(waterPos.x, waterPos.y, waterPos.z, 5)),
+        bot.pathfinder.goto(new goals.GoalNear(navigationTarget.x, navigationTarget.y, navigationTarget.z, 3)),
         new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("timeout")); }, 15000)),
       ]);
     } catch { /* ok — try anyway */ }
