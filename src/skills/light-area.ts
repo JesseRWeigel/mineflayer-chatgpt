@@ -68,15 +68,22 @@ export const lightAreaSkill: Skill = {
           moves.allow1by1towers = false;
           moves.scafoldingBlocks = [];
           bot.pathfinder.setMovements(moves);
-          await bot.pathfinder.goto(new goals.GoalNear(pos.x, pos.y, pos.z, 3));
+          await Promise.race([
+            bot.pathfinder.goto(new goals.GoalNear(pos.x, pos.y, pos.z, 3)),
+            new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("nav timeout")); }, 5000)),
+          ]);
         }
 
         await bot.equip(torch, "hand");
 
-        // Place torch on the block below
+        // Place torch on the block below — re-check after navigation since world may have changed
         const below = bot.blockAt(pos.offset(0, -1, 0));
-        if (below && below.name !== "air") {
-          await bot.lookAt(pos.offset(0.5, 0, 0.5));
+        const atPos = bot.blockAt(pos);
+        // Skip if target spot is already occupied or ground is gone
+        if (below && below.name !== "air" && below.name !== "water" &&
+            atPos && (atPos.name === "air" || atPos.name === "torch")) {
+          await bot.equip(torch, "hand");
+          await bot.lookAt(below.position.offset(0.5, 1, 0.5));
           const ok = await Promise.race([
             bot.placeBlock(below, new Vec3(0, 1, 0)).then(() => true).catch(() => false),
             new Promise<boolean>((r) => setTimeout(() => r(false), 2000)),
