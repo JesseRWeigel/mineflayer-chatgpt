@@ -46,7 +46,7 @@ export const buildFarmSkill: Skill = {
     // Surface water only — underwater blocks would send the bot swimming into the lake.
     const water = bot.findBlock({
       matching: (b) => {
-        if (b.name !== "water") return false;
+        if (b.name !== "water" || !b.position) return false;
         const above = bot.blockAt(b.position.offset(0, 1, 0));
         return above !== null && above.name !== "water"; // block above is air/land = surface
       },
