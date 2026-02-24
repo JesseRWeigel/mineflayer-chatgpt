@@ -550,7 +550,10 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           // to prevent skills like build_house from being wrongly blacklisted just because
           // a different skill was hogging the runner.
           const isAlreadyRunning = result.startsWith("Already running skill");
-          if (!isAlreadyRunning) {
+          // Precondition failures (missing materials, no water, etc.) shouldn't be permanently
+          // blacklisted — once the bot gets the required resource, the action should work.
+          const isPreconditionFailure = /missing:|need \d|no water|no trees|no coal|no iron|no pickaxe|Can't craft/i.test(result);
+          if (!isAlreadyRunning && !isPreconditionFailure) {
             const prevCount = (failureCounts.get(actionKey) ?? 0) + 1;
             failureCounts.set(actionKey, prevCount);
             // Only hard-blacklist after 2+ consecutive failures (single failures may be transient)
