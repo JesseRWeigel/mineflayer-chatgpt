@@ -13,8 +13,7 @@ async function collectBamboo(bot) {
     return bambooPlants.length >= 10 ? bambooPlants : null;
   });
   if (!bambooPlants) {
-    bot.chat("Could not find enough bamboo plants.");
-    return;
+    throw new Error("Could not find enough bamboo plants nearby");
   }
 
   // Break 10 bamboo plants using the iron sword

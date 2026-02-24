@@ -11,8 +11,7 @@ async function killOneEnderman(bot) {
     return enderman;
   });
   if (!enderman) {
-    bot.chat("Could not find an enderman.");
-    return;
+    throw new Error("Could not find an enderman nearby");
   }
 
   // Kill the enderman using the iron sword

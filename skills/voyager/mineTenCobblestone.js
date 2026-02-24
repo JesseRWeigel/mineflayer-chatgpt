@@ -20,8 +20,7 @@ async function mineTenCobblestone(bot) {
     return cobblestoneBlocks.length >= 10 ? cobblestoneBlocks : null;
   });
   if (!cobblestoneBlocks) {
-    bot.chat("Could not find enough cobblestone.");
-    return;
+    throw new Error("Could not find enough cobblestone nearby — try exploring");
   }
 
   // Mine 10 cobblestone blocks using the mineBlock function

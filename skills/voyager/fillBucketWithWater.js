@@ -8,8 +8,7 @@ async function fillBucketWithWater(bot) {
     return water;
   });
   if (!waterBlock) {
-    bot.chat("Could not find water.");
-    return;
+    throw new Error("Could not find water nearby");
   }
 
   const adjacentBlock = waterBlock.position.offset(0, 1, 0);

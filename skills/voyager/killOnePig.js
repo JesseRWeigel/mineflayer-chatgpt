@@ -11,8 +11,7 @@ async function killOnePig(bot) {
     return pig;
   });
   if (!pig) {
-    bot.chat("Could not find a pig.");
-    return;
+    throw new Error("Could not find a pig nearby");
   }
 
   // Kill the pig using the wooden sword

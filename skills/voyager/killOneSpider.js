@@ -11,8 +11,7 @@ async function killOneSpider(bot) {
     return spider;
   });
   if (!spider) {
-    bot.chat("Could not find a spider.");
-    return;
+    throw new Error("Could not find a spider nearby");
   }
 
   // Kill the spider using the iron sword

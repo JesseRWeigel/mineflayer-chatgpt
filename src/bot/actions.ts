@@ -178,14 +178,14 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
     "mangrove_log",
   ];
 
-  // Collect all nearby logs and sort by distance (nearest first)
+  // Collect all nearby logs — use 64 block radius so we can reach trees across water
   const allLogs = bot.findBlocks({
     matching: (block) => logTypes.includes(block.name),
-    maxDistance: 40,
+    maxDistance: 64,
     count: 20,
   });
 
-  if (allLogs.length === 0) return "No trees found within 40 blocks. Try exploring to find a forest.";
+  if (allLogs.length === 0) return "No trees found within 64 blocks. Try exploring to find a forest.";
 
   let gathered = 0;
   let tried = 0;
@@ -196,20 +196,20 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
 
     tried++;
     try {
-      // Use explorerMoves so the bot can navigate over/through complex terrain
+      // explorerMoves allows swimming — essential when trees are across water
       bot.pathfinder.setMovements(explorerMoves(bot));
-      await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 3), 12000);
+      await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 3), 20000);
       await bot.dig(log);
       gathered++;
     } catch {
       // This log was unreachable — skip it and try the next one
     }
-    if (tried >= 5 && gathered === 0) break; // give up after 5 failed attempts
+    if (tried >= 8 && gathered === 0) break; // give up after 8 failed attempts
   }
 
   return gathered > 0
     ? `Gathered ${gathered} logs. Inventory now has wood!`
-    : "Couldn't reach any trees (pathfinding failed). Try exploring to a new area.";
+    : "Couldn't reach any trees within 64 blocks (pathfinding failed). Try exploring further.";
 }
 
 async function mineBlock(bot: Bot, blockType: string): Promise<string> {

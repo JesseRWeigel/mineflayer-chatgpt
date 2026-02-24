@@ -13,8 +13,7 @@ async function mineFiveCoalOres(bot) {
     return coalOres.length >= 5 ? coalOres : null;
   });
   if (!coalOres) {
-    bot.chat("Could not find enough coal ores.");
-    return;
+    throw new Error("Could not find enough coal ores nearby — try exploring deeper");
   }
 
   // Mine the 5 coal_ore blocks

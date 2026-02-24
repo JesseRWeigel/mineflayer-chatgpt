@@ -9,8 +9,7 @@ async function mineWoodLog(bot) {
     });
   });
   if (!woodLogBlock) {
-    bot.chat("Could not find a wood log.");
-    return;
+    throw new Error("Could not find a wood log nearby — no trees within range");
   }
 
   // Mine the wood log block

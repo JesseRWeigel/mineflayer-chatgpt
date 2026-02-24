@@ -10,8 +10,7 @@ async function craftChest(bot) {
       await craftItem(bot, "oak_planks", planksToCraft);
       bot.chat("Crafted oak planks.");
     } else {
-      bot.chat("Not enough oak logs to craft oak planks.");
-      return;
+      throw new Error("Not enough oak logs to craft planks for chest — gather wood first");
     }
   }
 

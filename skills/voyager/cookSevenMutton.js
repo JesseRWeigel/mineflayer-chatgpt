@@ -10,8 +10,7 @@ async function cookSevenMutton(bot) {
   // Find a suitable position to place the furnace
   const furnacePosition = await findSuitablePosition(bot);
   if (!furnacePosition) {
-    bot.chat("Could not find a suitable position to place the furnace.");
-    return;
+    throw new Error("Could not find a suitable position for the furnace");
   }
 
   // Place the furnace at the suitable position

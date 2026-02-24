@@ -2,8 +2,7 @@ async function eatTwoCookedMutton(bot) {
   // Check if there are 2 cooked mutton in the inventory
   const cookedMutton = bot.inventory.findInventoryItem(mcData.itemsByName.cooked_mutton.id);
   if (!cookedMutton || cookedMutton.count < 2) {
-    bot.chat("Not enough cooked mutton in the inventory.");
-    return;
+    throw new Error("Not enough cooked mutton in inventory");
   }
 
   // Equip the cooked mutton in the bot's hand

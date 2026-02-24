@@ -13,8 +13,7 @@ async function collectFiveCactusBlocks(bot) {
     return cactusBlocks.length >= 5 ? cactusBlocks : null;
   });
   if (!cactusBlocks) {
-    bot.chat("Could not find enough cactus blocks.");
-    return;
+    throw new Error("Could not find enough cactus blocks nearby");
   }
 
   // Mine the 5 cactus blocks using the mineBlock function
