@@ -50,6 +50,10 @@ export const lightAreaSkill: Skill = {
       }
     }
 
+    // Sort by distance — try closest positions first so we can place at least some
+    // even if far positions are blocked by water or terrain obstacles
+    positions.sort((a, b) => bot.entity.position.distanceTo(a) - bot.entity.position.distanceTo(b));
+
     let placed = 0;
     const total = Math.min(positions.length, torchCount);
 
@@ -70,7 +74,7 @@ export const lightAreaSkill: Skill = {
           bot.pathfinder.setMovements(moves);
           await Promise.race([
             bot.pathfinder.goto(new goals.GoalNear(pos.x, pos.y, pos.z, 3)),
-            new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("nav timeout")); }, 5000)),
+            new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("nav timeout")); }, 8000)),
           ]);
         }
 
