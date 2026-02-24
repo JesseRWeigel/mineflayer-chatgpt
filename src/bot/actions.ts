@@ -187,6 +187,19 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
 
   if (allLogs.length === 0) return "No trees found within 128 blocks. Try exploring south toward Z=-200 to find a forest.";
 
+  // If underground, surface first — explorerMoves can't dig through solid blocks
+  if (bot.entity.position.y < 63) {
+    const digMoves = new Movements(bot);
+    digMoves.canDig = true;
+    digMoves.allowFreeMotion = true;
+    digMoves.allow1by1towers = true;
+    bot.pathfinder.setMovements(digMoves);
+    try {
+      await safeGoto(bot, new goals.GoalY(70), 20000);
+    } catch { /* best effort — continue anyway */ }
+    bot.pathfinder.setMovements(explorerMoves(bot));
+  }
+
   let gathered = 0;
   let tried = 0;
   for (const pos of allLogs) {
