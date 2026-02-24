@@ -332,6 +332,14 @@ export async function queryLLM(
     // Normalize params — model sometimes uses "parameters" instead of "params"
     const params = parsed.params ?? parsed.parameters ?? {};
 
+    // LLMs often put direction/item/block at the top level instead of inside params.
+    // Hoist any recognized top-level fields that are missing from params.
+    for (const field of ["direction", "item", "block", "blockType", "count", "skill", "task", "message"]) {
+      if (parsed[field] !== undefined && params[field] === undefined) {
+        params[field] = parsed[field];
+      }
+    }
+
     // mine_BLOCKTYPE → mine_block with blockType injected
     // Catches: mine_iron_ore, mine_coal_ore, mine_diamond, mine_cobblestone, etc.
     if (action !== "mine_block" && /^mine_\w+$/.test(action)) {
