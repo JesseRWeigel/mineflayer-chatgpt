@@ -48,7 +48,9 @@ export const buildFarmSkill: Skill = {
       matching: (b) => {
         if (b.name !== "water" || !b.position) return false;
         const above = bot.blockAt(b.position.offset(0, 1, 0));
-        return above !== null && above.name !== "water"; // block above is air/land = surface
+        // Surface water: block above is air/land (not another water block).
+        // If above is null (chunk edge, unloaded), assume surface — better to try than skip.
+        return !above || above.name !== "water";
       },
       maxDistance: 64,
     });
