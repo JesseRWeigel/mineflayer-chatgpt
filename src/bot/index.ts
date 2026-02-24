@@ -216,6 +216,32 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         contextStr += "\n\n⚠️ TREES ARE NEARBY! Use gather_wood RIGHT NOW to collect logs. Don't explore further — you're standing next to trees!";
       }
 
+      // Wood shortage warning: inject explicit gather_wood (or explore) instruction
+      const logCount = bot.inventory.items()
+        .filter(i => i.name.endsWith("_log"))
+        .reduce((s: number, i: any) => s + i.count, 0);
+      const plankCount = bot.inventory.items()
+        .filter(i => i.name.endsWith("_planks"))
+        .reduce((s: number, i: any) => s + i.count, 0);
+      if (logCount === 0 && plankCount < 4) {
+        const gatherWoodJustFailed = lastAction === "gather_wood" && !lastActionWasSuccess;
+        const botZ = Math.floor(bot.entity.position.z);
+        if (gatherWoodJustFailed) {
+          // In Minecraft, Z increases going south. Forest zone is around Z=-200.
+          // Bots spawn near Z=-333 which is north of the forest.
+          const forestTargetZ = -200;
+          const distToForest = forestTargetZ - botZ; // positive = need to go south
+          if (distToForest > 20) {
+            const stepsNeeded = Math.ceil(distToForest / 40);
+            contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. Previous structures were built with trees near Z=${forestTargetZ}. You are at Z=${botZ} — ${distToForest} blocks south. Explore SOUTH (repeat ~${stepsNeeded} times) until reaching Z=${forestTargetZ}, then use gather_wood. Do NOT explore north (ocean) or east (only ores there).`;
+          } else {
+            contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. You're near Z=${botZ} (expected forest zone). Try exploring further south or west/northwest. Do NOT explore east (only ores) or north (ocean).`;
+          }
+        } else {
+          contextStr += `\n\n⚠️ WOOD SHORTAGE: You have ${logCount} logs and ${plankCount} planks — NOT enough to craft. Use gather_wood NOW (searches 128 blocks including trees across water). Do NOT keep crafting, do NOT explore yet.`;
+        }
+      }
+
       // Warn LLM about ocean directions that lead to water (from past water-escape teleports)
       if (waterDirections.size > 0) {
         const dirs = Array.from(waterDirections).join(", ");
