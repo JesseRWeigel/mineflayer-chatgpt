@@ -476,8 +476,18 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         }
       }
 
+      // Normalize params: LLMs sometimes put direction/skill/item at the top level instead of in params.
+      // Merge any recognized top-level fields into params so executeAction can find them.
+      const rawDecision = decision as Record<string, any>;
+      const normalizedParams = { ...(decision.params ?? {}) };
+      for (const field of ["direction", "skill", "item", "block", "blockType", "count", "x", "y", "z", "message"]) {
+        if (rawDecision[field] !== undefined && normalizedParams[field] === undefined) {
+          normalizedParams[field] = rawDecision[field];
+        }
+      }
+
       // Execute action
-      const result = await executeAction(bot, decision.action, decision.params);
+      const result = await executeAction(bot, decision.action, normalizedParams);
       lastResult = result;
       events.onAction(decision.action, result);
       console.log(`[Bot] Result: ${result}`);
