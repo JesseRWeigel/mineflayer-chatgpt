@@ -755,7 +755,11 @@ async function sleepInBed(bot: Bot): Promise<string> {
             for (const d of dirs) {
               const g2 = bot.blockAt(ground.position.plus(d));
               const a2 = bot.blockAt(above.position.plus(d));
-              if (!g2 || g2.name === "air" || !a2 || a2.name !== "air") continue;
+              // g2 must be solid ground (not air, not water, not leaves)
+              if (!g2 || g2.name === "air" || g2.name === "water" || g2.name.includes("leaves")) continue;
+              // a2 must be passable — air is ideal but short_grass/flowers are also fine (bed replaces them)
+              if (!a2) continue;
+              if (a2.name !== "air" && (a2.boundingBox === "block" || a2.name === "water" || a2.name === "lava")) continue;
               // Valid 2-block flat spot found — try placing
               try {
                 await bot.lookAt(ground.position.offset(0.5, 1, 0.5));

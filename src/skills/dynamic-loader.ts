@@ -46,6 +46,8 @@ async function mineBlock(bot, name, count) {
       // Radius 2 instead of 1 gives the pathfinder more flexibility to find a valid approach
       await bot.pathfinder.goto(new _vGoals.GoalNear(block.position.x, block.position.y, block.position.z, 2));
       await bot.dig(block);
+      // Wait for item drops to float up (especially coal in water) and be auto-collected
+      await new Promise(r => setTimeout(r, 800));
       mined++;
     } catch (e) {
       // Block unreachable — it may be in a tree canopy or across water; try next nearest
