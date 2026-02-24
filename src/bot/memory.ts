@@ -83,13 +83,32 @@ export class BotMemoryStore {
     this.memory = { ...defaultMemory };
   }
 
+  // Static skills are TypeScript source files that developers can fix.
+  // They should NOT be permanently blacklisted — clear them from brokenSkillNames
+  // on every load so a fixed version gets a fresh chance each session.
+  // Dynamic/Voyager skills have no developer fix path, so they stay permanently blocked.
+  private static readonly STATIC_SKILL_NAMES = new Set([
+    "build_house", "craft_gear", "light_area", "build_farm",
+    "strip_mine", "smelt_ores", "go_fishing", "build_bridge",
+  ]);
+
   load(): BotMemory {
     try {
       if (fs.existsSync(this.memoryFile)) {
         const data = fs.readFileSync(this.memoryFile, "utf-8");
         this.memory = JSON.parse(data);
         if (!this.memory.brokenSkillNames) this.memory.brokenSkillNames = [];
-        console.log(`[Memory] Loaded from ${path.basename(this.memoryFile)}: ${this.memory.structures.length} structures, ${this.memory.skillHistory.length} skill attempts, ${this.memory.brokenSkillNames.length} known broken skills`);
+
+        // Startup heal: remove static skills from brokenSkillNames so a fixed
+        // version of the skill can be tried again. If still broken, it will
+        // re-accumulate failures and be re-added within the session.
+        const before = this.memory.brokenSkillNames.length;
+        this.memory.brokenSkillNames = this.memory.brokenSkillNames.filter(
+          s => !BotMemoryStore.STATIC_SKILL_NAMES.has(s)
+        );
+        const healed = before - this.memory.brokenSkillNames.length;
+
+        console.log(`[Memory] Loaded from ${path.basename(this.memoryFile)}: ${this.memory.structures.length} structures, ${this.memory.skillHistory.length} skill attempts, ${this.memory.brokenSkillNames.length} known broken skills${healed > 0 ? ` (healed ${healed} static skills)` : ""}`);
       }
     } catch (err) {
       console.error("[Memory] Failed to load:", err);
@@ -259,8 +278,11 @@ export class BotMemoryStore {
         const successes = attempts.filter((a) => a.success).length;
         const realFailures = attempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
         const preconditionFailures = attempts.filter(a => !a.success && PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
-        if (successes === 0 && realFailures.length >= 2) {
-          // No successes, at least 2 genuine failures — truly broken
+        // Static skills (fixable TypeScript source) should never be shown as permanently broken
+        // based on history alone — a bug fix can change everything. Show normal stats for them.
+        const isStatic = BotMemoryStore.STATIC_SKILL_NAMES.has(skill);
+        if (!isStatic && successes === 0 && realFailures.length >= 2) {
+          // No successes, at least 2 genuine failures — truly broken (dynamic skills only)
           brokenLabel.push(`${skill} (failed ${attempts.length}/${attempts.length} times)`);
         } else if (successes === 0 && preconditionFailures.length >= 2 && realFailures.length === 0) {
           // All failures are precondition misses (no trees, no materials, etc.) — skill works, just needs resources
@@ -302,8 +324,10 @@ export class BotMemoryStore {
       const attempts = this.memory.skillHistory.filter((s) => s.skill === skill);
       const successes = attempts.filter((a) => a.success).length;
       const realFailures = attempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
-      // Only flag as broken if there are REAL failures (not just precondition misses like "no trees")
-      if (successes === 0 && realFailures.length >= 2) {
+      // Only flag as broken if there are REAL failures (not just precondition misses like "no trees").
+      // Static skills (fixable source code) are excluded — historical crashes don't mean unfixable.
+      const isStatic = BotMemoryStore.STATIC_SKILL_NAMES.has(skill);
+      if (!isStatic && successes === 0 && realFailures.length >= 2) {
         const msg = `Failed ${attempts.length} times (0% success rate) — this skill is broken, never use it`;
         broken.set(skill, msg);
         broken.set(`skill:${skill}`, msg);
