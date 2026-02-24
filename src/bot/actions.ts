@@ -420,6 +420,28 @@ async function craftItem(bot: Bot, itemName: string, count: number): Promise<str
         return `Can't craft ${resolvedName} — need 3 wool (you have ${woolCount}). Kill/shear nearby sheep to get wool, then craft planks + wool into a bed.`;
       }
     }
+    if (resolvedName === "torch") {
+      const hasCoal = bot.inventory.items().some(i => i.name === "coal" || i.name === "charcoal");
+      const hasStick = bot.inventory.items().some(i => i.name === "stick");
+      const missing: string[] = [];
+      if (!hasCoal) missing.push("coal or charcoal (mine coal_ore with a pickaxe)");
+      if (!hasStick) missing.push("sticks (craft from planks)");
+      return `Can't craft torch — missing: ${missing.length ? missing.join(", ") : "unknown"}. Recipe: 1 coal/charcoal + 1 stick = 4 torches.`;
+    }
+    // Generic: try to identify missing ingredients from the first known recipe
+    const allRecipes = mcData.recipes?.[item.id];
+    if (allRecipes?.length) {
+      const needed = (allRecipes[0].ingredients ?? allRecipes[0].inShape?.flat() ?? [])
+        .filter(Boolean)
+        .map((ing: any) => {
+          const ingId = typeof ing === "object" ? ing.id ?? ing : ing;
+          return mcData.items[ingId]?.name ?? String(ingId);
+        });
+      const uniqueNeeded = [...new Set(needed)].filter(n => n && n !== "null");
+      if (uniqueNeeded.length) {
+        return `Can't craft ${resolvedName} — need: ${uniqueNeeded.join(", ")}. Gather those first.`;
+      }
+    }
     return `Can't craft ${resolvedName} — missing materials or need a crafting table.`;
   }
 
