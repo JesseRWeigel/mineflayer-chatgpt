@@ -236,21 +236,15 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           const dzToForest = forestZ - botZ; // positive = go south
           const distToForest = Math.sqrt(dxToForest * dxToForest + dzToForest * dzToForest);
 
-          let dirHint: string;
-          if (Math.abs(dxToForest) > Math.abs(dzToForest) * 2) {
-            // Primarily east-west displacement
-            dirHint = dxToForest < 0 ? "west" : "east";
-          } else if (Math.abs(dzToForest) > Math.abs(dxToForest) * 2) {
-            // Primarily north-south displacement
-            dirHint = dzToForest > 0 ? "south" : "north";
-          } else {
-            // Diagonal — give combined hint
-            const ns = dzToForest > 0 ? "south" : "north";
-            const ew = dxToForest < 0 ? "west" : "east";
-            dirHint = `${ns} and ${ew}`;
-          }
+          // Pick primary direction: whichever axis has larger displacement
+          const primaryDir = Math.abs(dxToForest) >= Math.abs(dzToForest)
+            ? (dxToForest < 0 ? "west" : "east")   // X dominates
+            : (dzToForest > 0 ? "south" : "north"); // Z dominates
+          const secondaryDir = Math.abs(dxToForest) >= Math.abs(dzToForest)
+            ? (dzToForest > 0 ? "south" : "north")
+            : (dxToForest < 0 ? "west" : "east");
           const stepsNeeded = Math.max(1, Math.ceil(distToForest / 40));
-          contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. Known forest is near (${forestX}, ${forestZ}). You are at (${botX}, ${botZ}) — ${Math.round(distToForest)} blocks away. Explore ${dirHint.toUpperCase()} (repeat ~${stepsNeeded} times) until near (${forestX}, ${forestZ}), then use gather_wood. Do NOT explore north (ocean) or east (only ores).`;
+          contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. Known forest is near X=${forestX}, Z=${forestZ}. You are at X=${botX}, Z=${botZ} (${Math.round(distToForest)} blocks away). PRIMARY direction: explore ${primaryDir.toUpperCase()} (${stepsNeeded} times). Secondary: also ${secondaryDir}. Your X=${botX}, forest X=${forestX} — you need to go ${primaryDir.toUpperCase()} to close X gap. Do NOT explore north (ocean) or east (only ores).`;
         } else {
           contextStr += `\n\n⚠️ WOOD SHORTAGE: You have ${logCount} logs and ${plankCount} planks — NOT enough to craft. Use gather_wood NOW (searches 128 blocks including trees across water). Do NOT keep crafting, do NOT explore yet.`;
         }
