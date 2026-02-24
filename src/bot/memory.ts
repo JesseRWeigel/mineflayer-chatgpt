@@ -68,8 +68,8 @@ const PRECONDITION_KEYWORDS = [
   // build_farm environment failures (not skill bugs — just wrong location)
   "No water found", "No tillable dirt", "No seeds from grass", "Can't craft a hoe",
   "chunk may not be loaded",
-  // voyager mineBlock: resource not nearby (precondition, not bug)
-  "Cannot find",
+  // voyager mineBlock / exploreUntil: resource not nearby (precondition, not bug)
+  "Cannot find", "Could not find",
   // smelt_ores when inventory has no ore (environment, not bug)
   "Nothing to smelt",
   // "timed out" removed — combat/mining skills that time out are real failures,
