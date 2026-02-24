@@ -17,14 +17,12 @@ export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
   return moves;
 }
 
-/** Movement config for exploring — allows surface swimming but not deep diving */
+/** Movement config for exploring — allows swimming across water (allowFreeMotion=true) */
 export function explorerMoves(bot: Bot): InstanceType<typeof Movements> {
   const moves = new Movements(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
-  // allowFreeMotion = false: bot uses normal water physics (floats at surface)
-  // rather than 3D free-flight which causes deep-water drowning on lake crossings
-  moves.allowFreeMotion = false;
+  moves.allowFreeMotion = true; // needed for pathfinder to route through water
   moves.scafoldingBlocks = [];
   return moves;
 }
@@ -241,11 +239,19 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
       // Also delay stall detection by 32s to match — stall fires only AFTER bot starts moving
       const prevThinkTimeout = bot.pathfinder.thinkTimeout;
       bot.pathfinder.thinkTimeout = 30000;
+      // Y-floor guard: if pathfinder dives below Y=60 (lake bed) stop navigation to prevent drowning
+      const Y_FLOOR = 60;
+      const yGuard = setInterval(() => {
+        if (bot.entity.position.y < Y_FLOOR) {
+          bot.pathfinder.stop();
+        }
+      }, 400);
       try {
         await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 3), 90000, 32000);
         await bot.dig(log);
         gathered++;
       } finally {
+        clearInterval(yGuard);
         bot.pathfinder.thinkTimeout = prevThinkTimeout;
       }
     } catch {
