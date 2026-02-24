@@ -32,9 +32,10 @@ const GoalY = _vGoals.GoalY;
 
 async function mineBlock(bot, name, count) {
   const target = count || 1;
-  // Enable digging so pathfinder can reach underground ores through stone
+  // Enable digging AND swimming so pathfinder can reach ores through stone and water
   const _digMoves = new _vMovements(bot);
   _digMoves.canDig = true;
+  _digMoves.allowFreeMotion = true; // allows swimming to ores in lakes
   bot.pathfinder.setMovements(_digMoves);
   let mined = 0;
   let attempts = 0;
@@ -260,7 +261,7 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
         }) as Promise<void>;
 
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`${name} timed out after 60s`)), 60_000)
+          setTimeout(() => reject(new Error(`${name} timed out after 120s`)), 120_000)
         );
 
         await Promise.race([vmPromise, timeoutPromise]);
