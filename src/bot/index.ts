@@ -228,25 +228,31 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         const botX = Math.floor(bot.entity.position.x);
         const botZ = Math.floor(bot.entity.position.z);
         if (gatherWoodJustFailed) {
-          // Known forest zone: X≈-30 to X≈0, Z≈-230 to Z≈-200 (where houses were built).
-          // Direct bot toward forest based on current X and Z position.
-          const forestX = -15; // center of known forest area
-          const forestZ = -220; // center of known forest area
-          const dxToForest = forestX - botX; // negative = go west
-          const dzToForest = forestZ - botZ; // positive = go south
-          const distToForest = Math.sqrt(dxToForest * dxToForest + dzToForest * dzToForest);
-
-          // Pick primary direction: whichever axis has larger displacement
-          const primaryDir = Math.abs(dxToForest) >= Math.abs(dzToForest)
-            ? (dxToForest < 0 ? "west" : "east")   // X dominates
-            : (dzToForest > 0 ? "south" : "north"); // Z dominates
-          const secondaryDir = Math.abs(dxToForest) >= Math.abs(dzToForest)
-            ? (dzToForest > 0 ? "south" : "north")
-            : (dxToForest < 0 ? "west" : "east");
-          const stepsNeeded = Math.max(1, Math.ceil(distToForest / 40));
-          contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. Known forest is near X=${forestX}, Z=${forestZ}. You are at X=${botX}, Z=${botZ} (${Math.round(distToForest)} blocks away). PRIMARY direction: explore ${primaryDir.toUpperCase()} (${stepsNeeded} times). Secondary: also ${secondaryDir}. Your X=${botX}, forest X=${forestX} — you need to go ${primaryDir.toUpperCase()} to close X gap. Do NOT explore north (ocean) or east (only ores).`;
+          // The old forest zone (Z=-200 to Z=-270) has been COMPLETELY STRIPPED.
+          // Bot must explore MUCH further south to find an untouched forest.
+          // In Minecraft, south = increasing Z (Z=-270 → Z=-200 → Z=-100 → Z=0 → Z=100).
+          const alreadyInOldForest = botZ >= -290 && botZ <= -190;
+          if (alreadyInOldForest) {
+            // Bot is already in the depleted zone — must explore FAR south (many steps)
+            const targetZ = -100; // unexplored territory further south
+            const dzNeeded = targetZ - botZ; // positive = go south
+            const stepsNeeded = Math.max(3, Math.ceil(Math.abs(dzNeeded) / 35));
+            contextStr += `\n\n⚠️ WOOD SHORTAGE: The forest near Z=-220 to Z=-270 has been COMPLETELY STRIPPED — no trees remain there. You MUST explore SOUTH many times to find a new untouched forest. Target: Z=${targetZ} (you are at Z=${botZ}, need to go south ~${Math.abs(dzNeeded)} blocks). explore SOUTH ${stepsNeeded}+ times until trees appear. Do NOT explore north (ocean). The new forest is SOUTH, not in the old area.`;
+          } else {
+            // Bot is not yet in the forest zone — direct them south/west toward it
+            const forestX = -15;
+            const forestZ = -150; // aim for further south than the depleted zone
+            const dxToForest = forestX - botX;
+            const dzToForest = forestZ - botZ;
+            const distToForest = Math.sqrt(dxToForest * dxToForest + dzToForest * dzToForest);
+            const primaryDir = Math.abs(dxToForest) >= Math.abs(dzToForest)
+              ? (dxToForest < 0 ? "west" : "east")
+              : (dzToForest > 0 ? "south" : "north");
+            const stepsNeeded = Math.max(2, Math.ceil(distToForest / 35));
+            contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 256 blocks and found nothing. The old forest (Z=-220 to -270) is depleted. Explore toward Z=${forestZ}. You are at X=${botX}, Z=${botZ} (${Math.round(distToForest)} blocks away). Explore ${primaryDir.toUpperCase()} ${stepsNeeded}+ times. Do NOT explore north.`;
+          }
         } else {
-          contextStr += `\n\n⚠️ WOOD SHORTAGE: You have ${logCount} logs and ${plankCount} planks — NOT enough to craft. Use gather_wood NOW (searches 128 blocks including trees across water). Do NOT keep crafting, do NOT explore yet.`;
+          contextStr += `\n\n⚠️ WOOD SHORTAGE: You have ${logCount} logs and ${plankCount} planks — NOT enough to craft. Use gather_wood NOW (searches 256 blocks including trees across water). Do NOT keep crafting, do NOT explore yet.`;
         }
       }
 

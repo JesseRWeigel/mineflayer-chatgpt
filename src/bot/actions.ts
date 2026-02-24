@@ -194,14 +194,14 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
     "mangrove_log",
   ];
 
-  // Collect all nearby logs — use 128 block radius so we can reach trees ~100 blocks away
+  // Collect all nearby logs — use 256 block radius to find trees even after local depletion
   const allLogs = bot.findBlocks({
     matching: (block) => logTypes.includes(block.name),
-    maxDistance: 128,
+    maxDistance: 256,
     count: 20,
   });
 
-  if (allLogs.length === 0) return "No trees found within 128 blocks. Try exploring south toward Z=-200 to find a forest.";
+  if (allLogs.length === 0) return "No trees found within 256 blocks. Explore further south (toward Z=-100 or Z=0) to find an uncharted forest.";
 
   // If underground, surface first — explorerMoves can't dig through solid blocks
   if (bot.entity.position.y < 63) {
