@@ -211,18 +211,23 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         contextStr += `\n\nSKILLS/ACTIONS THAT JUST FAILED (DO NOT RETRY THESE):\n${failLines}\nChoose a DIFFERENT action.`;
       }
 
-      // If the last action found trees, strongly hint to gather_wood now
-      if (lastResult && /found trees nearby/i.test(lastResult)) {
-        contextStr += "\n\n⚠️ TREES ARE NEARBY! Use gather_wood RIGHT NOW to collect logs. Don't explore further — you're standing next to trees!";
+      // If the last action found trees AND the bot still needs wood, hint to gather now
+      const currentLogCount = bot.inventory.items()
+        .filter(i => i.name.endsWith("_log"))
+        .reduce((s: number, i: any) => s + i.count, 0);
+      const currentPlankCount = bot.inventory.items()
+        .filter(i => i.name.endsWith("_planks"))
+        .reduce((s: number, i: any) => s + i.count, 0);
+      // Only push gather_wood if bot has < 16 logs (enough for craft_gear + build_house)
+      if (lastResult && /found trees nearby/i.test(lastResult) && currentLogCount < 16) {
+        contextStr += `\n\n⚠️ TREES ARE NEARBY! You have ${currentLogCount} logs — gather more! Use gather_wood RIGHT NOW to collect logs. Don't explore further — you're standing next to trees!`;
+      } else if (lastResult && /found trees nearby/i.test(lastResult) && currentLogCount >= 16) {
+        contextStr += `\n\n✅ You have ${currentLogCount} logs — ENOUGH WOOD! Do NOT keep gathering. Use craft_gear to make tools, or build_house for shelter.`;
       }
 
       // Wood shortage warning: inject explicit gather_wood (or explore) instruction
-      const logCount = bot.inventory.items()
-        .filter(i => i.name.endsWith("_log"))
-        .reduce((s: number, i: any) => s + i.count, 0);
-      const plankCount = bot.inventory.items()
-        .filter(i => i.name.endsWith("_planks"))
-        .reduce((s: number, i: any) => s + i.count, 0);
+      const logCount = currentLogCount;
+      const plankCount = currentPlankCount;
       if (logCount === 0 && plankCount < 4) {
         const gatherWoodJustFailed = lastAction === "gather_wood" && !lastActionWasSuccess;
         const botX = Math.floor(bot.entity.position.x);
