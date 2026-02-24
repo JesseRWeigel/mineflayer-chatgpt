@@ -198,13 +198,20 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
     try {
       // explorerMoves allows swimming — essential when trees are across water
       bot.pathfinder.setMovements(explorerMoves(bot));
-      await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 3), 40000);
-      await bot.dig(log);
-      gathered++;
+      // Increase think timeout for long-distance pathing around lakes (default 10s is too short)
+      const prevThinkTimeout = bot.pathfinder.thinkTimeout;
+      bot.pathfinder.thinkTimeout = 30000;
+      try {
+        await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 3), 90000);
+        await bot.dig(log);
+        gathered++;
+      } finally {
+        bot.pathfinder.thinkTimeout = prevThinkTimeout;
+      }
     } catch {
       // This log was unreachable — skip it and try the next one
     }
-    if (tried >= 8 && gathered === 0) break; // give up after 8 failed attempts
+    if (tried >= 4 && gathered === 0) break; // give up after 4 failed attempts (360s max)
   }
 
   return gathered > 0
