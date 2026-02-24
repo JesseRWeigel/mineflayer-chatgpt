@@ -46,8 +46,8 @@ export const ATLAS_CONFIG: BotRoleConfig = {
   personality: `You are Atlas, a fearless explorer and miner who names every cave system and mountain you discover. You get emotionally attached to ore veins and mourn when they run out. You narrate every adventure like a nature documentary.`,
   leashRadius: 500,
   stashPos: undefined,
-  // Forest zone confirmed solid ground — near previous gather_wood successes at (-12,69,-274), (-23,65,-250)
-  safeSpawn: { x: -15, y: 0, z: -260 },
+  // Western forest edge — Atlas gathered 3 logs from (-53,67,-270) in prior session; this side avoids the lake
+  safeSpawn: { x: -45, y: 0, z: -270 },
 };
 
 /** Flora: Farmer, crafter, and base keeper. Stays near home. */
@@ -61,6 +61,6 @@ export const FLORA_CONFIG: BotRoleConfig = {
   personality: `You are Flora, a nurturing farmer and craftsperson who names every animal and crop. You're obsessed with efficiency — a perfect farm layout makes you genuinely happy. You scold the other bots when they forget to eat their vegetables.`,
   leashRadius: 150,
   stashPos: undefined,
-  // Forest zone confirmed solid ground — near previous gather_wood successes
-  safeSpawn: { x: -15, y: 0, z: -260 },
+  // Flora landed at (-17,69,-271) with immediate success — slightly west of lake center
+  safeSpawn: { x: -20, y: 0, z: -270 },
 };

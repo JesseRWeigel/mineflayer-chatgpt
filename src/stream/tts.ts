@@ -44,10 +44,14 @@ export async function generateSpeech(text: string): Promise<string | null> {
 
     await new Promise<void>((resolve, reject) => {
       const chunks: Buffer[] = [];
-      audioStream.on("data", (chunk: Buffer) => chunks.push(chunk));
+      audioStream.on("data", (chunk: Buffer) => {
+        try { chunks.push(chunk); } catch { /* ignore */ }
+      });
       audioStream.on("end", () => {
-        fs.writeFileSync(filepath, Buffer.concat(chunks));
-        resolve();
+        try {
+          fs.writeFileSync(filepath, Buffer.concat(chunks));
+          resolve();
+        } catch (e) { reject(e); }
       });
       audioStream.on("error", reject);
     });

@@ -31,6 +31,13 @@ process.on("unhandledRejection", (reason) => {
   console.error("[Main] Unhandled rejection (caught — process kept alive):", reason);
 });
 
+// Prevent TTS/WebSocket internal errors from crashing the entire process.
+// msedge-tts can throw synchronous exceptions from WebSocket event handlers
+// (e.g. "_streams[requestId] is undefined") that bypass promise rejection handling.
+process.on("uncaughtException", (err) => {
+  console.error("[Main] Uncaught exception (non-fatal — process kept alive):", err.message || err);
+});
+
 async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlayStarted: { value: boolean }): Promise<string> {
   console.log(`\n=== ${roleConfig.name} (${roleConfig.role}) (restart #${restartCount}) ===`);
   const fastLabel = config.ollama.fastModel !== config.ollama.model
