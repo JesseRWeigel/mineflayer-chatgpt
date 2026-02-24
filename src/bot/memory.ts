@@ -70,6 +70,8 @@ const PRECONDITION_KEYWORDS = [
   "chunk may not be loaded",
   // voyager mineBlock: resource not nearby (precondition, not bug)
   "Cannot find",
+  // smelt_ores when inventory has no ore (environment, not bug)
+  "Nothing to smelt",
   // "timed out" removed — combat/mining skills that time out are real failures,
   // not precondition failures. exploreUntil timeouts use "aborted" instead.
 ];
@@ -246,10 +248,25 @@ export class BotMemoryStore {
   getMemoryContext(): string {
     const parts: string[] = [];
 
+    // Show last 5 skill actions first — helps LLM detect spin loops and avoid repeating
+    if (this.memory.skillHistory.length > 0) {
+      const recent = this.memory.skillHistory.slice(-5);
+      // Check if the bot is spinning: same skill repeated 3+ times with no-op notes
+      const skillNames = recent.map(s => s.skill);
+      const dominant = skillNames.find(s => skillNames.filter(x => x === s).length >= 3);
+      const spinWarning = dominant ? ` ⚠ WARNING: You have called '${dominant}' ${skillNames.filter(x => x === dominant).length} times in a row — DO SOMETHING DIFFERENT!` : "";
+      const recentDesc = recent.map(s => {
+        const icon = s.success ? "✓" : "✗";
+        const note = s.notes.slice(0, 55).replace(/\n/g, " ");
+        return `${icon}${s.skill}(${note})`;
+      }).join(", ");
+      parts.push(`LAST ${recent.length} ACTIONS: ${recentDesc}.${spinWarning}`);
+    }
+
     if (this.memory.structures.length > 0) {
       const houses = this.memory.structures.filter((s) => s.type === "house");
       if (houses.length > 0) {
-        parts.push(`HOUSES BUILT: ${houses.length} - at coordinates: ${houses.map((h) => `(${h.x}, ${h.z})`).join(", ")}`);
+        parts.push(`HOUSES BUILT: ${houses.length} at ${houses.map((h) => `(${h.x}, ${h.z})`).join(", ")} — GOAL ACHIEVED, no need to build again`);
       }
     }
 
