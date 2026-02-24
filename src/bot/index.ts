@@ -225,18 +225,32 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         .reduce((s: number, i: any) => s + i.count, 0);
       if (logCount === 0 && plankCount < 4) {
         const gatherWoodJustFailed = lastAction === "gather_wood" && !lastActionWasSuccess;
+        const botX = Math.floor(bot.entity.position.x);
         const botZ = Math.floor(bot.entity.position.z);
         if (gatherWoodJustFailed) {
-          // In Minecraft, Z increases going south. Forest zone is around Z=-200.
-          // Bots spawn near Z=-333 which is north of the forest.
-          const forestTargetZ = -200;
-          const distToForest = forestTargetZ - botZ; // positive = need to go south
-          if (distToForest > 20) {
-            const stepsNeeded = Math.ceil(distToForest / 40);
-            contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. Previous structures were built with trees near Z=${forestTargetZ}. You are at Z=${botZ} — ${distToForest} blocks south. Explore SOUTH (repeat ~${stepsNeeded} times) until reaching Z=${forestTargetZ}, then use gather_wood. Do NOT explore north (ocean) or east (only ores there).`;
+          // Known forest zone: X≈-30 to X≈0, Z≈-230 to Z≈-200 (where houses were built).
+          // Direct bot toward forest based on current X and Z position.
+          const forestX = -15; // center of known forest area
+          const forestZ = -220; // center of known forest area
+          const dxToForest = forestX - botX; // negative = go west
+          const dzToForest = forestZ - botZ; // positive = go south
+          const distToForest = Math.sqrt(dxToForest * dxToForest + dzToForest * dzToForest);
+
+          let dirHint: string;
+          if (Math.abs(dxToForest) > Math.abs(dzToForest) * 2) {
+            // Primarily east-west displacement
+            dirHint = dxToForest < 0 ? "west" : "east";
+          } else if (Math.abs(dzToForest) > Math.abs(dxToForest) * 2) {
+            // Primarily north-south displacement
+            dirHint = dzToForest > 0 ? "south" : "north";
           } else {
-            contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. You're near Z=${botZ} (expected forest zone). Try exploring further south or west/northwest. Do NOT explore east (only ores) or north (ocean).`;
+            // Diagonal — give combined hint
+            const ns = dzToForest > 0 ? "south" : "north";
+            const ew = dxToForest < 0 ? "west" : "east";
+            dirHint = `${ns} and ${ew}`;
           }
+          const stepsNeeded = Math.max(1, Math.ceil(distToForest / 40));
+          contextStr += `\n\n⚠️ WOOD SHORTAGE: gather_wood searched 128 blocks and found nothing. Known forest is near (${forestX}, ${forestZ}). You are at (${botX}, ${botZ}) — ${Math.round(distToForest)} blocks away. Explore ${dirHint.toUpperCase()} (repeat ~${stepsNeeded} times) until near (${forestX}, ${forestZ}), then use gather_wood. Do NOT explore north (ocean) or east (only ores).`;
         } else {
           contextStr += `\n\n⚠️ WOOD SHORTAGE: You have ${logCount} logs and ${plankCount} planks — NOT enough to craft. Use gather_wood NOW (searches 128 blocks including trees across water). Do NOT keep crafting, do NOT explore yet.`;
         }
