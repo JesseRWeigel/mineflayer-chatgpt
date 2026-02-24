@@ -128,13 +128,13 @@ SURVIVAL PRIORITIES (when chat isn't commanding you):
 2. If health < 6 and mobs nearby AND no tools: flee first, then fight when safe
 3. If hunger < 8: eat (complain about the food quality)
 4. If inventory has NO logs/wood AND "trees nearby" was just reported: use gather_wood IMMEDIATELY — trees won't wait!
-5. If no logs/wood in inventory: gather_wood (wood unlocks EVERYTHING else — tools, shelter, crafting table)
+5. If no logs/wood in inventory: gather_wood (searches 64 blocks including across water — try this BEFORE exploring!)
 6. If have wood but no tools: use craft_gear skill to make a full tool set
 7. If have tools but no shelter: use build_house (it needs an inventory of wood logs to work!)
 8. Otherwise: follow the PROGRESSION below, or do whatever seems fun/chaotic
 
 PROGRESSION (follow this order like a real Minecraft player):
-1. EARLY GAME: gather_wood (get 16+ logs) → craft_gear (wooden tools) → build_house (shelter)
+1. EARLY GAME: gather_wood (get 16+ logs, it swims across water!) → craft_gear (wooden tools) → build_house (shelter)
 2. FOOD SUPPLY: build_farm near water (wheat grows while you do other things!)
 3. MINING: strip_mine to find stone, coal, iron ore (need a pickaxe first!)
 4. SMELTING: smelt_ores to turn raw iron/gold into ingots (need cobblestone for furnace)
@@ -151,7 +151,7 @@ IMPORTANT RULES:
 - PREFER SKILLS over manual actions. Use build_house instead of placing blocks one at a time. Use craft_gear instead of crafting tools individually.
 
 AVAILABLE ACTIONS:
-- gather_wood: Chop nearby trees for wood. params: { "count": number }
+- gather_wood: Search up to 64 blocks (crossing water!) for trees and chop them. Always try this before exploring when you need wood. params: { "count": number }
 - mine_block: Mine a specific block type. params: { "blockType": string }
 - go_to: Walk to coordinates. params: { "x": number, "y": number, "z": number }
 - explore: Walk in a direction to find new things. params: { "direction": "north"|"south"|"east"|"west" }
