@@ -552,7 +552,7 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
           const isAlreadyRunning = result.startsWith("Already running skill");
           // Precondition failures (missing materials, no water, etc.) shouldn't be permanently
           // blacklisted — once the bot gets the required resource, the action should work.
-          const isPreconditionFailure = /missing:|need \d|no water|no trees|no coal|no iron|no pickaxe|Can't craft/i.test(result);
+          const isPreconditionFailure = /missing:|need \d|no water|no trees|no coal|no iron|no pickaxe|Can't craft|could not find|not enough|need to (mine|craft|find|smelt)/i.test(result);
           if (!isAlreadyRunning && !isPreconditionFailure) {
             const prevCount = (failureCounts.get(actionKey) ?? 0) + 1;
             failureCounts.set(actionKey, prevCount);
