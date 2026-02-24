@@ -136,7 +136,8 @@ export async function executeAction(
       case "place_block":
         return await placeBlock(bot, params.blockType);
       case "sleep":
-      case "use_bed":       // common LLM aliases for sleep
+      case "sleep_in_bed":  // common LLM aliases for sleep
+      case "use_bed":
       case "use_item":
       case "place_bed":
       case "build_bed":
