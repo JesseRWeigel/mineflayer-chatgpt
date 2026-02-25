@@ -79,3 +79,102 @@ export function shouldKeep(
 }
 
 export { STASH_ROWS };
+
+/**
+ * Walk to stash, find the correct category chest for each item, deposit.
+ * Keeps items on the bot's keepItems list.
+ */
+export async function depositStash(
+  bot: Bot,
+  stashPos: { x: number; y: number; z: number },
+  keepItems: { name: string; minCount: number }[]
+): Promise<string> {
+  // Walk to stash area
+  await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 30000);
+
+  const itemsToDeposit = bot.inventory.items();
+  if (itemsToDeposit.length === 0) return "Nothing to deposit — inventory is empty.";
+
+  // Track kept items to respect minCount
+  const keptCounts = new Map<string, number>();
+  let deposited = 0;
+  let noChest = 0;
+
+  // Group items by category
+  const byCategory = new Map<string, typeof itemsToDeposit>();
+  for (const item of itemsToDeposit) {
+    if (shouldKeep(item.name, keepItems, keptCounts)) continue;
+    const cat = categorizeItem(item.name);
+    if (!byCategory.has(cat)) byCategory.set(cat, []);
+    byCategory.get(cat)!.push(item);
+  }
+
+  // For each category, find nearest chest at the right row offset and deposit
+  for (const [category, items] of byCategory) {
+    const rowOffset = getRowOffset(category);
+    const chestPos = new Vec3(
+      stashPos.x + rowOffset,
+      stashPos.y,
+      stashPos.z
+    );
+
+    // Find the nearest chest block near the expected position
+    const chest = bot.findBlock({
+      matching: (b) => b.name === "chest" || b.name === "trapped_chest",
+      maxDistance: 6,
+      point: chestPos,
+    });
+
+    if (!chest) {
+      // No chest at this row — try any nearby chest as fallback
+      const fallback = bot.findBlock({
+        matching: (b) => b.name === "chest" || b.name === "trapped_chest",
+        maxDistance: 8,
+      });
+      if (!fallback) {
+        noChest += items.length;
+        continue;
+      }
+      // Use fallback chest
+      try {
+        const container = await bot.openContainer(fallback);
+        for (const item of items) {
+          try {
+            await container.deposit(item.type, null, item.count);
+            deposited += item.count;
+          } catch {
+            // Chest might be full
+          }
+        }
+        container.close();
+      } catch {
+        noChest += items.length;
+      }
+      continue;
+    }
+
+    try {
+      await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
+      const container = await bot.openContainer(chest);
+      for (const item of items) {
+        try {
+          await container.deposit(item.type, null, item.count);
+          deposited += item.count;
+        } catch {
+          // Chest full — this will trigger expansion request
+        }
+      }
+      container.close();
+    } catch {
+      noChest += items.length;
+    }
+  }
+
+  if (noChest > 0 && deposited === 0) {
+    return "All stash chests are full! Need more chests.";
+  }
+  if (noChest > 0) {
+    return `Deposited ${deposited} items. ${noChest} items couldn't fit — stash needs expansion.`;
+  }
+  return `Deposited ${deposited} items at the stash.`;
+}
