@@ -3,7 +3,7 @@ import { createTwitchChat } from "./stream/twitch.js";
 import { startOverlay, addChatMessage } from "./stream/overlay.js";
 import { config } from "./config.js";
 import { loadDynamicSkills } from "./skills/dynamic-loader.js";
-import { ATLAS_CONFIG, FLORA_CONFIG, BotRoleConfig } from "./bot/role.js";
+import { BOT_ROSTER, BotRoleConfig } from "./bot/role.js";
 
 loadDynamicSkills();
 
@@ -135,18 +135,35 @@ async function runBotLoop(roleConfig: BotRoleConfig): Promise<void> {
 }
 
 async function main() {
-  // Always start Atlas
-  const atlasLoop = runBotLoop(ATLAS_CONFIG);
-
-  if (config.multiBot.enabled) {
-    console.log("[Main] Multi-bot mode enabled — starting Flora...");
-    // Add a 10-second stagger so both bots don't connect simultaneously
-    await new Promise((r) => setTimeout(r, 10000));
-    const floraLoop = runBotLoop(FLORA_CONFIG);
-    await Promise.all([atlasLoop, floraLoop]);
-  } else {
-    await atlasLoop;
+  if (!config.multiBot.enabled) {
+    // Single bot mode — just Atlas
+    await runBotLoop(BOT_ROSTER[0]);
+    return;
   }
+
+  const count = Math.min(config.multiBot.count, BOT_ROSTER.length);
+  console.log(`[Main] Multi-bot mode: launching ${count} bots...`);
+
+  const loops: Promise<void>[] = [];
+  for (let i = 0; i < count; i++) {
+    const role = BOT_ROSTER[i];
+    console.log(`[Main] Starting ${role.name} (${role.role})...`);
+    loops.push(runBotLoop(role));
+    // Stagger each bot by 10 seconds to avoid login collisions
+    if (i < count - 1) {
+      await new Promise((r) => setTimeout(r, 10000));
+    }
+  }
+
+  // Start dashboard after all bots are connecting
+  try {
+    const { startDashboard } = await import("./stream/dashboard.js");
+    startDashboard(BOT_ROSTER.slice(0, count));
+  } catch {
+    console.log("[Main] Dashboard module not available — skipping.");
+  }
+
+  await Promise.all(loops);
 }
 
 main().catch((err) => {
