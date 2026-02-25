@@ -223,6 +223,8 @@ function renderOffline(idx) {
   if (thEl) thEl.textContent = '';
 }
 
+var viewerLoaded = false;
+
 function selectBot(idx) {
   if (idx < 0 || idx >= bots.length) return;
   selectedIdx = idx;
@@ -236,9 +238,33 @@ function selectBot(idx) {
       c.style.borderColor = '#333';
     }
   });
+
   var frame = document.getElementById('viewerFrame');
-  var src = 'http://' + location.hostname + ':' + bots[idx].viewerPort;
-  if (frame.src !== src) frame.src = src;
+  var botName = bots[idx].name;
+
+  // Unified viewer: all bots share a single viewer server on port 3000.
+  // Load the iframe once, then use postMessage to switch bots without reloading
+  // the page (no re-download of JS/textures).
+  var viewerUrl = 'http://' + location.hostname + ':3000';
+
+  if (!viewerLoaded) {
+    // First time: load the viewer iframe with the selected bot as a hash hint
+    frame.src = viewerUrl + '/#' + botName;
+    viewerLoaded = true;
+
+    // Also listen for the iframe to fully load, then send postMessage as backup
+    frame.onload = function() {
+      frame.contentWindow.postMessage({ type: 'switchBot', botName: botName }, '*');
+    };
+  } else {
+    // Subsequent switches: just send a postMessage — no page reload
+    try {
+      frame.contentWindow.postMessage({ type: 'switchBot', botName: botName }, '*');
+    } catch (e) {
+      // Cross-origin fallback: reload the iframe (shouldn't happen on same host)
+      frame.src = viewerUrl + '/#' + botName;
+    }
+  }
 }
 
 function toggleCycle() {
