@@ -7,6 +7,7 @@ import { skillRegistry } from "../skills/registry.js";
 import { runSkill } from "../skills/executor.js";
 import { runNeuralCombat } from "../neural/combat.js";
 import { LOG_TYPES } from "../skills/materials.js";
+import { depositStash, withdrawStash } from "../skills/stash.js";
 
 /** Create safe movement defaults — no digging, no block placement, just walk/jump */
 export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
@@ -176,6 +177,20 @@ export async function executeAction(
       case "neural_navigation": {
         const duration = (params.duration as number) || 5;
         return await runNeuralCombat(bot, duration);
+      }
+      case "deposit_stash": {
+        const stashPos = params.stashPos;
+        const keepItems = params.keepItems;
+        if (!stashPos) return "No stash position configured.";
+        return await depositStash(bot, stashPos, keepItems ?? []);
+      }
+      case "withdraw_stash": {
+        const stashPos = params.stashPos;
+        if (!stashPos) return "No stash position configured.";
+        const item = params.item as string;
+        const count = (params.count as number) || 1;
+        if (!item) return "withdraw_stash needs an 'item' param.";
+        return await withdrawStash(bot, stashPos, item, count);
       }
       default: {
         // Check if this is a registered skill

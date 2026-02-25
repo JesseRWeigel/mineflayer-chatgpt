@@ -607,6 +607,12 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         }
       }
 
+      // Inject stash config into params for deposit/withdraw actions
+      if ((decision.action === "deposit_stash" || decision.action === "withdraw_stash") && roleConfig.stashPos) {
+        normalizedParams.stashPos = roleConfig.stashPos;
+        normalizedParams.keepItems = roleConfig.keepItems;
+      }
+
       // Execute action
       const result = await executeAction(bot, decision.action, normalizedParams);
       lastResult = result;
