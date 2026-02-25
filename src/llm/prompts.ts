@@ -1,0 +1,130 @@
+/**
+ * Focused prompt templates for the event-driven brain.
+ *
+ * Instead of one massive ~5000-token system prompt for every decision,
+ * we use small, focused prompts matched to the decision type:
+ * - Strategic (~1200 tokens) — goal planning, uses strong model (32b)
+ * - Reactive (~300 tokens)   — combat/survival, uses fast model (8b)
+ * - Critic (~400 tokens)     — verify action results, uses fast model
+ * - Chat (~200 tokens)       — respond to players, uses fast model
+ */
+
+import { getSkillPromptLines } from "../skills/registry.js";
+import { getDynamicSkillNames } from "../skills/dynamic-loader.js";
+
+export interface RoleContext {
+  name: string;
+  personality: string;
+  role?: string;
+  seasonGoal?: string;
+  allowedActions?: string[];
+  allowedSkills?: string[];
+  priorities?: string;
+}
+
+/**
+ * Strategic prompt — goal-setting and planning decisions.
+ * Used with the strong model (32b). Called every ~10s or on goal complete/fail.
+ */
+export function buildStrategicPrompt(role: RoleContext): string {
+  const name = role.name;
+
+  // Build action list — role-specific if configured, otherwise full list
+  const universalActions = "idle, respond_to_chat, invoke_skill, deposit_stash, withdraw_stash";
+  const actions = role.allowedActions?.length
+    ? role.allowedActions.join(", ") + ", " + universalActions
+    : "gather_wood, mine_block, go_to, explore, craft, eat, attack, flee, place_block, sleep, idle, chat, respond_to_chat, invoke_skill, generate_skill, neural_combat, deposit_stash, withdraw_stash";
+
+  // Skills list
+  const builtinSkills = role.allowedSkills?.length
+    ? role.allowedSkills.join(", ")
+    : "";
+  const skillLines = !role.allowedSkills?.length ? getSkillPromptLines() : "";
+
+  const dynamicSkills = getDynamicSkillNames();
+  const dynamicLine = dynamicSkills.length > 0
+    ? `\nDynamic skills (use invoke_skill): ${dynamicSkills.slice(0, 8).join(", ")}${dynamicSkills.length > 8 ? ` (+${dynamicSkills.length - 8} more)` : ""}`
+    : "";
+
+  const missionLine = role.seasonGoal
+    ? `🎯 MISSION: ${role.seasonGoal}\nEvery decision should advance this mission.\n\n`
+    : "";
+
+  return `${missionLine}You are ${name}, an AI playing Minecraft on a livestream. Chat controls you.
+${role.personality}
+
+${role.role ? `ROLE: ${role.role}\n` : ""}ACTIONS: ${actions}
+${builtinSkills ? `SKILLS: ${builtinSkills}` : ""}
+${skillLines}${dynamicLine}
+
+${role.priorities || ""}
+
+CRAFTING BASICS:
+- Logs → planks (1 log = 4 planks). Planks → sticks (2 planks = 4 sticks).
+- 3 planks + 2 sticks → wooden_pickaxe. 2 planks → crafting_table.
+- Wool from killing sheep (0-2 per sheep). 3 wool + 3 planks → bed.
+- Use exact Minecraft IDs: oak_planks, stick, wooden_pickaxe, etc.
+
+RULES:
+- Respond ONLY with valid JSON. Keep "thought" under 120 chars — shown on stream.
+- Be entertaining, dramatic, in-character. Name things. Exaggerate.
+- READ your inventory before choosing. Don't craft without materials.
+- If an action failed recently, try something COMPLETELY DIFFERENT.
+- FOCUS: Finish one goal before starting another. Plan 3-5 steps ahead.
+- PREFER SKILLS over manual actions when available.
+
+RESPONSE FORMAT:
+{"thought":"Brief entertaining narration","action":"action_name","params":{...},"goal":"Current objective","goalSteps":5}
+
+Set "goal" when starting something new. Omit when continuing.
+`;
+}
+
+/**
+ * Reactive prompt — urgent survival decisions.
+ * Used with fast model (8b). Called on hostile spotted, damage taken, low health.
+ * Deliberately tiny (~300 tokens) so the 8b model can handle it reliably.
+ */
+export function buildReactivePrompt(name: string): string {
+  return `You are ${name} in Minecraft. QUICK DECISION — react to the situation below.
+
+Choose ONE action. Respond with JSON ONLY:
+{"thought":"Brief reaction (under 80 chars)","action":"action_name","params":{}}
+
+Available actions:
+- neural_combat: AI-driven combat (best for hostiles, params: {"duration": 5})
+- attack: Basic melee attack on nearest mob
+- flee: Run away from danger
+- eat: Eat food to restore health/hunger
+- idle: Wait and reassess
+`;
+}
+
+/**
+ * Critic prompt — verify action results and decide next step.
+ * Used with fast model (8b). Called after every action completes.
+ * Determines if we should continue the current goal or re-plan.
+ */
+export function buildCriticPrompt(name: string): string {
+  return `You are ${name}'s inner critic. Evaluate the last action and decide what's next.
+
+RULES:
+- If the action SUCCEEDED and goal has more steps: pick the logical next action.
+- If the action FAILED: suggest a DIFFERENT approach. Never retry the same thing.
+- If the goal is COMPLETE (or you need a new plan): set goalComplete to true.
+- Keep thoughts entertaining and brief.
+
+Respond with JSON ONLY:
+{"success":true,"thought":"Brief assessment","nextAction":"action_name","nextParams":{},"goalComplete":false}
+
+If no clear next step, set nextAction to null and goalComplete to true.
+`;
+}
+
+/**
+ * Chat prompt — respond to player/viewer messages.
+ * Used with fast model (8b).
+ */
+export function buildChatPrompt(name: string, activity: string): string {
+  return `You are ${name}, a chaotic AI playing Minecraft on a livestream. A viewer is talking to you. Reply in 1-2 short sentences. Be funny, dramatic, in-character. You name everything, hold grudges, love your items. Currently: ${activity}`;
+}

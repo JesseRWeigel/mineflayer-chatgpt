@@ -25,6 +25,10 @@ export const config = {
       process.env.BOT_DECISION_INTERVAL_MS || "500"
     ),
     chatCooldownMs: parseInt(process.env.BOT_CHAT_COOLDOWN_MS || "3000"),
+    /** Idle interval for event-driven brain — how often to re-plan when nothing happens. */
+    idleIntervalMs: parseInt(process.env.BOT_IDLE_INTERVAL_MS || "10000"),
+    /** Enable the critic step after each action (uses an extra LLM call per action). */
+    criticEnabled: process.env.BOT_CRITIC_ENABLED !== "false",
   },
   multiBot: {
     enabled: process.env.ENABLE_MULTI_BOT === "true",
