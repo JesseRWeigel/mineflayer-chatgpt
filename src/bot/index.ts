@@ -1,7 +1,8 @@
 import mineflayer from "mineflayer";
 import pathfinderPkg from "mineflayer-pathfinder";
 const { pathfinder } = pathfinderPkg;
-import customPvp from "@nxg-org/mineflayer-custom-pvp";
+import customPvpPkg from "@nxg-org/mineflayer-custom-pvp";
+const customPvp = (customPvpPkg as any).default ?? customPvpPkg;
 import { loader as autoEat } from "mineflayer-auto-eat";
 import { config } from "../config.js";
 import { registerBot as registerViewerBot, isUnifiedViewerStarted } from "../stream/unified-viewer.js";
