@@ -193,9 +193,10 @@ export async function queryStrategic(
 export async function queryReactive(
   name: string,
   situation: string,
+  allowedActions?: string[],
 ): Promise<{ thought: string; action: string; params: Record<string, any> }> {
   const messages: LLMMessage[] = [
-    { role: "system", content: buildReactivePrompt(name) },
+    { role: "system", content: buildReactivePrompt(name, allowedActions) },
     { role: "user", content: situation },
   ];
 
@@ -225,13 +226,14 @@ export async function queryReactive(
 export async function queryCritic(
   name: string,
   actionContext: string,
+  allowedActions?: string[],
 ): Promise<{
   success: boolean; thought: string;
   nextAction: string | null; nextParams: Record<string, any>;
   goalComplete: boolean;
 }> {
   const messages: LLMMessage[] = [
-    { role: "system", content: buildCriticPrompt(name) },
+    { role: "system", content: buildCriticPrompt(name, allowedActions) },
     { role: "user", content: actionContext },
   ];
 

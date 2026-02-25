@@ -462,7 +462,7 @@ export class BotBrain {
       situation = `Health: ${this.bot.health}/20, Food: ${this.bot.food}/20. Assess situation.`;
     }
 
-    const decision = await queryReactive(this.roleConfig.name, situation);
+    const decision = await queryReactive(this.roleConfig.name, situation, this.roleConfig.allowedActions);
     await this.executeDecision(decision);
   }
 
@@ -538,7 +538,7 @@ export class BotBrain {
       `Inventory: ${this.bot.inventory.items().map(i => `${i.name}x${i.count}`).join(", ") || "empty"}`,
     ].join("\n");
 
-    const verdict = await queryCritic(this.roleConfig.name, criticContext);
+    const verdict = await queryCritic(this.roleConfig.name, criticContext, this.roleConfig.allowedActions);
 
     // Update thought display
     if (verdict.thought) {

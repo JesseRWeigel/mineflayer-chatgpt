@@ -85,18 +85,29 @@ Set "goal" when starting something new. Omit when continuing.
  * Used with fast model (8b). Called on hostile spotted, damage taken, low health.
  * Deliberately tiny (~300 tokens) so the 8b model can handle it reliably.
  */
-export function buildReactivePrompt(name: string): string {
+export function buildReactivePrompt(name: string, allowedActions?: string[]): string {
+  // Build action descriptions from what this bot is allowed to do
+  const actionDescriptions: Record<string, string> = {
+    attack: "attack: Melee attack nearest mob",
+    flee: "flee: Run away from danger",
+    eat: "eat: Eat food to restore health/hunger",
+    neural_combat: "neural_combat: AI-driven combat (params: {\"duration\": 5})",
+    go_to: "go_to: Move to a location",
+    idle: "idle: Wait and reassess",
+  };
+  const reactiveRelevant = ["attack", "flee", "eat", "neural_combat", "idle"];
+  const available = (allowedActions?.length
+    ? reactiveRelevant.filter(a => allowedActions.includes(a) || a === "idle")
+    : reactiveRelevant
+  ).map(a => `- ${actionDescriptions[a] || a}`).join("\n");
+
   return `You are ${name} in Minecraft. QUICK DECISION — react to the situation below.
 
 Choose ONE action. Respond with JSON ONLY:
 {"thought":"Brief reaction (under 80 chars)","action":"action_name","params":{}}
 
 Available actions:
-- neural_combat: AI-driven combat (best for hostiles, params: {"duration": 5})
-- attack: Basic melee attack on nearest mob
-- flee: Run away from danger
-- eat: Eat food to restore health/hunger
-- idle: Wait and reassess
+${available}
 `;
 }
 
@@ -105,7 +116,11 @@ Available actions:
  * Used with fast model (8b). Called after every action completes.
  * Determines if we should continue the current goal or re-plan.
  */
-export function buildCriticPrompt(name: string): string {
+export function buildCriticPrompt(name: string, allowedActions?: string[]): string {
+  const actionLine = allowedActions?.length
+    ? `\nAVAILABLE ACTIONS: ${allowedActions.join(", ")}, idle\nOnly suggest actions from this list.`
+    : "";
+
   return `You are ${name}'s inner critic. Evaluate the last action and decide what's next.
 
 RULES:
@@ -113,6 +128,7 @@ RULES:
 - If the action FAILED: suggest a DIFFERENT approach. Never retry the same thing.
 - If the goal is COMPLETE (or you need a new plan): set goalComplete to true.
 - Keep thoughts entertaining and brief.
+${actionLine}
 
 Respond with JSON ONLY:
 {"success":true,"thought":"Brief assessment","nextAction":"action_name","nextParams":{},"goalComplete":false}
