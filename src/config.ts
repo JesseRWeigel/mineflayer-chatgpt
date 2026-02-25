@@ -28,5 +28,6 @@ export const config = {
   },
   multiBot: {
     enabled: process.env.ENABLE_MULTI_BOT === "true",
+    count: parseInt(process.env.BOT_COUNT || "1"),
   },
 };
