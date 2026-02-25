@@ -22,6 +22,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { isNeuralServerRunning } from "../neural/bridge.js";
+import { updateBulletin, formatTeamBulletin } from "./bulletin.js";
 
 export interface ChatMessage {
   source: "minecraft" | "twitch" | "youtube";
@@ -208,6 +209,12 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       if (roleConfig.stashPos) {
         const { x: sx, y: sy, z: sz } = roleConfig.stashPos;
         contextStr += `\n\nTHE STASH: Shared chest area at (${sx}, ${sy}, ${sz}). When your inventory is nearly full or you have excess materials, go_to The Stash and deposit them. Pick up materials from The Stash when you need them.`;
+      }
+
+      // Team bulletin — show what other bots are doing
+      const teamStatus = formatTeamBulletin(roleConfig.name);
+      if (teamStatus) {
+        contextStr += `\n${teamStatus}`;
       }
 
       // Recent failures: show the LLM exactly what failed and why.
@@ -605,6 +612,21 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       lastResult = result;
       events.onAction(decision.action, result);
       console.log(`[Bot] Result: ${result}`);
+
+      // Update team bulletin with our latest status
+      updateBulletin({
+        name: roleConfig.name,
+        action: decision.action,
+        position: {
+          x: bot.entity.position.x,
+          y: bot.entity.position.y,
+          z: bot.entity.position.z,
+        },
+        thought: decision.thought,
+        health: bot.health,
+        food: bot.food,
+        timestamp: Date.now(),
+      });
 
       // Update overlay with execution result
       updateOverlay({
