@@ -441,6 +441,10 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
         name: roleConfig.name,
         personality: roleConfig.personality,
         seasonGoal: memStore.getSeasonGoal(),
+        role: roleConfig.role,
+        allowedActions: roleConfig.allowedActions,
+        allowedSkills: roleConfig.allowedSkills,
+        priorities: roleConfig.priorities,
       });
 
       // Filter thought for safety before showing on stream

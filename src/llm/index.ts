@@ -17,7 +17,7 @@ export interface LLMMessage {
   content: string;
 }
 
-function buildSystemPrompt(roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string }): string {
+function buildSystemPrompt(roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string; allowedActions?: string[]; allowedSkills?: string[]; priorities?: string }): string {
   const name = roleConfig?.name ?? config.bot.name;
   // Use per-bot seasonGoal if provided, otherwise fall back to singleton
   const seasonGoal = roleConfig?.seasonGoal ?? getSeasonGoal();
@@ -32,37 +32,23 @@ function buildSystemPrompt(roleConfig?: { name: string; personality: string; sea
 
   const roleStr = roleConfig?.role ? `YOUR ROLE: ${roleConfig.role}\n\n` : "";
 
-  const isFlora = (roleConfig?.name ?? config.bot.name) === "Flora";
-  const floraActionOverride = isFlora ? `
-FLORA ROLE OVERRIDE — IGNORE THE "AVAILABLE ACTIONS" SECTION ABOVE. USE ONLY THESE:
+  // Role-specific action/skill override — replaces hardcoded Flora check
+  const roleOverride = (roleConfig?.allowedActions && roleConfig.allowedActions.length > 0) ? `
 
-AVAILABLE ACTIONS (Flora's toolkit — stay focused on these):
-- craft: Craft items. params: { "item": string, "count": number }
-- eat: Eat food from inventory. params: {}
-- sleep: Use a nearby bed. params: {}
-- idle: Look around and tend the base. params: {}
-- chat: Say something in chat. params: { "message": string }
-- respond_to_chat: Reply to a player. params: { "message": string }
-- go_to: Walk to coordinates. params: { "x": number, "y": number, "z": number }
-- place_block: Place a block. params: { "blockType": string }
+ROLE OVERRIDE — USE ONLY THESE ACTIONS AND SKILLS:
 
-SKILLS (Flora's specialties — use these instead of manual actions):
-- build_farm: Hoe dirt, plant wheat, harvest when ready. Call again to harvest and replant!
-- smelt_ores: Smelt raw ore into ingots. Crafts a furnace if needed.
-- craft_gear: Craft tools and armor from current inventory materials.
-- build_house: Build shelter if there isn't one within 80 blocks.
-- light_area: Place torches around the base area.
+AVAILABLE ACTIONS (${roleConfig.name}'s toolkit):
+${roleConfig.allowedActions.map(a => `- ${a}`).join("\n")}
+- idle: Do nothing, just look around. params: {}
+- respond_to_chat: Reply to a player/viewer message. params: { "message": string }
 - invoke_skill: Run a dynamic skill by exact name. params: { "skill": string }
+- deposit_stash: Deposit excess items at the shared stash. params: {}
+- withdraw_stash: Take items you need from the shared stash. params: { "item": string, "count": number }
 
-FLORA'S PRIORITIES (follow this order):
-1. If health < 6 and hostile mob nearby: flee
-2. If hungry (food < 14): eat
-3. If inventory has raw ore/wood: smelt_ores or process materials
-4. If farm needs harvesting (mature wheat visible within 30 blocks): build_farm
-5. If no farm within 80 blocks of home: build_farm (to create one)
-6. If no shelter within 80 blocks: build_house (PREFERRED over crafting a bed — build_house needs wood logs, NOT wool!)
-7. Otherwise: craft useful items, light_area, or tend the base
-NOTE: Do NOT try to craft a bed unless you have 3+ wool in your inventory. A bed requires wool from sheep — build_house gives shelter WITHOUT needing wool.
+SKILLS (${roleConfig.name}'s specialties):
+${(roleConfig.allowedSkills ?? []).map(s => `- ${s}`).join("\n") || "- (none — use actions above)"}
+
+${roleConfig.priorities ?? ""}
 ` : null;
 
   return `${missionBanner}${personalityOverride}${roleStr}You are ${name}, an AI playing Minecraft on a livestream. Chat controls you. You are THEIR bot.
@@ -198,14 +184,14 @@ ${(() => {
 - generate_skill: Write new JS code for a task you have no skill for. params: { "task": string }
 - neural_combat: PREFERRED combat action — 20Hz reactive combat against nearby hostiles. Use this whenever a hostile mob is within 8 blocks. params: { "duration": number (1-10 seconds, default 5) }
 - NOTE: "thought" field is REQUIRED in every response. Always include it.
-${floraActionOverride ?? ""}`;
+${roleOverride ?? ""}`;
 }
 
 export async function queryLLM(
   context: string,
   recentMessages: LLMMessage[] = [],
   memoryContext: string = "",
-  roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string }
+  roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string; allowedActions?: string[]; allowedSkills?: string[]; priorities?: string }
 ): Promise<{ thought: string; action: string; params: Record<string, any>; goal?: string; goalSteps?: number }> {
   // Prepend memory context to the user message if available
   const memorySection = memoryContext ? `\n\nYOUR MEMORY (learn from this): ${memoryContext}\n` : "";
