@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mission Control</title>
+<script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #1a1a2e; color: #e0e0e0; font-family: 'Segoe UI', system-ui, sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Header */
+  header { display: flex; align-items: center; justify-content: space-between; padding: 8px 16px; background: #16213e; border-bottom: 1px solid #0f3460; }
+  header h1 { font-size: 18px; letter-spacing: 2px; color: #e94560; }
+  .header-controls { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .btn { padding: 4px 12px; border: 1px solid #555; border-radius: 4px; background: #16213e; color: #ccc; cursor: pointer; font-size: 12px; }
+  .btn:hover { background: #0f3460; }
+  .btn.active { background: #e94560; border-color: #e94560; color: #fff; }
+
+  /* Bot cards row */
+  .cards { display: flex; gap: 6px; padding: 8px 16px; background: #16213e; border-bottom: 1px solid #0f3460; overflow-x: auto; }
+  .card { flex: 0 0 170px; padding: 8px 10px; border: 2px solid #333; border-radius: 6px; background: #1a1a2e; cursor: pointer; transition: border-color 0.2s; }
+  .card:hover { border-color: #555; }
+  .card.selected { border-width: 2px; }
+  .card-name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  .card-role { font-size: 10px; color: #999; margin-bottom: 4px; }
+  .bar-wrap { height: 6px; background: #333; border-radius: 3px; margin-bottom: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s; }
+  .card-action { font-size: 11px; color: #aaa; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card-thought { font-size: 10px; color: #777; font-style: italic; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 2px 0; min-height: 14px; }
+  .card-pos { font-size: 10px; color: #666; margin-bottom: 4px; }
+  .card-view { font-size: 11px; color: #4fc3f7; text-align: center; padding: 2px 0; border: 1px solid #4fc3f7; border-radius: 3px; }
+  .card-view:hover { background: rgba(79,195,247,0.15); }
+
+  /* Main area */
+  .main { display: flex; flex: 1; min-height: 0; }
+  .viewer { flex: 1; min-width: 0; }
+  .viewer iframe { width: 100%; height: 100%; border: none; background: #111; }
+
+  /* Stash sidebar */
+  .sidebar { width: 150px; background: #16213e; border-left: 1px solid #0f3460; padding: 12px; font-size: 12px; flex-shrink: 0; }
+  .sidebar h3 { font-size: 13px; color: #e94560; margin-bottom: 10px; letter-spacing: 1px; }
+  .stash-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #222; }
+  .stash-label { color: #999; }
+  .stash-val { color: #ccc; }
+
+  /* Keyboard hint */
+  .hint { font-size: 10px; color: #555; text-align: center; padding: 2px; background: #16213e; border-top: 1px solid #0f3460; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MISSION CONTROL</h1>
+  <div class="header-controls">
+    <button class="btn" id="cycleBtn" onclick="toggleCycle()">MANUAL</button>
+    <span id="dayLabel">Day --</span>
+  </div>
+</header>
+
+<div class="cards" id="cardRow"></div>
+
+<div class="main">
+  <div class="viewer">
+    <iframe id="viewerFrame" src="about:blank"></iframe>
+  </div>
+  <div class="sidebar">
+    <h3>STASH STATUS</h3>
+    <div class="stash-row"><span class="stash-label">Bldg</span><span class="stash-val">--</span></div>
+    <div class="stash-row"><span class="stash-label">Metal</span><span class="stash-val">--</span></div>
+    <div class="stash-row"><span class="stash-label">Food</span><span class="stash-val">--</span></div>
+    <div class="stash-row"><span class="stash-label">Tool</span><span class="stash-val">--</span></div>
+    <div class="stash-row"><span class="stash-label">Free</span><span class="stash-val">--</span></div>
+  </div>
+</div>
+
+<div class="hint">Keys 1-5 select bots &middot; C toggles auto-cycle</div>
+
+<script>
+var COLORS = { Atlas:'#4fc3f7', Flora:'#81c784', Forge:'#ffb74d', Mason:'#ce93d8', Blade:'#ef5350' };
+var bots = [];
+var sockets = {};
+var states = {};
+var selectedIdx = 0;
+var cycling = false;
+var cycleTimer = null;
+
+function esc(str) {
+  var d = document.createElement('div');
+  d.textContent = str;
+  return d.textContent;
+}
+
+async function init() {
+  try {
+    var res = await fetch('/api/roster');
+    bots = await res.json();
+  } catch (e) {
+    document.getElementById('cardRow').textContent = 'Could not reach /api/roster';
+    return;
+  }
+  buildCards();
+  bots.forEach(function(b, i) { connectBot(b, i); });
+  selectBot(0);
+}
+
+function buildCards() {
+  var row = document.getElementById('cardRow');
+  row.textContent = '';
+  bots.forEach(function(b, i) {
+    var c = document.createElement('div');
+    c.className = 'card';
+    c.id = 'card-' + i;
+    var color = COLORS[b.name] || '#888';
+
+    var nameEl = document.createElement('div');
+    nameEl.className = 'card-name';
+    nameEl.style.color = color;
+    nameEl.textContent = b.name;
+    c.appendChild(nameEl);
+
+    var roleEl = document.createElement('div');
+    roleEl.className = 'card-role';
+    roleEl.textContent = b.role;
+    c.appendChild(roleEl);
+
+    var hpWrap = document.createElement('div');
+    hpWrap.className = 'bar-wrap';
+    var hpFill = document.createElement('div');
+    hpFill.className = 'bar-fill';
+    hpFill.id = 'hp-' + i;
+    hpFill.style.width = '100%';
+    hpFill.style.background = '#4caf50';
+    hpWrap.appendChild(hpFill);
+    c.appendChild(hpWrap);
+
+    var foodWrap = document.createElement('div');
+    foodWrap.className = 'bar-wrap';
+    var foodFill = document.createElement('div');
+    foodFill.className = 'bar-fill';
+    foodFill.id = 'food-' + i;
+    foodFill.style.width = '100%';
+    foodFill.style.background = '#8d6e63';
+    foodWrap.appendChild(foodFill);
+    c.appendChild(foodWrap);
+
+    var actEl = document.createElement('div');
+    actEl.className = 'card-action';
+    actEl.id = 'act-' + i;
+    actEl.textContent = '--';
+    c.appendChild(actEl);
+
+    var thEl = document.createElement('div');
+    thEl.className = 'card-thought';
+    thEl.id = 'thought-' + i;
+    c.appendChild(thEl);
+
+    var posEl = document.createElement('div');
+    posEl.className = 'card-pos';
+    posEl.id = 'pos-' + i;
+    posEl.textContent = '(--)';
+    c.appendChild(posEl);
+
+    var viewBtn = document.createElement('div');
+    viewBtn.className = 'card-view';
+    viewBtn.textContent = 'VIEW';
+    viewBtn.addEventListener('click', (function(idx) {
+      return function(e) { e.stopPropagation(); selectBot(idx); };
+    })(i));
+    c.appendChild(viewBtn);
+
+    c.addEventListener('click', (function(idx) {
+      return function() { selectBot(idx); };
+    })(i));
+
+    row.appendChild(c);
+  });
+}
+
+function connectBot(bot, idx) {
+  var url = 'http://' + location.hostname + ':' + bot.overlayPort;
+  var sock;
+  try { sock = io(url, { reconnection: true, reconnectionDelay: 3000, timeout: 5000 }); } catch(e) { return; }
+  sockets[bot.name] = sock;
+
+  sock.on('state', function(s) {
+    states[bot.name] = s;
+    renderCard(idx, s);
+  });
+  sock.on('connect_error', function() { renderOffline(idx); });
+  sock.on('disconnect', function() { renderOffline(idx); });
+}
+
+function renderCard(idx, s) {
+  var hpPct = Math.max(0, Math.min(100, (s.health / 20) * 100));
+  var foodPct = Math.max(0, Math.min(100, (s.food / 20) * 100));
+  var hpBar = document.getElementById('hp-' + idx);
+  var foodBar = document.getElementById('food-' + idx);
+  if (hpBar) {
+    hpBar.style.width = hpPct + '%';
+    hpBar.style.background = hpPct > 50 ? '#4caf50' : hpPct > 25 ? '#ff9800' : '#f44336';
+  }
+  if (foodBar) {
+    foodBar.style.width = foodPct + '%';
+  }
+  var actEl = document.getElementById('act-' + idx);
+  if (actEl) actEl.textContent = s.action || '--';
+  var thEl = document.getElementById('thought-' + idx);
+  if (thEl) {
+    var t = s.thought || '';
+    thEl.textContent = t.length > 60 ? t.slice(0, 57) + '...' : t;
+  }
+  var posEl = document.getElementById('pos-' + idx);
+  if (posEl && s.position) {
+    posEl.textContent = '(' + Math.round(s.position.x) + ', ' + Math.round(s.position.y) + ', ' + Math.round(s.position.z) + ')';
+  }
+}
+
+function renderOffline(idx) {
+  var actEl = document.getElementById('act-' + idx);
+  if (actEl) actEl.textContent = 'offline';
+  var thEl = document.getElementById('thought-' + idx);
+  if (thEl) thEl.textContent = '';
+}
+
+function selectBot(idx) {
+  if (idx < 0 || idx >= bots.length) return;
+  selectedIdx = idx;
+  document.querySelectorAll('.card').forEach(function(c, i) {
+    var color = COLORS[bots[i].name] || '#888';
+    if (i === idx) {
+      c.classList.add('selected');
+      c.style.borderColor = color;
+    } else {
+      c.classList.remove('selected');
+      c.style.borderColor = '#333';
+    }
+  });
+  var frame = document.getElementById('viewerFrame');
+  var src = 'http://' + location.hostname + ':' + bots[idx].viewerPort;
+  if (frame.src !== src) frame.src = src;
+}
+
+function toggleCycle() {
+  cycling = !cycling;
+  var btn = document.getElementById('cycleBtn');
+  if (cycling) {
+    btn.classList.add('active');
+    btn.textContent = 'AUTO';
+    cycleTimer = setInterval(function() {
+      selectBot((selectedIdx + 1) % bots.length);
+    }, 30000);
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = 'MANUAL';
+    clearInterval(cycleTimer);
+    cycleTimer = null;
+  }
+}
+
+document.addEventListener('keydown', function(e) {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  if (e.key >= '1' && e.key <= '5') {
+    var idx = parseInt(e.key) - 1;
+    if (idx < bots.length) selectBot(idx);
+  }
+  if (e.key === 'c' || e.key === 'C') toggleCycle();
+});
+
+init();
+</script>
+</body>
+</html>
