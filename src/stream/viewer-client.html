@@ -21,6 +21,19 @@
       z-index: 100;
     }
     #cam-btn:hover { background: rgba(0,0,0,0.8); }
+    #bot-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; gap: 4px; padding: 6px 10px;
+      background: rgba(0,0,0,0.7); z-index: 150;
+      font: bold 13px monospace;
+    }
+    .bot-btn {
+      padding: 4px 14px; border: 2px solid #555; border-radius: 4px;
+      background: rgba(30,30,50,0.8); color: #ccc; cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .bot-btn:hover { background: rgba(60,60,90,0.9); }
+    .bot-btn.active { border-color: #4fc3f7; color: #fff; background: rgba(40,80,120,0.9); }
     #switch-overlay {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: rgba(0,0,0,0.7); color: #fff; font: bold 18px monospace;
@@ -31,7 +44,8 @@
   </style>
 </head>
 <body>
-  <div id="hud"></div>
+  <div id="bot-bar"></div>
+  <div id="hud" style="top:42px;"></div>
   <button id="cam-btn">Camera: Follow</button>
   <div id="switch-overlay"></div>
 
@@ -230,32 +244,33 @@
       // ----------------------------------------------------------------
       var switchInProgress = false;
 
+      // pendingBotName tracks what we're trying to connect to (set before confirmation)
+      // currentBotName tracks what we're actually connected to (set on switchDone)
+      var pendingBotName = null;
+
       window.switchBot = function(botName) {
         if (!socket) return;
         if (switchInProgress) return;
+        // Allow retries: check against confirmed currentBotName, not pending
         if (currentBotName === botName) return;
 
         switchInProgress = true;
+        pendingBotName = botName;
         switchOverlay.textContent = 'Switching to ' + botName + '...';
         switchOverlay.classList.add('show');
 
         // Reset local state before switch
         lastBotPos = null;
         lastBotYaw = 0;
-        currentBotName = botName;
 
-        // Tell the server to switch our WorldView to this bot.
-        // The server will:
-        //   1. Clean up old WorldView
-        //   2. Emit "version" (which triggers our handler above to reset the scene)
-        //   3. Create new WorldView (which starts streaming chunks)
-        //   4. Emit "switchDone"
         socket.emit('switchBot', botName);
       };
 
       socket.on('switchDone', function(botName) {
         switchInProgress = false;
         currentBotName = botName;
+        pendingBotName = null;
+        updateBotBar();
         setTimeout(function() {
           switchOverlay.classList.remove('show');
         }, 300);
@@ -263,6 +278,9 @@
 
       socket.on('switchError', function(msg) {
         switchInProgress = false;
+        // Don't set currentBotName — we failed, so it stays as previous value
+        // This allows retries to go through
+        pendingBotName = null;
         switchOverlay.textContent = msg;
         setTimeout(function() {
           switchOverlay.classList.remove('show');
@@ -277,6 +295,41 @@
           window.switchBot(e.data.botName);
         }
       });
+
+      // ----------------------------------------------------------------
+      // Bot selector bar — shows registered bots, click to switch
+      // ----------------------------------------------------------------
+      var COLORS = { Atlas:'#4fc3f7', Flora:'#81c784', Forge:'#ffb74d', Mason:'#ce93d8', Blade:'#ef5350' };
+      var botBar = document.getElementById('bot-bar');
+      var knownBots = [];
+
+      function updateBotBar() {
+        botBar.textContent = '';
+        knownBots.forEach(function(name) {
+          var btn = document.createElement('div');
+          btn.className = 'bot-btn' + (name === currentBotName ? ' active' : '');
+          btn.textContent = name;
+          btn.style.borderColor = COLORS[name] || '#555';
+          if (name === currentBotName) btn.style.borderColor = COLORS[name] || '#4fc3f7';
+          btn.onclick = function() { window.switchBot(name); };
+          botBar.appendChild(btn);
+        });
+      }
+
+      // Poll for available bots every 5s to keep the bar updated
+      function refreshBotBar() {
+        fetch('/api/viewer-bots')
+          .then(function(r) { return r.json(); })
+          .then(function(bots) {
+            if (JSON.stringify(bots) !== JSON.stringify(knownBots)) {
+              knownBots = bots;
+              updateBotBar();
+            }
+          })
+          .catch(function() {});
+      }
+      refreshBotBar();
+      setInterval(refreshBotBar, 5000);
 
       // ----------------------------------------------------------------
       // Follow camera loop

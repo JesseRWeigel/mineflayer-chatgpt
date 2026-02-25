@@ -138,8 +138,12 @@ function parseDecision(raw: string, botName: string): {
     params.skill = parsed.skill;
   }
 
+  // Strip <think> tokens that qwen3 models sometimes leak into JSON fields
+  let thought = String(parsed.thought || parsed.reason || parsed.reasoning || "...");
+  thought = thought.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*/g, "").trim() || "...";
+
   return {
-    thought: parsed.thought || parsed.reason || parsed.reasoning || "...",
+    thought,
     action,
     params,
     goal: parsed.goal,
@@ -432,7 +436,11 @@ export async function chatWithLLM(
         num_predict: 100,
       },
     });
-    return response.message.content.trim();
+    // Strip <think> tokens that qwen3 models sometimes leak
+    let text = response.message.content.trim();
+    text = text.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    text = text.replace(/<think>[\s\S]*/g, "").trim(); // unclosed <think> tags
+    return text || "Hmm...";
   } catch (err) {
     console.error("[LLM] Chat error:", err);
     return "Sorry, my brain lagged for a sec.";

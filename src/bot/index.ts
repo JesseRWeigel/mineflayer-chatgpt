@@ -197,9 +197,12 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
 
   // ── Event handlers ────────────────────────────────────────────────────────
 
-  // In-game chat
+  // In-game chat — ignore messages from self and other bots to prevent feedback loops
+  const BOT_USERNAMES = new Set(["Atlas", "Flora", "Forge", "Mason", "Blade"]);
   bot.on("chat", async (username, message) => {
-    if (username === bot.username) return;
+    if (!username || username === bot.username || BOT_USERNAMES.has(username)) return;
+    // Ignore server system messages (gamerule results, TP confirmations, etc.)
+    if (message.startsWith("Gamerule ") || message.startsWith("Set spawn") || message.startsWith("Teleported ")) return;
     console.log(`[MC Chat] ${username}: ${message}`);
 
     // Eval commands
@@ -266,9 +269,14 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   });
 
   // Re-run spawn safety on every respawn
+  // Only the first bot (Atlas) sends gamerule commands to avoid disconnect.spam kicks
   bot.on("spawn", async () => {
-    bot.chat("/gamerule keepInventory true");
-    bot.chat("/gamerule doMobSpawning true");
+    if (roleConfig.username === "Atlas") {
+      bot.chat("/gamerule keepInventory true");
+      await new Promise(r => setTimeout(r, 500));
+      bot.chat("/gamerule doMobSpawning true");
+      await new Promise(r => setTimeout(r, 500));
+    }
     runSpawnSafety().catch((e) => console.warn("[Bot] Spawn safety error:", e));
   });
 
