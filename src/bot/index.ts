@@ -5,6 +5,7 @@ import pvpPkg from "mineflayer-pvp";
 const pvp = pvpPkg;
 import { loader as autoEat } from "mineflayer-auto-eat";
 import { config } from "../config.js";
+import { registerBot as registerViewerBot, isUnifiedViewerStarted } from "../stream/unified-viewer.js";
 import { startViewer } from "../stream/viewer.js";
 import { addChatMessage, setCurrentBot } from "../stream/overlay.js";
 import { abortActiveSkill } from "../skills/executor.js";
@@ -275,8 +276,12 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   bot.once("spawn", () => {
     console.log("[Bot] Spawned! Starting event-driven brain...");
 
-    // Start browser viewer
-    startViewer(bot, roleConfig.viewerPort);
+    // Start browser viewer — use unified viewer if available, fall back to per-bot viewer
+    if (isUnifiedViewerStarted()) {
+      registerViewerBot(roleConfig.name, bot);
+    } else {
+      startViewer(bot, roleConfig.viewerPort);
+    }
 
     // Pathfinder config
     bot.pathfinder.thinkTimeout = 10000;

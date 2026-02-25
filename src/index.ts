@@ -4,6 +4,7 @@ import { startOverlay, addChatMessage } from "./stream/overlay.js";
 import { config } from "./config.js";
 import { loadDynamicSkills } from "./skills/dynamic-loader.js";
 import { BOT_ROSTER, BotRoleConfig } from "./bot/role.js";
+import { startUnifiedViewer } from "./stream/unified-viewer.js";
 
 loadDynamicSkills();
 
@@ -135,6 +136,13 @@ async function runBotLoop(roleConfig: BotRoleConfig): Promise<void> {
 }
 
 async function main() {
+  // Start the unified viewer server before any bots — it needs to be ready
+  // to accept registerBot() calls when bots spawn. This serves the viewer
+  // HTML, static assets, and handles socket.io relay for bot switching.
+  await startUnifiedViewer().catch((err) => {
+    console.warn("[Main] Unified viewer failed to start:", err);
+  });
+
   if (!config.multiBot.enabled) {
     // Single bot mode — just Atlas
     await runBotLoop(BOT_ROSTER[0]);
