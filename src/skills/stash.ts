@@ -178,3 +178,67 @@ export async function depositStash(
   }
   return `Deposited ${deposited} items at the stash.`;
 }
+
+/**
+ * Walk to stash, find item in categorized chests, withdraw specified count.
+ */
+export async function withdrawStash(
+  bot: Bot,
+  stashPos: { x: number; y: number; z: number },
+  itemName: string,
+  count: number
+): Promise<string> {
+  await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 30000);
+
+  const category = categorizeItem(itemName);
+  const rowOffset = getRowOffset(category);
+  const chestPos = new Vec3(stashPos.x + rowOffset, stashPos.y, stashPos.z);
+
+  // Try category chest first, then scan all nearby chests
+  const chestsToTry: any[] = [];
+
+  const categoryChest = bot.findBlock({
+    matching: (b) => b.name === "chest" || b.name === "trapped_chest",
+    maxDistance: 6,
+    point: chestPos,
+  });
+  if (categoryChest) chestsToTry.push(categoryChest);
+
+  // Also check all nearby chests in case the item was overflow-deposited
+  const allChests = bot.findBlocks({
+    matching: (b) => b.name === "chest" || b.name === "trapped_chest",
+    maxDistance: 10,
+    count: 10,
+  });
+  for (const pos of allChests) {
+    const block = bot.blockAt(pos);
+    if (block && !chestsToTry.includes(block)) chestsToTry.push(block);
+  }
+
+  let withdrawn = 0;
+  const needed = count;
+
+  for (const chest of chestsToTry) {
+    if (withdrawn >= needed) break;
+    try {
+      await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
+      const container = await bot.openContainer(chest);
+
+      for (const slot of container.containerItems()) {
+        if (withdrawn >= needed) break;
+        if (slot.name.includes(itemName)) {
+          const take = Math.min(slot.count, needed - withdrawn);
+          try {
+            await container.withdraw(slot.type, null, take);
+            withdrawn += take;
+          } catch { /* slot empty or race */ }
+        }
+      }
+      container.close();
+    } catch { /* can't open chest */ }
+  }
+
+  if (withdrawn === 0) return `No ${itemName} found in any stash chest.`;
+  if (withdrawn < needed) return `Withdrew ${withdrawn}x ${itemName} (wanted ${needed} — stash doesn't have enough).`;
+  return `Withdrew ${withdrawn}x ${itemName} from stash.`;
+}
