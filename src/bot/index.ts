@@ -9,7 +9,7 @@ import { queryLLM, chatWithLLM, type LLMMessage } from "../llm/index.js";
 import { getWorldContext } from "./perception.js";
 import { executeAction } from "./actions.js";
 import { startViewer } from "../stream/viewer.js";
-import { updateOverlay, addChatMessage, speakThought } from "../stream/overlay.js";
+import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
@@ -139,6 +139,9 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
   async function decide() {
     if (isActing) return;
     isActing = true;
+
+    // Route overlay updates to this bot's Socket.IO instance
+    setCurrentBot(roleConfig.name);
 
     try {
       // Build context
@@ -611,6 +614,24 @@ export async function createBot(events: BotEvents, roleConfig: BotRoleConfig = A
       if ((decision.action === "deposit_stash" || decision.action === "withdraw_stash") && roleConfig.stashPos) {
         normalizedParams.stashPos = roleConfig.stashPos;
         normalizedParams.keepItems = roleConfig.keepItems;
+      }
+
+      // Server-side action gating: reject actions not in this bot's allowedActions.
+      // Universal actions (idle, respond_to_chat, invoke_skill, deposit_stash, withdraw_stash, chat)
+      // are always permitted. Skills in allowedSkills are also permitted.
+      const UNIVERSAL_ACTIONS = new Set(["idle", "respond_to_chat", "invoke_skill", "deposit_stash", "withdraw_stash", "chat", "generate_skill"]);
+      if (
+        roleConfig.allowedActions.length > 0 &&
+        !roleConfig.allowedActions.includes(decision.action) &&
+        !UNIVERSAL_ACTIONS.has(decision.action) &&
+        !roleConfig.allowedSkills.includes(decision.action)
+      ) {
+        const gateMsg = `Action "${decision.action}" is not in ${roleConfig.name}'s allowed actions. Use one of: ${roleConfig.allowedActions.join(", ")}`;
+        console.log(`[Bot] GATED: ${gateMsg}`);
+        events.onAction(decision.action, gateMsg);
+        lastResult = gateMsg;
+        isActing = false;
+        return;
       }
 
       // Execute action

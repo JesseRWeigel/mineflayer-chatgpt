@@ -109,7 +109,20 @@ MINECRAFT CRAFTING KNOWLEDGE:
 - You MUST craft intermediate items first. Example: to make a pickaxe, first craft planks, then sticks, then the pickaxe.
 - Use exact Minecraft item names (snake_case): oak_planks, stick, wooden_pickaxe, stone_pickaxe, wooden_sword, furnace, chest, torch, etc.
 
-SURVIVAL PRIORITIES (when chat isn't commanding you):
+${roleOverride ? `
+IMPORTANT RULES:
+- READ your inventory before choosing actions. Don't build without blocks. Don't eat without food. Don't craft without materials.
+- If an action fails, try something COMPLETELY different next time. Don't repeat failed actions.
+- Gather resources first, then use them. The loop is: gather → craft → use.
+- NEVER mine straight down. You can't dig while navigating — you walk to blocks and then mine them.
+- STAY FOCUSED on your current goal. Complete one thing before starting another.
+- PREFER SKILLS over manual actions when available.
+- You can ONLY use the actions and skills listed below. Do NOT use any action not in your list.
+
+${roleOverride}
+
+- NOTE: "thought" field is REQUIRED in every response. Always include it.
+` : `SURVIVAL PRIORITIES (when chat isn't commanding you):
 1. If hostile mob within 8 blocks: use neural_combat (duration: 5) — it reacts at 20Hz, far better than manual attack
 2. If health < 6 and mobs nearby AND no tools: flee first, then fight when safe
 3. If hunger < 8: eat (complain about the food quality)
@@ -184,7 +197,7 @@ ${(() => {
 - generate_skill: Write new JS code for a task you have no skill for. params: { "task": string }
 - neural_combat: PREFERRED combat action — 20Hz reactive combat against nearby hostiles. Use this whenever a hostile mob is within 8 blocks. params: { "duration": number (1-10 seconds, default 5) }
 - NOTE: "thought" field is REQUIRED in every response. Always include it.
-${roleOverride ?? ""}`;
+`}`;
 }
 
 export async function queryLLM(

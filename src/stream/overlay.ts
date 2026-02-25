@@ -20,8 +20,13 @@ export interface OverlayState {
   seasonGoal?: string;
 }
 
-let io: SocketIO | null = null;
-let currentState: OverlayState = {
+export interface OverlayInstance {
+  updateOverlay(partial: Partial<OverlayState>): void;
+  speakThought(audioUrl: string): void;
+  addChatMessage(username: string, message: string, tier: string): void;
+}
+
+const defaultState = (): OverlayState => ({
   health: 20,
   food: 20,
   position: { x: 0, y: 0, z: 0 },
@@ -31,17 +36,26 @@ let currentState: OverlayState = {
   actionResult: "",
   inventory: [],
   chatMessages: [],
-};
+});
 
-export function startOverlay(port = 3001) {
+/** Per-bot overlay instances keyed by bot name. */
+const instances = new Map<string, OverlayInstance>();
+
+/** Start an overlay server for a single bot. Returns per-bot functions. */
+export function startOverlay(port = 3001, botName = "Atlas"): OverlayInstance {
+  let io: SocketIO | null = null;
+  let state: OverlayState = defaultState();
+
   const app = express();
   const http = createServer(app);
-  io = new SocketIO(http);
+  io = new SocketIO(http, {
+    cors: { origin: "*" },
+  });
 
   app.use(express.static(path.join(__dirname, "../../overlay")));
 
   io.on("connection", (socket) => {
-    socket.emit("state", currentState);
+    socket.emit("state", state);
   });
 
   http.on("error", (err: NodeJS.ErrnoException) => {
@@ -56,28 +70,52 @@ export function startOverlay(port = 3001) {
   http.listen(port, () => {
     console.log(`[Overlay] Stream overlay running at http://localhost:${port}`);
   });
+
+  const instance: OverlayInstance = {
+    updateOverlay(partial: Partial<OverlayState>) {
+      state = { ...state, ...partial };
+      if (io) io.emit("state", state);
+    },
+    speakThought(audioUrl: string) {
+      if (io) io.emit("speak", { url: audioUrl });
+    },
+    addChatMessage(username: string, message: string, tier: string) {
+      state.chatMessages.push({ username, message, tier });
+      if (state.chatMessages.length > 8) state.chatMessages.shift();
+      if (io) io.emit("state", state);
+    },
+  };
+
+  instances.set(botName, instance);
+  return instance;
+}
+
+/** Get a bot's overlay instance by name. */
+export function getOverlay(botName: string): OverlayInstance | undefined {
+  return instances.get(botName);
+}
+
+// --- Backwards-compatible module-level functions ---
+// bot/index.ts calls these with no bot-name context.
+// We keep a "current" pointer that gets set per-bot before the decision loop runs.
+
+let currentBotName = "Atlas";
+
+export function setCurrentBot(name: string) {
+  currentBotName = name;
 }
 
 export function updateOverlay(partial: Partial<OverlayState>) {
-  currentState = { ...currentState, ...partial };
-  if (io) {
-    io.emit("state", currentState);
-  }
+  const inst = instances.get(currentBotName);
+  if (inst) inst.updateOverlay(partial);
 }
 
 export function speakThought(audioUrl: string) {
-  if (io) {
-    io.emit("speak", { url: audioUrl });
-  }
+  const inst = instances.get(currentBotName);
+  if (inst) inst.speakThought(audioUrl);
 }
 
 export function addChatMessage(username: string, message: string, tier: string) {
-  currentState.chatMessages.push({ username, message, tier });
-  // Keep last 8 messages
-  if (currentState.chatMessages.length > 8) {
-    currentState.chatMessages.shift();
-  }
-  if (io) {
-    io.emit("state", currentState);
-  }
+  const inst = instances.get(currentBotName);
+  if (inst) inst.addChatMessage(username, message, tier);
 }

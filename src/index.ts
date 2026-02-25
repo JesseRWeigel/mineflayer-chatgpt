@@ -49,7 +49,7 @@ async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlay
 
   // Start overlay only once per bot (persists across restarts)
   if (!overlayStarted.value) {
-    startOverlay(roleConfig.overlayPort);
+    startOverlay(roleConfig.overlayPort, roleConfig.name);
     overlayStarted.value = true;
   }
 
