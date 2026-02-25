@@ -82,13 +82,34 @@ async function applyAction(bot: Bot, act: { action: string }): Promise<void> {
 }
 
 function pvpFallback(bot: Bot, duration: number): Promise<string> {
-  if (!(bot as any).pvp) return Promise.resolve("PVP plugin not loaded — cannot fall back.");
   const target = bot.nearestEntity(
     (e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16
   );
   if (!target) return Promise.resolve("No hostiles found.");
-  (bot as any).pvp.attack(target);
-  return sleep(duration * 1000).then(() => { (bot as any).pvp.stop(); return `PVP fallback: ${duration}s.`; });
+
+  // Prefer @nxg-org/mineflayer-custom-pvp for strafing, crit timing, and shield handling
+  if ((bot as any).swordpvp) {
+    const swordpvp = (bot as any).swordpvp;
+    swordpvp.attack(target);
+    return sleep(duration * 1000).then(() => {
+      swordpvp.stop();
+      return `PVP fallback (custom-pvp): ${duration}s.`;
+    });
+  }
+
+  // Last-resort fallback: raw mineflayer attack loop
+  const endTime = Date.now() + duration * 1000;
+  const doAttack = async () => {
+    while (Date.now() < endTime) {
+      if (target.isValid && target.position.distanceTo(bot.entity.position) < 6) {
+        await bot.lookAt(target.position.offset(0, (target as any).height ?? 1.6, 0));
+        bot.attack(target);
+      }
+      await sleep(500);
+    }
+    return `PVP fallback (basic): ${duration}s.`;
+  };
+  return doAttack();
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));

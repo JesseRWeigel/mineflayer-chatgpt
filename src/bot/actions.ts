@@ -569,25 +569,68 @@ async function eat(bot: Bot): Promise<string> {
 
 async function attackNearest(bot: Bot): Promise<string> {
   // Use same hostile detection as perception system
-  const hostile = bot.nearestEntity(
+  let target = bot.nearestEntity(
     (e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16
   );
 
-  if (!hostile) {
+  if (!target) {
     // Try any living mob nearby (exclude players, dropped items, projectiles)
-    const anyMob = bot.nearestEntity(
+    target = bot.nearestEntity(
       (e) =>
         e !== bot.entity &&
         e.type === "mob" &&
         e.position.distanceTo(bot.entity.position) < 8
     );
-    if (!anyMob) return "No mobs to attack nearby.";
-    await bot.pvp.attack(anyMob);
-    return `Attacking ${anyMob.name || anyMob.mobType}!`;
+    if (!target) return "No mobs to attack nearby.";
   }
 
-  await bot.pvp.attack(hostile);
-  return `Fighting ${hostile.name || hostile.mobType}!`;
+  const targetName = target.name || (target as any).mobType || "entity";
+
+  // Use @nxg-org/mineflayer-custom-pvp for sustained, skilled combat
+  // The plugin handles strafing, critical-hit timing, shield use, and target tracking
+  if ((bot as any).swordpvp) {
+    const swordpvp = (bot as any).swordpvp;
+
+    // Start the custom PvP attack — it runs asynchronously via physicsTick
+    swordpvp.attack(target);
+
+    // Wait up to 6 seconds for combat to resolve (target dies or timeout)
+    const COMBAT_TIMEOUT = 6000;
+    const combatStart = Date.now();
+    let kills = 0;
+
+    await new Promise<void>((resolve) => {
+      const checkInterval = setInterval(() => {
+        // Stop if timeout exceeded
+        if (Date.now() - combatStart >= COMBAT_TIMEOUT) {
+          cleanup();
+          resolve();
+          return;
+        }
+        // Stop if target is dead/removed or too far away
+        if (!target!.isValid || target!.position.distanceTo(bot.entity.position) > 20) {
+          kills++;
+          cleanup();
+          resolve();
+        }
+      }, 250);
+
+      function cleanup() {
+        clearInterval(checkInterval);
+        swordpvp.stop();
+      }
+    });
+
+    if (kills > 0) {
+      return `Defeated ${targetName} using advanced combat!`;
+    }
+    return `Fought ${targetName} for ${((Date.now() - combatStart) / 1000).toFixed(1)}s (still alive — may need to re-engage).`;
+  }
+
+  // Fallback: bare mineflayer attack if swordpvp somehow not loaded
+  await bot.lookAt(target.position.offset(0, (target as any).height ?? 1.6, 0));
+  bot.attack(target);
+  return `Attacked ${targetName} (basic hit).`;
 }
 
 async function flee(bot: Bot): Promise<string> {

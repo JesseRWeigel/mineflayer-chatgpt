@@ -1,8 +1,7 @@
 import mineflayer from "mineflayer";
 import pathfinderPkg from "mineflayer-pathfinder";
 const { pathfinder } = pathfinderPkg;
-import pvpPkg from "mineflayer-pvp";
-const pvp = pvpPkg;
+import customPvp from "@nxg-org/mineflayer-custom-pvp";
 import { loader as autoEat } from "mineflayer-auto-eat";
 import { config } from "../config.js";
 import { startViewer } from "../stream/viewer.js";
@@ -68,7 +67,7 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
 
   // Load plugins
   bot.loadPlugin(pathfinder);
-  bot.loadPlugin(pvp.plugin);
+  bot.loadPlugin(customPvp);
   bot.loadPlugin(autoEat);
 
   // ── Create the event-driven brain ──
