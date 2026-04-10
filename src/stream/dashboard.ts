@@ -26,7 +26,7 @@ export function startDashboard(roster: BotRoleConfig[]) {
         role: r.role,
         viewerPort: r.viewerPort,
         overlayPort: r.overlayPort,
-      }))
+      })),
     );
   });
 

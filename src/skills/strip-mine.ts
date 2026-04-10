@@ -70,7 +70,9 @@ export const stripMineSkill: Skill = {
             await bot.dig(b);
             mined++;
             if (b.name.includes("ore")) oresFound.push(b.name);
-          } catch { break; }
+          } catch {
+            break;
+          }
         }
 
         // Move into the dug space (one step forward, one step down)
@@ -109,10 +111,7 @@ export const stripMineSkill: Skill = {
       const pos = bot.entity.position.floored();
 
       // Dig 2 blocks ahead: foot level and head level
-      const targets = [
-        pos.offset(forward.x, 0, forward.z),
-        pos.offset(forward.x, 1, forward.z),
-      ];
+      const targets = [pos.offset(forward.x, 0, forward.z), pos.offset(forward.x, 1, forward.z)];
 
       for (const t of targets) {
         const b = bot.blockAt(t);
@@ -131,7 +130,9 @@ export const stripMineSkill: Skill = {
           await bot.dig(b);
           mined++;
           if (b.name.includes("ore")) oresFound.push(b.name);
-        } catch { /* skip */ }
+        } catch {
+          /* skip */
+        }
       }
 
       // Walk forward into cleared space
@@ -186,7 +187,9 @@ async function moveToPosition(bot: Bot, targetPos: Vec3): Promise<void> {
       bot.setControlState("forward", true);
       await bot.waitForTicks(8);
       bot.setControlState("forward", false);
-    } catch { /* ok */ }
+    } catch {
+      /* ok */
+    }
   }
 }
 
@@ -196,14 +199,14 @@ async function placeTorchOnWall(bot: Bot, forward: Vec3): Promise<void> {
 
   // Left wall = 90 degrees from forward
   const wallDir = new Vec3(-forward.z, 0, forward.x);
-  const wallBlock = bot.blockAt(
-    bot.entity.position.floored().offset(wallDir.x, 1, wallDir.z),
-  );
+  const wallBlock = bot.blockAt(bot.entity.position.floored().offset(wallDir.x, 1, wallDir.z));
   if (wallBlock && wallBlock.name !== "air" && wallBlock.name !== "water") {
     try {
       await bot.equip(torch, "hand");
       await bot.placeBlock(wallBlock, new Vec3(-wallDir.x, 0, -wallDir.z));
-    } catch { /* ok */ }
+    } catch {
+      /* ok */
+    }
   }
 }
 
@@ -211,7 +214,13 @@ function formatOres(ores: string[]): string {
   if (ores.length === 0) return "No ores this time — try a different direction!";
   const counts: Record<string, number> = {};
   for (const o of ores) counts[o] = (counts[o] || 0) + 1;
-  return "Found: " + Object.entries(counts).map(([k, v]) => `${v}x ${k}`).join(", ") + "!";
+  return (
+    "Found: " +
+    Object.entries(counts)
+      .map(([k, v]) => `${v}x ${k}`)
+      .join(", ") +
+    "!"
+  );
 }
 
 /** Snap yaw to nearest cardinal direction vector. */

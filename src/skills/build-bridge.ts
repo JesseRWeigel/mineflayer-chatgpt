@@ -6,9 +6,18 @@ const MAX_BRIDGE_LENGTH = 30;
 
 /** Block types usable for bridge building. */
 const BRIDGE_BLOCKS = [
-  "cobblestone", "stone", "deepslate", "dirt",
-  "oak_planks", "spruce_planks", "birch_planks", "jungle_planks",
-  "acacia_planks", "dark_oak_planks", "cherry_planks", "mangrove_planks",
+  "cobblestone",
+  "stone",
+  "deepslate",
+  "dirt",
+  "oak_planks",
+  "spruce_planks",
+  "birch_planks",
+  "jungle_planks",
+  "acacia_planks",
+  "dark_oak_planks",
+  "cherry_planks",
+  "mangrove_planks",
 ];
 
 export const buildBridgeSkill: Skill = {
@@ -22,7 +31,8 @@ export const buildBridgeSkill: Skill = {
   },
 
   async execute(bot, _params, signal, onProgress): Promise<SkillResult> {
-    const blockCount = bot.inventory.items()
+    const blockCount = bot.inventory
+      .items()
       .filter((i) => BRIDGE_BLOCKS.includes(i.name))
       .reduce((s, i) => s + i.count, 0);
 
@@ -81,7 +91,10 @@ export const buildBridgeSkill: Skill = {
             await bot.equip(bridgeItem, "hand");
             await bot.lookAt(belowNext.offset(0.5, 0.5, 0.5));
             const ok = await Promise.race([
-              bot.placeBlock(currentBelow, forward).then(() => true).catch(() => false),
+              bot
+                .placeBlock(currentBelow, forward)
+                .then(() => true)
+                .catch(() => false),
               new Promise<boolean>((r) => setTimeout(() => r(false), 2000)),
             ]);
             if (ok) {
@@ -89,7 +102,9 @@ export const buildBridgeSkill: Skill = {
             } else {
               break;
             }
-          } catch { break; }
+          } catch {
+            break;
+          }
         }
 
         // Walk forward one block
@@ -129,8 +144,7 @@ export const buildBridgeSkill: Skill = {
 };
 
 function isSolid(name: string): boolean {
-  return name !== "air" && name !== "water" && name !== "lava" &&
-    name !== "short_grass" && name !== "tall_grass";
+  return name !== "air" && name !== "water" && name !== "lava" && name !== "short_grass" && name !== "tall_grass";
 }
 
 function getCardinalDirection(yaw: number): Vec3 {

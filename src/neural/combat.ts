@@ -45,9 +45,7 @@ async function applyAction(bot: Bot, act: { action: string }): Promise<void> {
   bot.clearControlStates();
   switch (act.action) {
     case "attack": {
-      const target = bot.nearestEntity(
-        (e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16
-      );
+      const target = bot.nearestEntity((e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16);
       if (target) {
         await bot.lookAt(target.position.offset(0, (target as any).height ?? 1.6, 0));
         bot.attack(target);
@@ -64,9 +62,7 @@ async function applyAction(bot: Bot, act: { action: string }): Promise<void> {
       bot.setControlState("sprint", true);
       break;
     case "flee": {
-      const hostile = bot.nearestEntity(
-        (e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16
-      );
+      const hostile = bot.nearestEntity((e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16);
       if (hostile) {
         const away = bot.entity.position.minus(hostile.position).normalize().scaled(10);
         bot.lookAt(bot.entity.position.plus(away));
@@ -82,9 +78,7 @@ async function applyAction(bot: Bot, act: { action: string }): Promise<void> {
 }
 
 function pvpFallback(bot: Bot, duration: number): Promise<string> {
-  const target = bot.nearestEntity(
-    (e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16
-  );
+  const target = bot.nearestEntity((e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16);
   if (!target) return Promise.resolve("No hostiles found.");
 
   // Prefer @nxg-org/mineflayer-custom-pvp for strafing, crit timing, and shield handling

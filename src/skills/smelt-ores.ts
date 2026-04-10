@@ -18,12 +18,26 @@ const SMELT_RECIPES: Record<string, string> = {
 
 /** Valid fuel items, roughly ordered by efficiency. */
 const FUEL_ITEMS = [
-  "coal", "charcoal",
-  "oak_planks", "spruce_planks", "birch_planks", "jungle_planks",
-  "acacia_planks", "dark_oak_planks", "cherry_planks", "mangrove_planks",
-  "oak_log", "spruce_log", "birch_log", "jungle_log",
-  "acacia_log", "dark_oak_log", "cherry_log", "mangrove_log",
-  "pale_oak_log", "pale_oak_planks", // MC 1.21.4
+  "coal",
+  "charcoal",
+  "oak_planks",
+  "spruce_planks",
+  "birch_planks",
+  "jungle_planks",
+  "acacia_planks",
+  "dark_oak_planks",
+  "cherry_planks",
+  "mangrove_planks",
+  "oak_log",
+  "spruce_log",
+  "birch_log",
+  "jungle_log",
+  "acacia_log",
+  "dark_oak_log",
+  "cherry_log",
+  "mangrove_log",
+  "pale_oak_log",
+  "pale_oak_planks", // MC 1.21.4
 ];
 
 export const smeltOresSkill: Skill = {
@@ -42,7 +56,8 @@ export const smeltOresSkill: Skill = {
     // --- Step 1: Find smeltable items in inventory ---
     const toSmelt: Array<{ itemName: string; count: number; output: string }> = [];
     for (const [input, output] of Object.entries(SMELT_RECIPES)) {
-      const count = bot.inventory.items()
+      const count = bot.inventory
+        .items()
         .filter((i) => i.name === input)
         .reduce((s, i) => s + i.count, 0);
       if (count > 0) {
@@ -61,7 +76,13 @@ export const smeltOresSkill: Skill = {
     }
 
     const totalItems = toSmelt.reduce((s, t) => s + t.count, 0);
-    onProgress({ skillName: "smelt_ores", phase: "Preparing", progress: 0, message: `${totalItems} items to smelt...`, active: true });
+    onProgress({
+      skillName: "smelt_ores",
+      phase: "Preparing",
+      progress: 0,
+      message: `${totalItems} items to smelt...`,
+      active: true,
+    });
 
     // --- Step 3: Find or craft+place furnace ---
     let furnaceBlock = bot.findBlock({
@@ -72,10 +93,19 @@ export const smeltOresSkill: Skill = {
     if (!furnaceBlock) {
       const cobble = countItem(bot, "cobblestone");
       if (cobble < 8) {
-        return { success: false, message: "No furnace nearby and need 8 cobblestone to craft one. Mine some stone first!" };
+        return {
+          success: false,
+          message: "No furnace nearby and need 8 cobblestone to craft one. Mine some stone first!",
+        };
       }
 
-      onProgress({ skillName: "smelt_ores", phase: "Crafting furnace", progress: 0.05, message: "Making a furnace...", active: true });
+      onProgress({
+        skillName: "smelt_ores",
+        phase: "Crafting furnace",
+        progress: 0.05,
+        message: "Making a furnace...",
+        active: true,
+      });
 
       // Craft furnace at crafting table
       const furnaceItemDef = mcData.itemsByName["furnace"];
@@ -86,9 +116,17 @@ export const smeltOresSkill: Skill = {
         if (recipe) {
           if (table) {
             setMovements(bot);
-            try { await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2)); } catch {}
+            try {
+              await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2));
+            } catch {
+              /* best-effort */
+            }
           }
-          try { await bot.craft(recipe, 1, table || undefined); } catch {}
+          try {
+            await bot.craft(recipe, 1, table || undefined);
+          } catch {
+            /* best-effort */
+          }
         }
       }
 
@@ -100,7 +138,12 @@ export const smeltOresSkill: Skill = {
 
       await bot.equip(fItem, "hand");
       const pos = bot.entity.position.floored();
-      for (const offset of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+      for (const offset of [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ] as const) {
         const below = bot.blockAt(new Vec3(pos.x + offset[0], pos.y - 1, pos.z + offset[1]));
         const target = bot.blockAt(new Vec3(pos.x + offset[0], pos.y, pos.z + offset[1]));
         if (below && below.name !== "air" && target && target.name === "air") {
@@ -108,7 +151,9 @@ export const smeltOresSkill: Skill = {
             await bot.placeBlock(below, new Vec3(0, 1, 0));
             console.log("[Skill] Placed furnace");
             break;
-          } catch { continue; }
+          } catch {
+            continue;
+          }
         }
       }
 
@@ -121,8 +166,12 @@ export const smeltOresSkill: Skill = {
     // --- Step 4: Navigate to furnace ---
     setMovements(bot);
     try {
-      await bot.pathfinder.goto(new goals.GoalNear(furnaceBlock.position.x, furnaceBlock.position.y, furnaceBlock.position.z, 2));
-    } catch { /* try anyway */ }
+      await bot.pathfinder.goto(
+        new goals.GoalNear(furnaceBlock.position.x, furnaceBlock.position.y, furnaceBlock.position.z, 2),
+      );
+    } catch {
+      /* try anyway */
+    }
 
     // --- Step 5: Smelt each batch ---
     let smelted = 0;
@@ -152,9 +201,8 @@ export const smeltOresSkill: Skill = {
         // Put fuel first
         const fuelItem = bot.inventory.items().find((i) => FUEL_ITEMS.includes(i.name));
         if (fuelItem) {
-          const fuelNeeded = (fuelItem.name === "coal" || fuelItem.name === "charcoal")
-            ? Math.ceil(batch.count / 8)
-            : batch.count;
+          const fuelNeeded =
+            fuelItem.name === "coal" || fuelItem.name === "charcoal" ? Math.ceil(batch.count / 8) : batch.count;
           await furnace.putFuel(fuelItem.type, null, Math.min(fuelNeeded, fuelItem.count));
         }
 
@@ -211,5 +259,8 @@ function setMovements(bot: Bot) {
 }
 
 function countItem(bot: Bot, name: string): number {
-  return bot.inventory.items().filter((i) => i.name === name).reduce((s, i) => s + i.count, 0);
+  return bot.inventory
+    .items()
+    .filter((i) => i.name === name)
+    .reduce((s, i) => s + i.count, 0);
 }

@@ -27,7 +27,13 @@ export const buildFarmSkill: Skill = {
     }
 
     // --- Step 1: Ensure we have a hoe ---
-    onProgress({ skillName: "build_farm", phase: "Preparing tools", progress: 0, message: "Looking for a hoe...", active: true });
+    onProgress({
+      skillName: "build_farm",
+      phase: "Preparing tools",
+      progress: 0,
+      message: "Looking for a hoe...",
+      active: true,
+    });
 
     let hoe = bot.inventory.items().find((i) => i.name.endsWith("_hoe"));
     if (!hoe) {
@@ -41,7 +47,13 @@ export const buildFarmSkill: Skill = {
     // --- Step 2: Find water, then pre-scan nearby dirt for a fixed target list ---
     // Finding water first avoids the "wrong water re-location" bug where the post-navigation
     // water re-search picks a different water source with no adjacent dirt.
-    onProgress({ skillName: "build_farm", phase: "Finding farmable land", progress: 0.05, message: "Searching for water and nearby dirt...", active: true });
+    onProgress({
+      skillName: "build_farm",
+      phase: "Finding farmable land",
+      progress: 0.05,
+      message: "Searching for water and nearby dirt...",
+      active: true,
+    });
 
     // Surface water only — underwater blocks would send the bot swimming into the lake.
     const water = bot.findBlock({
@@ -79,13 +91,25 @@ export const buildFarmSkill: Skill = {
     }
 
     if (farmTargets.length === 0) {
-      return { success: false, message: "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river." };
+      return {
+        success: false,
+        message: "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+      };
     }
 
     // Navigate to dry shore adjacent to water (not into the water block itself).
     // Find the nearest non-water solid block at the same Y as the water surface.
     let navigationTarget = waterPos;
-    const shoreOffsets: [number, number][] = [[1,0],[-1,0],[0,1],[0,-1],[2,0],[-2,0],[0,2],[0,-2]];
+    const shoreOffsets: [number, number][] = [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+      [2, 0],
+      [-2, 0],
+      [0, 2],
+      [0, -2],
+    ];
     for (const [dx, dz] of shoreOffsets) {
       const candidate = waterPos.offset(dx, 0, dz);
       const block = bot.blockAt(candidate);
@@ -98,12 +122,25 @@ export const buildFarmSkill: Skill = {
     try {
       await Promise.race([
         bot.pathfinder.goto(new goals.GoalNear(navigationTarget.x, navigationTarget.y, navigationTarget.z, 3)),
-        new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("timeout")); }, 15000)),
+        new Promise<void>((_, rej) =>
+          setTimeout(() => {
+            bot.pathfinder.stop();
+            rej(new Error("timeout"));
+          }, 15000),
+        ),
       ]);
-    } catch { /* ok — try anyway */ }
+    } catch {
+      /* ok — try anyway */
+    }
 
     // --- Step 3: Collect seeds by breaking grass ---
-    onProgress({ skillName: "build_farm", phase: "Collecting seeds", progress: 0.1, message: "Breaking grass for seeds...", active: true });
+    onProgress({
+      skillName: "build_farm",
+      phase: "Collecting seeds",
+      progress: 0.1,
+      message: "Breaking grass for seeds...",
+      active: true,
+    });
 
     let seedCount = countItem(bot, "wheat_seeds");
     for (let i = 0; i < 50 && seedCount < 16 && !signal.aborted; i++) {
@@ -118,7 +155,9 @@ export const buildFarmSkill: Skill = {
         await bot.pathfinder.goto(new goals.GoalNear(grass.position.x, grass.position.y, grass.position.z, 2));
         await bot.dig(grass);
         seedCount = countItem(bot, "wheat_seeds");
-      } catch { continue; }
+      } catch {
+        continue;
+      }
     }
 
     if (seedCount === 0) {
@@ -126,7 +165,13 @@ export const buildFarmSkill: Skill = {
     }
 
     // --- Step 4: Till and plant on pre-identified target positions ---
-    onProgress({ skillName: "build_farm", phase: "Planting crops", progress: 0.25, message: "Tilling soil and planting...", active: true });
+    onProgress({
+      skillName: "build_farm",
+      phase: "Planting crops",
+      progress: 0.25,
+      message: "Tilling soil and planting...",
+      active: true,
+    });
 
     let planted = 0;
     const target = Math.min(seedCount, farmTargets.length, 16);
@@ -142,7 +187,12 @@ export const buildFarmSkill: Skill = {
         setMovements(bot);
         await Promise.race([
           bot.pathfinder.goto(new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 1)),
-          new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("timeout")); }, 8000)),
+          new Promise<void>((_, rej) =>
+            setTimeout(() => {
+              bot.pathfinder.stop();
+              rej(new Error("timeout"));
+            }, 8000),
+          ),
         ]);
 
         // Equip hoe and till
@@ -169,14 +219,21 @@ export const buildFarmSkill: Skill = {
                 message: `Planted ${planted}/${target} wheat`,
                 active: true,
               });
-            } catch { /* skip this spot */ }
+            } catch {
+              /* skip this spot */
+            }
           }
         }
-      } catch { continue; }
+      } catch {
+        continue;
+      }
     }
 
     if (planted === 0) {
-      return { success: false, message: `Couldn't plant anything near water at ${waterPos.x.toFixed(0)},${waterPos.z.toFixed(0)} — navigation or tilling failed. Try 'explore' first.` };
+      return {
+        success: false,
+        message: `Couldn't plant anything near water at ${waterPos.x.toFixed(0)},${waterPos.z.toFixed(0)} — navigation or tilling failed. Try 'explore' first.`,
+      };
     }
 
     return {
@@ -199,15 +256,14 @@ function setMovements(bot: Bot) {
 }
 
 function countItem(bot: Bot, name: string): number {
-  return bot.inventory.items().filter((i) => i.name === name).reduce((s, i) => s + i.count, 0);
+  return bot.inventory
+    .items()
+    .filter((i) => i.name === name)
+    .reduce((s, i) => s + i.count, 0);
 }
 
 /** Harvest all mature wheat within 20 blocks. Returns count harvested. */
-async function harvestMatureWheat(
-  bot: Bot,
-  signal: AbortSignal,
-  onProgress: (p: any) => void,
-): Promise<number> {
+async function harvestMatureWheat(bot: Bot, signal: AbortSignal, onProgress: (p: any) => void): Promise<number> {
   let harvested = 0;
 
   for (let i = 0; i < 40 && !signal.aborted; i++) {
@@ -229,7 +285,9 @@ async function harvestMatureWheat(
         message: `Harvested ${harvested} wheat`,
         active: true,
       });
-    } catch { continue; }
+    } catch {
+      continue;
+    }
   }
 
   // Replant seeds on empty farmland after harvesting
@@ -255,7 +313,9 @@ async function harvestMatureWheat(
         await bot.equip(seeds, "hand");
         await bot.placeBlock(farmland, new Vec3(0, 1, 0));
         replanted++;
-      } catch { continue; }
+      } catch {
+        continue;
+      }
     }
     console.log(`[Skill] Harvested ${harvested} wheat, replanted ${replanted} seeds`);
   }
@@ -272,7 +332,11 @@ async function craftHoe(bot: Bot, signal: AbortSignal): Promise<void> {
   if (stickItem) {
     const recipe = bot.recipesFor(stickItem.id, null, 1, null)[0];
     if (recipe) {
-      try { await bot.craft(recipe, 1, undefined); } catch { /* ok */ }
+      try {
+        await bot.craft(recipe, 1, undefined);
+      } catch {
+        /* ok */
+      }
     }
   }
 
@@ -284,7 +348,12 @@ async function craftHoe(bot: Bot, signal: AbortSignal): Promise<void> {
 
     let recipe = bot.recipesFor(mcItem.id, null, 1, null)[0];
     if (recipe) {
-      try { await bot.craft(recipe, 1, undefined); return; } catch { continue; }
+      try {
+        await bot.craft(recipe, 1, undefined);
+        return;
+      } catch {
+        continue;
+      }
     }
 
     const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
@@ -292,10 +361,17 @@ async function craftHoe(bot: Bot, signal: AbortSignal): Promise<void> {
       setMovements(bot);
       try {
         await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2));
-      } catch { /* try anyway */ }
+      } catch {
+        /* try anyway */
+      }
       recipe = bot.recipesFor(mcItem.id, null, 1, table)[0];
       if (recipe) {
-        try { await bot.craft(recipe, 1, table); return; } catch { continue; }
+        try {
+          await bot.craft(recipe, 1, table);
+          return;
+        } catch {
+          continue;
+        }
       }
     }
   }

@@ -34,9 +34,12 @@ register(setupStashSkill);
 export function getSkillPromptLines(): string {
   const lines: string[] = [];
   for (const skill of skillRegistry.values()) {
-    const paramStr = Object.keys(skill.params).length > 0
-      ? `params: { ${Object.entries(skill.params).map(([k, v]) => `"${k}": ${v.type}`).join(", ")} }`
-      : "params: {}";
+    const paramStr =
+      Object.keys(skill.params).length > 0
+        ? `params: { ${Object.entries(skill.params)
+            .map(([k, v]) => `"${k}": ${v.type}`)
+            .join(", ")} }`
+        : "params: {}";
     lines.push(`- ${skill.name}: [SKILL] ${skill.description} ${paramStr}`);
   }
   return lines.join("\n");

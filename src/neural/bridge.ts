@@ -87,8 +87,11 @@ export function queryNeural(obs: NeuralObservation, port = 12345, host = "127.0.
       const nl = buf.indexOf("\n");
       if (nl !== -1) {
         settle(() => {
-          try { resolve(JSON.parse(buf.slice(0, nl))); }
-          catch { reject(new Error(`Bad response: ${buf}`)); }
+          try {
+            resolve(JSON.parse(buf.slice(0, nl)));
+          } catch {
+            reject(new Error(`Bad response: ${buf}`));
+          }
         });
       }
     });
@@ -99,11 +102,19 @@ export function queryNeural(obs: NeuralObservation, port = 12345, host = "127.0.
 
 export async function isNeuralServerRunning(port = 12345): Promise<boolean> {
   try {
-    await queryNeural({
-      bot_health: 20, bot_food: 20, bot_pos: [0, 64, 0],
-      nearest_hostile: null, all_entities: [],
-      has_sword: false, has_shield: false, has_bow: false,
-    }, port);
+    await queryNeural(
+      {
+        bot_health: 20,
+        bot_food: 20,
+        bot_pos: [0, 64, 0],
+        nearest_hostile: null,
+        all_entities: [],
+        has_sword: false,
+        has_shield: false,
+        has_bow: false,
+      },
+      port,
+    );
     return true;
   } catch {
     return false;

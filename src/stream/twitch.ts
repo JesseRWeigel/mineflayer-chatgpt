@@ -25,7 +25,7 @@ function formatForLLM(username: string, message: string, tier: ChatTier): string
 }
 
 export function createTwitchChat(
-  onMessage: (msg: TieredChatMessage) => void
+  onMessage: (msg: TieredChatMessage) => void,
 ): { client: tmi.Client; sendMessage: (msg: string) => void } | null {
   if (!config.twitch.enabled) {
     console.log("[Twitch] Not configured, skipping.");

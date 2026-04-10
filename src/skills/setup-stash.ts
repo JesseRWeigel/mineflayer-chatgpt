@@ -92,7 +92,8 @@ export const setupStashSkill: Skill = {
       active: true,
     });
 
-    let chestCount = bot.inventory.items()
+    let chestCount = bot.inventory
+      .items()
       .filter((i) => i.name === "chest")
       .reduce((sum, i) => sum + i.count, 0);
 
@@ -159,10 +160,10 @@ export const setupStashSkill: Skill = {
         // Navigate to crafting table
         try {
           setMovements(bot);
-          await bot.pathfinder.goto(
-            new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2),
-          );
-        } catch { /* try anyway */ }
+          await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2));
+        } catch {
+          /* try anyway */
+        }
 
         for (let i = 0; i < chestsToMake && !signal.aborted; i++) {
           const recipe = bot.recipesFor(chestMcItem.id, null, 1, table)[0];
@@ -197,7 +198,8 @@ export const setupStashSkill: Skill = {
       }
 
       // Verify we now have enough chests
-      chestCount = bot.inventory.items()
+      chestCount = bot.inventory
+        .items()
         .filter((i) => i.name === "chest")
         .reduce((sum, i) => sum + i.count, 0);
 
@@ -225,7 +227,9 @@ export const setupStashSkill: Skill = {
     // Navigate back to stash pos if we wandered to find a crafting table
     try {
       await safeGoto(bot, new goals.GoalNear(stashX, stashY, stashZ, 3), 15000);
-    } catch { /* close enough */ }
+    } catch {
+      /* close enough */
+    }
 
     // Place first chest at stashPos
     const placed1 = await placeChestAt(bot, stashPos);
@@ -249,11 +253,7 @@ export const setupStashSkill: Skill = {
     const placed2 = await placeChestAt(bot, secondPos);
     if (!placed2) {
       // Try other adjacent positions if +1 X didn't work
-      const alternatives = [
-        stashPos.offset(-1, 0, 0),
-        stashPos.offset(0, 0, 1),
-        stashPos.offset(0, 0, -1),
-      ];
+      const alternatives = [stashPos.offset(-1, 0, 0), stashPos.offset(0, 0, 1), stashPos.offset(0, 0, -1)];
       let placedAlt = false;
       for (const altPos of alternatives) {
         if (await placeChestAt(bot, altPos)) {
@@ -300,18 +300,15 @@ function setMovements(bot: Bot) {
 /**
  * Craft logs into planks. Converts up to `maxLogs` logs of any type.
  */
-async function craftAllLogsToPlanks(
-  bot: Bot,
-  signal: AbortSignal,
-  maxLogs: number,
-): Promise<void> {
+async function craftAllLogsToPlanks(bot: Bot, signal: AbortSignal, maxLogs: number): Promise<void> {
   const mcData = mcDataLoader(bot.version);
   let converted = 0;
 
   for (const logType of LOG_TYPES) {
     if (signal.aborted || converted >= maxLogs) break;
 
-    const logCount = bot.inventory.items()
+    const logCount = bot.inventory
+      .items()
       .filter((i) => i.name === logType)
       .reduce((s, i) => s + i.count, 0);
     if (logCount === 0) continue;
@@ -358,7 +355,9 @@ async function ensureCraftingTable(bot: Bot, signal: AbortSignal): Promise<void>
     if (recipe) {
       try {
         await bot.craft(recipe, 1, undefined);
-      } catch { /* ok */ }
+      } catch {
+        /* ok */
+      }
     }
     ctItem = bot.inventory.items().find((i) => i.name === "crafting_table");
   }
@@ -369,7 +368,10 @@ async function ensureCraftingTable(bot: Bot, signal: AbortSignal): Promise<void>
   await bot.equip(ctItem, "hand");
   const pos = bot.entity.position.floored();
   const offsets = [
-    [1, 0], [-1, 0], [0, 1], [0, -1],
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
   ] as const;
 
   for (const [dx, dz] of offsets) {
@@ -400,15 +402,20 @@ async function placeChestAt(bot: Bot, targetPos: Vec3): Promise<boolean> {
   if (dist > 4) {
     try {
       setMovements(bot);
-      await bot.pathfinder.goto(
-        new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 2),
-      );
-    } catch { /* try anyway */ }
+      await bot.pathfinder.goto(new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 2));
+    } catch {
+      /* try anyway */
+    }
   }
 
   // Check if position is already occupied
   const blockAtTarget = bot.blockAt(targetPos);
-  if (blockAtTarget && blockAtTarget.name !== "air" && blockAtTarget.name !== "short_grass" && blockAtTarget.name !== "tall_grass") {
+  if (
+    blockAtTarget &&
+    blockAtTarget.name !== "air" &&
+    blockAtTarget.name !== "short_grass" &&
+    blockAtTarget.name !== "tall_grass"
+  ) {
     // Already something there — check if it's already a chest
     if (blockAtTarget.name === "chest" || blockAtTarget.name === "trapped_chest") return true;
     return false;
@@ -423,7 +430,10 @@ async function placeChestAt(bot: Bot, targetPos: Vec3): Promise<boolean> {
   try {
     await bot.lookAt(targetPos.offset(0.5, 0.5, 0.5));
     const ok = await Promise.race([
-      bot.placeBlock(ref.block, ref.face).then(() => true).catch(() => false),
+      bot
+        .placeBlock(ref.block, ref.face)
+        .then(() => true)
+        .catch(() => false),
       new Promise<boolean>((r) => setTimeout(() => r(false), 3000)),
     ]);
     return ok;
@@ -433,24 +443,19 @@ async function placeChestAt(bot: Bot, targetPos: Vec3): Promise<boolean> {
 }
 
 /** Find a solid block adjacent to targetPos that we can place against. */
-function findPlacementRef(
-  bot: Bot,
-  targetPos: Vec3,
-): { block: any; face: Vec3 } | null {
+function findPlacementRef(bot: Bot, targetPos: Vec3): { block: any; face: Vec3 } | null {
   const faces = [
-    new Vec3(0, -1, 0), new Vec3(0, 1, 0),
-    new Vec3(1, 0, 0), new Vec3(-1, 0, 0),
-    new Vec3(0, 0, 1), new Vec3(0, 0, -1),
+    new Vec3(0, -1, 0),
+    new Vec3(0, 1, 0),
+    new Vec3(1, 0, 0),
+    new Vec3(-1, 0, 0),
+    new Vec3(0, 0, 1),
+    new Vec3(0, 0, -1),
   ];
   for (const face of faces) {
     const refPos = targetPos.minus(face);
     const refBlock = bot.blockAt(refPos);
-    if (
-      refBlock &&
-      refBlock.name !== "air" &&
-      refBlock.name !== "water" &&
-      !refBlock.name.includes("leaves")
-    ) {
+    if (refBlock && refBlock.name !== "air" && refBlock.name !== "water" && !refBlock.name.includes("leaves")) {
       return { block: refBlock, face };
     }
   }

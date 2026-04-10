@@ -12,17 +12,12 @@ export function getWorldContext(bot: Bot): string {
 
   // Inventory summary
   const items = bot.inventory.items();
-  const invSummary =
-    items.length > 0
-      ? items.map((i) => `${i.name}x${i.count}`).join(", ")
-      : "empty";
+  const invSummary = items.length > 0 ? items.map((i) => `${i.name}x${i.count}`).join(", ") : "empty";
 
   // Nearby entities
   const nearbyEntities = getNearbyEntities(bot, 16);
   const hostiles = nearbyEntities.filter((e) => isHostile(e));
-  const players = nearbyEntities.filter(
-    (e) => e.type === "player" && e.username !== bot.username
-  );
+  const players = nearbyEntities.filter((e) => e.type === "player" && e.username !== bot.username);
   const animals = nearbyEntities.filter((e) => isPassive(e));
 
   // Nearby blocks (what's around us)
@@ -37,20 +32,16 @@ export function getWorldContext(bot: Bot): string {
 
   if (hostiles.length > 0) {
     parts.push(
-      `DANGER - Hostile mobs nearby: ${hostiles.map((e) => `${e.name || e.mobType} (${distTo(bot, e).toFixed(0)} blocks away)`).join(", ")}`
+      `DANGER - Hostile mobs nearby: ${hostiles.map((e) => `${e.name || e.mobType} (${distTo(bot, e).toFixed(0)} blocks away)`).join(", ")}`,
     );
   }
 
   if (players.length > 0) {
-    parts.push(
-      `Players nearby: ${players.map((e) => e.username).join(", ")}`
-    );
+    parts.push(`Players nearby: ${players.map((e) => e.username).join(", ")}`);
   }
 
   if (animals.length > 0) {
-    parts.push(
-      `Animals nearby: ${animals.map((e) => e.name || e.mobType).join(", ")}`
-    );
+    parts.push(`Animals nearby: ${animals.map((e) => e.name || e.mobType).join(", ")}`);
   }
 
   if (nearbyBlocks.length > 0) {
@@ -66,9 +57,7 @@ export function getWorldContext(bot: Bot): string {
   }
 
   if (!isDay) {
-    parts.push(
-      "It's night — hostile mobs spawn in the dark. Consider shelter or a bed."
-    );
+    parts.push("It's night — hostile mobs spawn in the dark. Consider shelter or a bed.");
   }
 
   // Water/ocean detection
@@ -76,7 +65,7 @@ export function getWorldContext(bot: Bot): string {
   const headBlock = bot.blockAt(pos.offset(0, 1, 0));
   if (feetBlock?.name === "water" || headBlock?.name === "water") {
     parts.push(
-      "ALERT: Bot is IN WATER (ocean/river/lake). Use the 'explore' action to escape to dry land IMMEDIATELY — do NOT craft, build, or idle while underwater."
+      "ALERT: Bot is IN WATER (ocean/river/lake). Use the 'explore' action to escape to dry land IMMEDIATELY — do NOT craft, build, or idle while underwater.",
     );
   }
 
@@ -94,12 +83,12 @@ export function getWorldContext(bot: Bot): string {
     if (skyAccessY !== -1 && skyAccessY <= 10) {
       // Solid block within 10 blocks above — definitely underground
       parts.push(
-        `ALERT: Bot is UNDERGROUND (Y=${pos.y.toFixed(0)}, ceiling ${skyAccessY} blocks up). Use 'explore' to reach the surface — you need sunlight for trees and wood gathering. Cannot gather_wood underground.`
+        `ALERT: Bot is UNDERGROUND (Y=${pos.y.toFixed(0)}, ceiling ${skyAccessY} blocks up). Use 'explore' to reach the surface — you need sunlight for trees and wood gathering. Cannot gather_wood underground.`,
       );
     } else if (skyAccessY === -1) {
       // No ceiling within 20 blocks — might be in open-air at low elevation
       parts.push(
-        `NOTE: Bot is at low elevation (Y=${pos.y.toFixed(0)}). If no trees nearby, use 'explore' to find forested land.`
+        `NOTE: Bot is at low elevation (Y=${pos.y.toFixed(0)}). If no trees nearby, use 'explore' to find forested land.`,
       );
     }
   }

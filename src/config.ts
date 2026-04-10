@@ -21,9 +21,7 @@ export const config = {
   },
   bot: {
     name: process.env.BOT_NAME || "Atlas",
-    decisionIntervalMs: parseInt(
-      process.env.BOT_DECISION_INTERVAL_MS || "500"
-    ),
+    decisionIntervalMs: parseInt(process.env.BOT_DECISION_INTERVAL_MS || "500"),
     chatCooldownMs: parseInt(process.env.BOT_CHAT_COOLDOWN_MS || "3000"),
     /** Idle interval for event-driven brain — how often to re-plan when nothing happens. */
     idleIntervalMs: parseInt(process.env.BOT_IDLE_INTERVAL_MS || "10000"),

@@ -62,14 +62,26 @@ const defaultMemory: BotMemory = {
 };
 
 const PRECONDITION_KEYWORDS = [
-  "No trees found", "need wood", "Need a pickaxe", "No torches",
-  "Couldn't plant", "aborted", "No crafting_table",
-  "No furnace", "Need more", "not enough", "missing materials",
+  "No trees found",
+  "need wood",
+  "Need a pickaxe",
+  "No torches",
+  "Couldn't plant",
+  "aborted",
+  "No crafting_table",
+  "No furnace",
+  "Need more",
+  "not enough",
+  "missing materials",
   // build_farm environment failures (not skill bugs — just wrong location)
-  "No water found", "No tillable dirt", "No seeds from grass", "Can't craft a hoe",
+  "No water found",
+  "No tillable dirt",
+  "No seeds from grass",
+  "Can't craft a hoe",
   "chunk may not be loaded",
   // voyager mineBlock / exploreUntil: resource not nearby (precondition, not bug)
-  "Cannot find", "Could not find",
+  "Cannot find",
+  "Could not find",
   // smelt_ores when inventory has no ore (environment, not bug)
   "Nothing to smelt",
   // "timed out" removed — combat/mining skills that time out are real failures,
@@ -90,8 +102,14 @@ export class BotMemoryStore {
   // on every load so a fixed version gets a fresh chance each session.
   // Dynamic/Voyager skills have no developer fix path, so they stay permanently blocked.
   private static readonly STATIC_SKILL_NAMES = new Set([
-    "build_house", "craft_gear", "light_area", "build_farm",
-    "strip_mine", "smelt_ores", "go_fishing", "build_bridge",
+    "build_house",
+    "craft_gear",
+    "light_area",
+    "build_farm",
+    "strip_mine",
+    "smelt_ores",
+    "go_fishing",
+    "build_bridge",
   ]);
 
   load(): BotMemory {
@@ -106,11 +124,13 @@ export class BotMemoryStore {
         // re-accumulate failures and be re-added within the session.
         const before = this.memory.brokenSkillNames.length;
         this.memory.brokenSkillNames = this.memory.brokenSkillNames.filter(
-          s => !BotMemoryStore.STATIC_SKILL_NAMES.has(s)
+          (s) => !BotMemoryStore.STATIC_SKILL_NAMES.has(s),
         );
         const healed = before - this.memory.brokenSkillNames.length;
 
-        console.log(`[Memory] Loaded from ${path.basename(this.memoryFile)}: ${this.memory.structures.length} structures, ${this.memory.skillHistory.length} skill attempts, ${this.memory.brokenSkillNames.length} known broken skills${healed > 0 ? ` (healed ${healed} static skills)` : ""}`);
+        console.log(
+          `[Memory] Loaded from ${path.basename(this.memoryFile)}: ${this.memory.structures.length} structures, ${this.memory.skillHistory.length} skill attempts, ${this.memory.brokenSkillNames.length} known broken skills${healed > 0 ? ` (healed ${healed} static skills)` : ""}`,
+        );
       }
     } catch (err) {
       console.error("[Memory] Failed to load:", err);
@@ -130,7 +150,7 @@ export class BotMemoryStore {
 
   addStructure(type: Structure["type"], x: number, y: number, z: number, notes?: string): boolean {
     const existing = this.memory.structures.find(
-      (s) => s.type === type && Math.abs(s.x - x) < 10 && Math.abs(s.z - z) < 10
+      (s) => s.type === type && Math.abs(s.x - x) < 10 && Math.abs(s.z - z) < 10,
     );
     if (existing) {
       console.log(`[Memory] Structure already exists nearby at ${existing.x}, ${existing.y}, ${existing.z}`);
@@ -151,9 +171,7 @@ export class BotMemoryStore {
 
   hasStructureNearby(type: Structure["type"], x: number, y: number, z: number, radius = 50): boolean {
     return this.memory.structures.some(
-      (s) => s.type === type &&
-        Math.abs(s.x - x) <= radius &&
-        Math.abs(s.z - z) <= radius
+      (s) => s.type === type && Math.abs(s.x - x) <= radius && Math.abs(s.z - z) <= radius,
     );
   }
 
@@ -190,7 +208,7 @@ export class BotMemoryStore {
 
   recordOre(oreType: string, x: number, y: number, z: number): void {
     const existing = this.memory.oreDiscoveries.find(
-      (o) => o.type === oreType && Math.abs(o.x - x) < 5 && Math.abs(o.z - z) < 5
+      (o) => o.type === oreType && Math.abs(o.x - x) < 5 && Math.abs(o.z - z) < 5,
     );
     if (existing) return;
     this.memory.oreDiscoveries.push({
@@ -214,8 +232,11 @@ export class BotMemoryStore {
     const successCount = skillAttempts.filter((s) => s.success).length;
     const successRate = skillAttempts.length > 0 ? (successCount / skillAttempts.length) * 100 : 0;
 
-    const isPreconditionFail = !success && PRECONDITION_KEYWORDS.some(k => notes.toLowerCase().includes(k.toLowerCase()));
-    const realFailures = skillAttempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+    const isPreconditionFail =
+      !success && PRECONDITION_KEYWORDS.some((k) => notes.toLowerCase().includes(k.toLowerCase()));
+    const realFailures = skillAttempts.filter(
+      (a) => !a.success && !PRECONDITION_KEYWORDS.some((k) => (a.notes || "").toLowerCase().includes(k.toLowerCase())),
+    );
     if (!success && !isPreconditionFail && realFailures.length >= 5 && !this.memory.brokenSkillNames.includes(skill)) {
       this.memory.brokenSkillNames.push(skill);
       console.log(`[Memory] ${skill} added to permanent broken skills list`);
@@ -225,7 +246,9 @@ export class BotMemoryStore {
     // as broken (e.g., after deletion) stays broken. Fake successes from a buggy old
     // version of a skill must not inadvertently restore it.
 
-    console.log(`[Memory] ${skill}: ${success ? "SUCCESS" : "FAIL"} (${successRate.toFixed(0)}% success rate over ${skillAttempts.length} attempts)`);
+    console.log(
+      `[Memory] ${skill}: ${success ? "SUCCESS" : "FAIL"} (${successRate.toFixed(0)}% success rate over ${skillAttempts.length} attempts)`,
+    );
     this.save();
   }
 
@@ -252,21 +275,27 @@ export class BotMemoryStore {
     if (this.memory.skillHistory.length > 0) {
       const recent = this.memory.skillHistory.slice(-5);
       // Check if the bot is spinning: same skill repeated 3+ times with no-op notes
-      const skillNames = recent.map(s => s.skill);
-      const dominant = skillNames.find(s => skillNames.filter(x => x === s).length >= 3);
-      const spinWarning = dominant ? ` ⚠ WARNING: You have called '${dominant}' ${skillNames.filter(x => x === dominant).length} times in a row — DO SOMETHING DIFFERENT!` : "";
-      const recentDesc = recent.map(s => {
-        const icon = s.success ? "✓" : "✗";
-        const note = s.notes.slice(0, 55).replace(/\n/g, " ");
-        return `${icon}${s.skill}(${note})`;
-      }).join(", ");
+      const skillNames = recent.map((s) => s.skill);
+      const dominant = skillNames.find((s) => skillNames.filter((x) => x === s).length >= 3);
+      const spinWarning = dominant
+        ? ` ⚠ WARNING: You have called '${dominant}' ${skillNames.filter((x) => x === dominant).length} times in a row — DO SOMETHING DIFFERENT!`
+        : "";
+      const recentDesc = recent
+        .map((s) => {
+          const icon = s.success ? "✓" : "✗";
+          const note = s.notes.slice(0, 55).replace(/\n/g, " ");
+          return `${icon}${s.skill}(${note})`;
+        })
+        .join(", ");
       parts.push(`LAST ${recent.length} ACTIONS: ${recentDesc}.${spinWarning}`);
     }
 
     if (this.memory.structures.length > 0) {
       const houses = this.memory.structures.filter((s) => s.type === "house");
       if (houses.length > 0) {
-        parts.push(`HOUSES BUILT: ${houses.length} at ${houses.map((h) => `(${h.x}, ${h.z})`).join(", ")} — GOAL ACHIEVED, no need to build again`);
+        parts.push(
+          `HOUSES BUILT: ${houses.length} at ${houses.map((h) => `(${h.x}, ${h.z})`).join(", ")} — GOAL ACHIEVED, no need to build again`,
+        );
       }
     }
 
@@ -293,8 +322,14 @@ export class BotMemoryStore {
         if (brokenSet.has(skill)) continue;
         const attempts = this.memory.skillHistory.filter((s) => s.skill === skill);
         const successes = attempts.filter((a) => a.success).length;
-        const realFailures = attempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
-        const preconditionFailures = attempts.filter(a => !a.success && PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+        const realFailures = attempts.filter(
+          (a) =>
+            !a.success && !PRECONDITION_KEYWORDS.some((k) => (a.notes || "").toLowerCase().includes(k.toLowerCase())),
+        );
+        const preconditionFailures = attempts.filter(
+          (a) =>
+            !a.success && PRECONDITION_KEYWORDS.some((k) => (a.notes || "").toLowerCase().includes(k.toLowerCase())),
+        );
         // Static skills (fixable TypeScript source) should never be shown as permanently broken
         // based on history alone — a bug fix can change everything. Show normal stats for them.
         const isStatic = BotMemoryStore.STATIC_SKILL_NAMES.has(skill);
@@ -310,10 +345,14 @@ export class BotMemoryStore {
         }
       }
       if (brokenLabel.length > 0) {
-        parts.push(`BROKEN SKILLS — DO NOT USE EVER: ${brokenLabel.join(", ")}. These have NEVER succeeded. Choose completely different skills.`);
+        parts.push(
+          `BROKEN SKILLS — DO NOT USE EVER: ${brokenLabel.join(", ")}. These have NEVER succeeded. Choose completely different skills.`,
+        );
       }
       if (preconditionLabel.length > 0) {
-        parts.push(`SKILLS WAITING FOR RESOURCES (these work fine — just need prerequisites): ${preconditionLabel.join(", ")}`);
+        parts.push(
+          `SKILLS WAITING FOR RESOURCES (these work fine — just need prerequisites): ${preconditionLabel.join(", ")}`,
+        );
       }
       if (normalStats.length > 0) {
         parts.push(`SKILL PERFORMANCE: ${normalStats.join(", ")}`);
@@ -340,7 +379,10 @@ export class BotMemoryStore {
       if (broken.has(skill)) continue;
       const attempts = this.memory.skillHistory.filter((s) => s.skill === skill);
       const successes = attempts.filter((a) => a.success).length;
-      const realFailures = attempts.filter(a => !a.success && !PRECONDITION_KEYWORDS.some(k => (a.notes || "").toLowerCase().includes(k.toLowerCase())));
+      const realFailures = attempts.filter(
+        (a) =>
+          !a.success && !PRECONDITION_KEYWORDS.some((k) => (a.notes || "").toLowerCase().includes(k.toLowerCase())),
+      );
       // Only flag as broken if there are REAL failures (not just precondition misses like "no trees").
       // Static skills (fixable source code) are excluded — historical crashes don't mean unfixable.
       const isStatic = BotMemoryStore.STATIC_SKILL_NAMES.has(skill);
@@ -360,14 +402,14 @@ export class BotMemoryStore {
    */
   healBrokenSkillsFromRegistry(registeredNames: Set<string>): void {
     const before = this.memory.brokenSkillNames.length;
-    this.memory.brokenSkillNames = this.memory.brokenSkillNames.filter(
-      s => !registeredNames.has(s)
-    );
+    this.memory.brokenSkillNames = this.memory.brokenSkillNames.filter((s) => !registeredNames.has(s));
     const healed = before - this.memory.brokenSkillNames.length;
     if (healed > 0) {
-      console.log(`[Memory] Auto-healed ${healed} skill(s) now in registry: ${
-        this.memory.brokenSkillNames.length === before ? "none" : "saved"
-      }`);
+      console.log(
+        `[Memory] Auto-healed ${healed} skill(s) now in registry: ${
+          this.memory.brokenSkillNames.length === before ? "none" : "saved"
+        }`,
+      );
       this.save();
     }
   }
@@ -389,14 +431,14 @@ export class BotMemoryStore {
    */
   getSessionPreconditionBlocks(): Map<string, string> {
     const result = new Map<string, string>();
-    const skills = [...new Set(this.memory.skillHistory.map(s => s.skill))];
+    const skills = [...new Set(this.memory.skillHistory.map((s) => s.skill))];
     for (const skill of skills) {
-      const attempts = this.memory.skillHistory.filter(s => s.skill === skill);
+      const attempts = this.memory.skillHistory.filter((s) => s.skill === skill);
       const recent = attempts.slice(-3);
       // Only pre-block if the last 2+ attempts were all precondition failures
       if (recent.length < 2) continue;
       const allPrecondition = recent.every(
-        a => !a.success && PRECONDITION_KEYWORDS.some(k => a.notes.toLowerCase().includes(k.toLowerCase()))
+        (a) => !a.success && PRECONDITION_KEYWORDS.some((k) => a.notes.toLowerCase().includes(k.toLowerCase())),
       );
       if (!allPrecondition) continue;
 
@@ -404,7 +446,10 @@ export class BotMemoryStore {
       if (/no water found/i.test(lastNotes)) {
         result.set(skill, "No water found within 96 blocks — explore to find a river or pond, then retry build_farm");
       } else if (/cannot find.*wool|need.*wool/i.test(lastNotes)) {
-        result.set(skill, "Need 3 wool of same color — first EXPLORE to find a sheep flock, then use 'attack' on a sheep mob to get wool");
+        result.set(
+          skill,
+          "Need 3 wool of same color — first EXPLORE to find a sheep flock, then use 'attack' on a sheep mob to get wool",
+        );
       } else if (/no torch/i.test(lastNotes)) {
         result.set(skill, "No torches — mine coal_ore first, then craft torches (coal + stick), then retry light_area");
       }
@@ -414,9 +459,7 @@ export class BotMemoryStore {
   }
 
   shouldAvoidLocation(x: number, y: number, z: number, radius = 10): boolean {
-    return this.memory.deaths.some(
-      (d) => Math.abs(d.x - x) < radius && Math.abs(d.z - z) < radius
-    );
+    return this.memory.deaths.some((d) => Math.abs(d.x - x) < radius && Math.abs(d.z - z) < radius);
   }
 
   getStats(): { structures: number; deaths: number; ores: number; skills: number } {
@@ -452,19 +495,51 @@ export class BotMemoryStore {
 // ---------------------------------------------------------------------------
 const _singleton = new BotMemoryStore("memory.json");
 
-export function loadMemory(): BotMemory { return _singleton.load(); }
-export function getMemoryContext(): string { return _singleton.getMemoryContext(); }
-export function recordDeath(x: number, y: number, z: number, cause: string): void { _singleton.recordDeath(x, y, z, cause); }
-export function recordOre(oreType: string, x: number, y: number, z: number): void { _singleton.recordOre(oreType, x, y, z); }
-export function recordSkillAttempt(skill: string, success: boolean, durationSeconds: number, notes: string): void { _singleton.recordSkillAttempt(skill, success, durationSeconds, notes); }
-export function getSkillSuccessRate(skill: string) { return _singleton.getSkillSuccessRate(skill); }
-export function addLesson(lesson: string): void { _singleton.addLesson(lesson); }
-export function addStructure(type: Structure["type"], x: number, y: number, z: number, notes?: string): boolean { return _singleton.addStructure(type, x, y, z, notes); }
-export function hasStructureNearby(type: Structure["type"], x: number, y: number, z: number, radius?: number): boolean { return _singleton.hasStructureNearby(type, x, y, z, radius); }
-export function getNearestStructure(type: Structure["type"], x: number, z: number): Structure | null { return _singleton.getNearestStructure(type, x, z); }
-export function getBrokenSkills(): Map<string, string> { return _singleton.getBrokenSkills(); }
-export function shouldAvoidLocation(x: number, y: number, z: number, radius?: number): boolean { return _singleton.shouldAvoidLocation(x, y, z, radius); }
-export function getStats() { return _singleton.getStats(); }
-export function getSeasonGoal(): string | undefined { return _singleton.getSeasonGoal(); }
-export function setSeasonGoal(goal: string): void { _singleton.setSeasonGoal(goal); }
-export function clearSeasonGoal(): void { _singleton.clearSeasonGoal(); }
+export function loadMemory(): BotMemory {
+  return _singleton.load();
+}
+export function getMemoryContext(): string {
+  return _singleton.getMemoryContext();
+}
+export function recordDeath(x: number, y: number, z: number, cause: string): void {
+  _singleton.recordDeath(x, y, z, cause);
+}
+export function recordOre(oreType: string, x: number, y: number, z: number): void {
+  _singleton.recordOre(oreType, x, y, z);
+}
+export function recordSkillAttempt(skill: string, success: boolean, durationSeconds: number, notes: string): void {
+  _singleton.recordSkillAttempt(skill, success, durationSeconds, notes);
+}
+export function getSkillSuccessRate(skill: string) {
+  return _singleton.getSkillSuccessRate(skill);
+}
+export function addLesson(lesson: string): void {
+  _singleton.addLesson(lesson);
+}
+export function addStructure(type: Structure["type"], x: number, y: number, z: number, notes?: string): boolean {
+  return _singleton.addStructure(type, x, y, z, notes);
+}
+export function hasStructureNearby(type: Structure["type"], x: number, y: number, z: number, radius?: number): boolean {
+  return _singleton.hasStructureNearby(type, x, y, z, radius);
+}
+export function getNearestStructure(type: Structure["type"], x: number, z: number): Structure | null {
+  return _singleton.getNearestStructure(type, x, z);
+}
+export function getBrokenSkills(): Map<string, string> {
+  return _singleton.getBrokenSkills();
+}
+export function shouldAvoidLocation(x: number, y: number, z: number, radius?: number): boolean {
+  return _singleton.shouldAvoidLocation(x, y, z, radius);
+}
+export function getStats() {
+  return _singleton.getStats();
+}
+export function getSeasonGoal(): string | undefined {
+  return _singleton.getSeasonGoal();
+}
+export function setSeasonGoal(goal: string): void {
+  _singleton.setSeasonGoal(goal);
+}
+export function clearSeasonGoal(): void {
+  _singleton.clearSeasonGoal();
+}

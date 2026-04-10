@@ -16,7 +16,8 @@ const TOOL_TYPES = ["pickaxe", "axe", "sword", "shovel"];
 
 export const craftGearSkill: Skill = {
   name: "craft_gear",
-  description: "Craft the best tool set (pickaxe, axe, sword, shovel) from available materials. No gathering needed — uses what's in inventory.",
+  description:
+    "Craft the best tool set (pickaxe, axe, sword, shovel) from available materials. No gathering needed — uses what's in inventory.",
   params: {},
 
   estimateMaterials(_bot, _params) {
@@ -27,7 +28,7 @@ export const craftGearSkill: Skill = {
   async execute(bot, _params, signal, onProgress): Promise<SkillResult> {
     const mcData = mcDataLoader(bot.version);
     const crafted: string[] = [];
-    let total = TOOL_TYPES.length;
+    const total = TOOL_TYPES.length;
     let done = 0;
 
     // Ensure we have sticks (need at least 8 for a full set)
@@ -70,7 +71,7 @@ export const craftGearSkill: Skill = {
           table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 8 });
         }
 
-        let recipe = table
+        const recipe = table
           ? bot.recipesFor(mcItem.id, null, 1, table)[0]
           : bot.recipesFor(mcItem.id, null, 1, null)[0];
 
@@ -84,10 +85,10 @@ export const craftGearSkill: Skill = {
           moves.canDig = false;
           bot.pathfinder.setMovements(moves);
           try {
-            await bot.pathfinder.goto(
-              new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2),
-            );
-          } catch { /* try anyway */ }
+            await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2));
+          } catch {
+            /* try anyway */
+          }
         }
 
         try {
@@ -149,11 +150,19 @@ async function placeCraftingTable(bot: Bot): Promise<void> {
         if (!plankItem) continue;
         const plankRecipe = bot.recipesFor(plankItem.id, null, 1, null)[0];
         if (plankRecipe) {
-          try { await bot.craft(plankRecipe, 2, undefined); } catch { /* ok */ }
+          try {
+            await bot.craft(plankRecipe, 2, undefined);
+          } catch {
+            /* ok */
+          }
         }
         break;
       }
-      try { await bot.craft(recipe, 1, undefined); } catch { /* ok */ }
+      try {
+        await bot.craft(recipe, 1, undefined);
+      } catch {
+        /* ok */
+      }
     }
     ctItem = bot.inventory.items().find((i) => i.name === "crafting_table");
   }
@@ -162,10 +171,7 @@ async function placeCraftingTable(bot: Bot): Promise<void> {
 
   // Place on the block below bot's feet, one step to the side
   const pos = bot.entity.position.floored();
-  const candidates = [
-    pos.offset(1, 0, 0), pos.offset(-1, 0, 0),
-    pos.offset(0, 0, 1), pos.offset(0, 0, -1),
-  ];
+  const candidates = [pos.offset(1, 0, 0), pos.offset(-1, 0, 0), pos.offset(0, 0, 1), pos.offset(0, 0, -1)];
   for (const candidate of candidates) {
     const ground = bot.blockAt(candidate.offset(0, -1, 0));
     if (!ground || ground.name === "air") continue;
@@ -175,7 +181,9 @@ async function placeCraftingTable(bot: Bot): Promise<void> {
       await bot.equip(ctItem, "hand");
       await bot.placeBlock(ground, new Vec3(0, 1, 0));
       return;
-    } catch { /* try next position */ }
+    } catch {
+      /* try next position */
+    }
   }
 }
 
@@ -185,13 +193,17 @@ async function ensureSticks(bot: Bot, count: number, signal: AbortSignal): Promi
   const stickItem = mcData.itemsByName["stick"];
   if (!stickItem) return;
 
-  const have = bot.inventory.items().filter((i) => i.name === "stick").reduce((s, i) => s + i.count, 0);
+  const have = bot.inventory
+    .items()
+    .filter((i) => i.name === "stick")
+    .reduce((s, i) => s + i.count, 0);
   if (have >= count) return;
 
   // First ensure we have planks — craft any log type into its planks
   for (const logType of LOG_TYPES) {
     if (signal.aborted) break;
-    const logCount = bot.inventory.items()
+    const logCount = bot.inventory
+      .items()
       .filter((i) => i.name === logType)
       .reduce((s, i) => s + i.count, 0);
     if (logCount === 0) continue;
@@ -205,7 +217,11 @@ async function ensureSticks(bot: Bot, count: number, signal: AbortSignal): Promi
     for (let i = 0; i < craftCount; i++) {
       const recipe = bot.recipesFor(mcItem.id, null, 1, null)[0];
       if (!recipe) break;
-      try { await bot.craft(recipe, 1, undefined); } catch { break; }
+      try {
+        await bot.craft(recipe, 1, undefined);
+      } catch {
+        break;
+      }
     }
     break; // One log type is enough for sticks
   }
@@ -214,6 +230,10 @@ async function ensureSticks(bot: Bot, count: number, signal: AbortSignal): Promi
   const stickRecipe = bot.recipesFor(stickItem.id, null, 1, null)[0];
   if (stickRecipe) {
     const need = Math.ceil((count - have) / 4);
-    try { await bot.craft(stickRecipe, need, undefined); } catch { /* ok */ }
+    try {
+      await bot.craft(stickRecipe, need, undefined);
+    } catch {
+      /* ok */
+    }
   }
 }

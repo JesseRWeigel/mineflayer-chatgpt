@@ -76,10 +76,13 @@ export async function generateSkill(task: string): Promise<string> {
   }
 
   const skillName = trimmedTask
-    .toLowerCase().replace(/[^a-z0-9 ]/g, "").trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9 ]/g, "")
+    .trim()
     .split(/\s+/)
-    .map((w, i) => i === 0 ? w : w[0].toUpperCase() + w.slice(1))
-    .join("").slice(0, 40);
+    .map((w, i) => (i === 0 ? w : w[0].toUpperCase() + w.slice(1)))
+    .join("")
+    .slice(0, 40);
 
   if (!skillName) {
     throw new Error("Task description produced an empty skill name (try using letters/numbers)");
@@ -87,19 +90,20 @@ export async function generateSkill(task: string): Promise<string> {
 
   console.log(`[Generator] Writing '${skillName}' for: ${trimmedTask}`);
 
-  const prompt = GENERATION_PROMPT
-    .replaceAll("SKILL_NAME", skillName)
-    .replace("TASK_DESCRIPTION", trimmedTask);
+  const prompt = GENERATION_PROMPT.replaceAll("SKILL_NAME", skillName).replace("TASK_DESCRIPTION", trimmedTask);
 
   const response = await ollama.chat({
     model: config.ollama.model,
-    think: false,  // Disable thinking mode — all tokens go to code output
+    think: false, // Disable thinking mode — all tokens go to code output
     messages: [{ role: "user", content: prompt }],
     options: { temperature: 0.3, num_predict: 4096 },
   });
 
-  let code = response.message.content.trim()
-    .replace(/^```[a-z]*\n?/i, "").replace(/\n?```$/i, "").trim();
+  let code = response.message.content
+    .trim()
+    .replace(/^```[a-z]*\n?/i, "")
+    .replace(/\n?```$/i, "")
+    .trim();
 
   if (!code.includes(`async function ${skillName}`)) {
     code = `async function ${skillName}(bot) {\n  bot.chat("I tried ${skillName} but the code didn't generate cleanly!");\n}`;

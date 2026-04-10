@@ -11,8 +11,14 @@ import { getBotMemoryStore } from "../bot/memory-registry.js";
 
 /** All door types — any wood's door works interchangeably */
 const DOOR_TYPES = [
-  "oak_door", "spruce_door", "birch_door", "jungle_door",
-  "acacia_door", "dark_oak_door", "cherry_door", "mangrove_door",
+  "oak_door",
+  "spruce_door",
+  "birch_door",
+  "jungle_door",
+  "acacia_door",
+  "dark_oak_door",
+  "cherry_door",
+  "mangrove_door",
 ] as const;
 
 /** Remember last build site so repeated build_house calls finish the same house */
@@ -20,7 +26,8 @@ let lastBuildSite: Vec3 | null = null;
 
 export const buildHouseSkill: Skill = {
   name: "build_house",
-  description: "Build a 7x7 house with walls, roof, door, crafting table, and torches. Works with ANY wood type. Gathers materials automatically. Takes ~2 minutes.",
+  description:
+    "Build a 7x7 house with walls, roof, door, crafting table, and torches. Works with ANY wood type. Gathers materials automatically. Takes ~2 minutes.",
   params: {},
 
   estimateMaterials(_bot, _params) {
@@ -121,12 +128,8 @@ export const buildHouseSkill: Skill = {
         try {
           setMovements(bot);
           await Promise.race([
-            bot.pathfinder.goto(
-              new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2),
-            ),
-            new Promise<never>((_, reject) =>
-              setTimeout(() => reject(new Error("pathfinder timeout")), 15_000)
-            ),
+            bot.pathfinder.goto(new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2)),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("pathfinder timeout")), 15_000)),
           ]);
           await bot.dig(block);
           mined++;
@@ -192,9 +195,7 @@ export const buildHouseSkill: Skill = {
     console.log(`[Skill] Crafting done. Have ${planksReady} planks, need ~${totalPlanksNeeded}`);
 
     // --- Step 4: Place blocks from blueprint ---
-    const structureBlocks = bp.blocks
-      .filter((b) => b.phase === "structure")
-      .sort((a, b) => a.pos[1] - b.pos[1]); // bottom-up
+    const structureBlocks = bp.blocks.filter((b) => b.phase === "structure").sort((a, b) => a.pos[1] - b.pos[1]); // bottom-up
 
     const interiorBlocks = bp.blocks.filter((b) => b.phase === "interior");
     const allBlocks = [...structureBlocks, ...interiorBlocks];
@@ -211,15 +212,17 @@ export const buildHouseSkill: Skill = {
       }
 
       const bpBlock = allBlocks[i];
-      const worldPos = new Vec3(
-        origin.x + bpBlock.pos[0],
-        origin.y + bpBlock.pos[1],
-        origin.z + bpBlock.pos[2],
-      );
+      const worldPos = new Vec3(origin.x + bpBlock.pos[0], origin.y + bpBlock.pos[1], origin.z + bpBlock.pos[2]);
 
       // Skip if already occupied
       const existing = bot.blockAt(worldPos);
-      if (existing && existing.name !== "air" && existing.name !== "water" && existing.name !== "short_grass" && existing.name !== "tall_grass") {
+      if (
+        existing &&
+        existing.name !== "air" &&
+        existing.name !== "water" &&
+        existing.name !== "short_grass" &&
+        existing.name !== "tall_grass"
+      ) {
         placed++;
         continue;
       }
@@ -241,9 +244,7 @@ export const buildHouseSkill: Skill = {
         const dist = bot.entity.position.distanceTo(worldPos);
         if (dist > 4.5) {
           setMovements(bot);
-          await bot.pathfinder.goto(
-            new goals.GoalNear(worldPos.x, worldPos.y, worldPos.z, 3),
-          );
+          await bot.pathfinder.goto(new goals.GoalNear(worldPos.x, worldPos.y, worldPos.z, 3));
         }
 
         await bot.equip(item, "hand");
@@ -254,7 +255,10 @@ export const buildHouseSkill: Skill = {
           if (floorBlock && floorBlock.name !== "air") {
             await bot.lookAt(worldPos.offset(0.5, 0, 0.5));
             const ok = await Promise.race([
-              bot.placeBlock(floorBlock, new Vec3(0, 1, 0)).then(() => true).catch(() => false),
+              bot
+                .placeBlock(floorBlock, new Vec3(0, 1, 0))
+                .then(() => true)
+                .catch(() => false),
               new Promise<boolean>((r) => setTimeout(() => r(false), 2000)),
             ]);
             if (ok) placed++;
@@ -269,7 +273,10 @@ export const buildHouseSkill: Skill = {
             await bot.lookAt(worldPos.offset(0.5, 0.5, 0.5));
             // Fast placement with 2s timeout
             const ok = await Promise.race([
-              bot.placeBlock(ref.block, ref.face).then(() => true).catch(() => false),
+              bot
+                .placeBlock(ref.block, ref.face)
+                .then(() => true)
+                .catch(() => false),
               new Promise<boolean>((r) => setTimeout(() => r(false), 2000)),
             ]);
             if (ok) placed++;
@@ -303,7 +310,9 @@ export const buildHouseSkill: Skill = {
     try {
       setMovements(bot);
       await bot.pathfinder.goto(new goals.GoalNear(entrancePos.x, entrancePos.y, entrancePos.z, 1));
-    } catch { /* ok */ }
+    } catch {
+      /* ok */
+    }
 
     if (placed > total * 0.7) {
       // Save house to per-bot memory (falls back to singleton if no per-bot store registered)
@@ -381,7 +390,10 @@ async function clearInventoryJunk(bot: Bot) {
     if (bestToolSlots.has(item.slot)) continue;
     // Keep one of essential items
     if (KEEP_ONE.includes(item.name)) {
-      if (!keepBest[item.name]) { keepBest[item.name] = 1; continue; }
+      if (!keepBest[item.name]) {
+        keepBest[item.name] = 1;
+        continue;
+      }
     }
 
     // Drop junk patterns
@@ -395,7 +407,9 @@ async function clearInventoryJunk(bot: Bot) {
       try {
         await bot.tossStack(item);
         console.log(`[Skill] Dropped ${item.name}x${item.count}`);
-      } catch { /* ok */ }
+      } catch {
+        /* ok */
+      }
     }
   }
 
@@ -446,10 +460,14 @@ function groundLevel(bot: Bot, x: number, z: number): number | null {
     const block = bot.blockAt(new Vec3(x, y, z));
     const above = bot.blockAt(new Vec3(x, y + 1, z));
     if (
-      block && block.name !== "air" && block.name !== "water" &&
-      block.name !== "short_grass" && block.name !== "tall_grass" &&
+      block &&
+      block.name !== "air" &&
+      block.name !== "water" &&
+      block.name !== "short_grass" &&
+      block.name !== "tall_grass" &&
       !block.name.includes("leaves") &&
-      above && (above.name === "air" || above.name === "short_grass" || above.name === "tall_grass")
+      above &&
+      (above.name === "air" || above.name === "short_grass" || above.name === "tall_grass")
     ) {
       return y;
     }
@@ -458,14 +476,14 @@ function groundLevel(bot: Bot, x: number, z: number): number | null {
 }
 
 /** Find a solid block adjacent to targetPos that we can place against. */
-function findPlacementRef(
-  bot: Bot,
-  targetPos: Vec3,
-): { block: any; face: Vec3 } | null {
+function findPlacementRef(bot: Bot, targetPos: Vec3): { block: any; face: Vec3 } | null {
   const faces = [
-    new Vec3(0, -1, 0), new Vec3(0, 1, 0),
-    new Vec3(1, 0, 0), new Vec3(-1, 0, 0),
-    new Vec3(0, 0, 1), new Vec3(0, 0, -1),
+    new Vec3(0, -1, 0),
+    new Vec3(0, 1, 0),
+    new Vec3(1, 0, 0),
+    new Vec3(-1, 0, 0),
+    new Vec3(0, 0, 1),
+    new Vec3(0, 0, -1),
   ];
   for (const face of faces) {
     const refPos = targetPos.minus(face);
@@ -482,11 +500,12 @@ async function craftAllLogsToPlanks(bot: Bot, signal: AbortSignal): Promise<void
   const mcData = mcDataLoader(bot.version);
 
   // Also try placing a crafting table for recipes that need one
-  let table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
+  const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
 
   for (const logType of LOG_TYPES) {
     if (signal.aborted) break;
-    const logCount = bot.inventory.items()
+    const logCount = bot.inventory
+      .items()
       .filter((i) => i.name === logType)
       .reduce((s, i) => s + i.count, 0);
     if (logCount === 0) continue;
@@ -540,7 +559,12 @@ async function placeTableIfNeeded(bot: Bot): Promise<void> {
   await bot.equip(tableItem, "hand");
   const pos = bot.entity.position.floored();
   // Try placing on solid ground next to the bot
-  for (const offset of [[1, 0], [-1, 0], [0, 1], [0, -1]] as const) {
+  for (const offset of [
+    [1, 0],
+    [-1, 0],
+    [0, 1],
+    [0, -1],
+  ] as const) {
     const below = bot.blockAt(new Vec3(pos.x + offset[0], pos.y - 1, pos.z + offset[1]));
     const target = bot.blockAt(new Vec3(pos.x + offset[0], pos.y, pos.z + offset[1]));
     if (below && below.name !== "air" && target && target.name === "air") {
@@ -548,7 +572,9 @@ async function placeTableIfNeeded(bot: Bot): Promise<void> {
         await bot.placeBlock(below, new Vec3(0, 1, 0));
         console.log("[Skill] Placed crafting table for door crafting");
         return;
-      } catch { continue; }
+      } catch {
+        continue;
+      }
     }
   }
 }
@@ -559,7 +585,8 @@ async function craftDoors(bot: Bot, count: number, signal: AbortSignal): Promise
   const mcData = mcDataLoader(bot.version);
 
   // Check if we already have enough doors
-  const haveDoors = bot.inventory.items()
+  const haveDoors = bot.inventory
+    .items()
     .filter((i) => (DOOR_TYPES as readonly string[]).includes(i.name))
     .reduce((s, i) => s + i.count, 0);
   if (haveDoors >= count) return;
@@ -575,7 +602,9 @@ async function craftDoors(bot: Bot, count: number, signal: AbortSignal): Promise
   try {
     setMovements(bot);
     await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2));
-  } catch { /* try anyway */ }
+  } catch {
+    /* try anyway */
+  }
 
   // Try each door type — whichever has a valid recipe (meaning we have 6 of its plank type)
   for (const doorType of DOOR_TYPES) {
@@ -587,7 +616,9 @@ async function craftDoors(bot: Bot, count: number, signal: AbortSignal): Promise
       await bot.craft(recipe, 1, table); // 1 craft = 3 doors, enough for 2
       console.log(`[Skill] Crafted ${doorType}`);
       return;
-    } catch { continue; }
+    } catch {
+      continue;
+    }
   }
   console.log("[Skill] Couldn't craft any doors (need 6 planks of same wood type)");
 }
@@ -599,7 +630,8 @@ async function craftSome(bot: Bot, itemName: string, count: number, signal: Abor
   const mcItem = mcData.itemsByName[itemName];
   if (!mcItem) return;
 
-  const have = bot.inventory.items()
+  const have = bot.inventory
+    .items()
     .filter((i) => i.name === itemName)
     .reduce((s, i) => s + i.count, 0);
   if (have >= count) return;
@@ -616,10 +648,10 @@ async function craftSome(bot: Bot, itemName: string, count: number, signal: Abor
     if (table) {
       try {
         setMovements(bot);
-        await bot.pathfinder.goto(
-          new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2),
-        );
-      } catch { /* try anyway */ }
+        await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2));
+      } catch {
+        /* try anyway */
+      }
       recipe = bot.recipesFor(mcItem.id, null, 1, table)[0];
     }
   }
@@ -628,5 +660,7 @@ async function craftSome(bot: Bot, itemName: string, count: number, signal: Abor
   const needed = Math.ceil(count - have);
   try {
     await bot.craft(recipe, needed, undefined);
-  } catch { /* ok */ }
+  } catch {
+    /* ok */
+  }
 }

@@ -37,11 +37,7 @@ export function abortActiveSkill(bot: Bot): void {
  * Run a skill to completion: gather materials → execute → return result string.
  * Called from executeAction() when the LLM picks a skill action.
  */
-export async function runSkill(
-  bot: Bot,
-  skill: Skill,
-  params: Record<string, any>,
-): Promise<string> {
+export async function runSkill(bot: Bot, skill: Skill, params: Record<string, any>): Promise<string> {
   const active = activeSkillMap.get(bot);
   if (active) {
     return `Already running skill "${active.skill.name}". Wait for it to finish.`;
@@ -77,20 +73,15 @@ export async function runSkill(
     console.log(`[Skill] Materials needed: ${summary}`);
 
     try {
-      const gatherResult = await gatherMaterials(
-        bot,
-        materialsNeeded,
-        signal,
-        (msg, pct) => {
-          progress({
-            skillName: skill.name,
-            phase: "Gathering materials",
-            progress: pct * 0.3,
-            message: msg,
-            active: true,
-          });
-        },
-      );
+      const gatherResult = await gatherMaterials(bot, materialsNeeded, signal, (msg, pct) => {
+        progress({
+          skillName: skill.name,
+          phase: "Gathering materials",
+          progress: pct * 0.3,
+          message: msg,
+          active: true,
+        });
+      });
 
       if (!gatherResult.success) {
         progress({ skillName: skill.name, phase: "Failed", progress: 0, message: gatherResult.message, active: false });
