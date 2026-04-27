@@ -5,67 +5,81 @@ import mcDataLoader from "minecraft-data";
 
 /** Crafting dependency tree: item → { inputs needed, yield per craft } */
 const CRAFT_TREE: Record<string, { inputs: Record<string, number>; yields: number }> = {
-  oak_planks:     { inputs: { oak_log: 1 }, yields: 4 },
-  spruce_planks:  { inputs: { spruce_log: 1 }, yields: 4 },
-  birch_planks:   { inputs: { birch_log: 1 }, yields: 4 },
-  stick:          { inputs: { oak_planks: 2 }, yields: 4 },
+  oak_planks: { inputs: { oak_log: 1 }, yields: 4 },
+  spruce_planks: { inputs: { spruce_log: 1 }, yields: 4 },
+  birch_planks: { inputs: { birch_log: 1 }, yields: 4 },
+  stick: { inputs: { oak_planks: 2 }, yields: 4 },
   crafting_table: { inputs: { oak_planks: 4 }, yields: 1 },
-  torch:          { inputs: { stick: 1, coal: 1 }, yields: 4 },
-  oak_door:       { inputs: { oak_planks: 6 }, yields: 3 },
-  oak_fence:      { inputs: { oak_planks: 4, stick: 2 }, yields: 3 },
+  torch: { inputs: { stick: 1, coal: 1 }, yields: 4 },
+  oak_door: { inputs: { oak_planks: 6 }, yields: 3 },
+  oak_fence: { inputs: { oak_planks: 4, stick: 2 }, yields: 3 },
   wooden_pickaxe: { inputs: { oak_planks: 3, stick: 2 }, yields: 1 },
-  wooden_axe:     { inputs: { oak_planks: 3, stick: 2 }, yields: 1 },
-  wooden_shovel:  { inputs: { oak_planks: 1, stick: 2 }, yields: 1 },
-  wooden_sword:   { inputs: { oak_planks: 2, stick: 1 }, yields: 1 },
-  stone_pickaxe:  { inputs: { cobblestone: 3, stick: 2 }, yields: 1 },
-  stone_axe:      { inputs: { cobblestone: 3, stick: 2 }, yields: 1 },
-  stone_sword:    { inputs: { cobblestone: 2, stick: 1 }, yields: 1 },
-  stone_shovel:   { inputs: { cobblestone: 1, stick: 2 }, yields: 1 },
-  furnace:        { inputs: { cobblestone: 8 }, yields: 1 },
-  chest:          { inputs: { oak_planks: 8 }, yields: 1 },
+  wooden_axe: { inputs: { oak_planks: 3, stick: 2 }, yields: 1 },
+  wooden_shovel: { inputs: { oak_planks: 1, stick: 2 }, yields: 1 },
+  wooden_sword: { inputs: { oak_planks: 2, stick: 1 }, yields: 1 },
+  stone_pickaxe: { inputs: { cobblestone: 3, stick: 2 }, yields: 1 },
+  stone_axe: { inputs: { cobblestone: 3, stick: 2 }, yields: 1 },
+  stone_sword: { inputs: { cobblestone: 2, stick: 1 }, yields: 1 },
+  stone_shovel: { inputs: { cobblestone: 1, stick: 2 }, yields: 1 },
+  furnace: { inputs: { cobblestone: 8 }, yields: 1 },
+  chest: { inputs: { oak_planks: 8 }, yields: 1 },
 };
 
 /** Wood type constants — any log can become planks, all planks are interchangeable for building */
 export const LOG_TYPES = [
-  "oak_log", "spruce_log", "birch_log", "jungle_log",
-  "acacia_log", "dark_oak_log", "cherry_log", "mangrove_log",
+  "oak_log",
+  "spruce_log",
+  "birch_log",
+  "jungle_log",
+  "acacia_log",
+  "dark_oak_log",
+  "cherry_log",
+  "mangrove_log",
   "pale_oak_log", // MC 1.21.4 Pale Garden biome
 ] as const;
 
 export const PLANK_TYPES = [
-  "oak_planks", "spruce_planks", "birch_planks", "jungle_planks",
-  "acacia_planks", "dark_oak_planks", "cherry_planks", "mangrove_planks",
+  "oak_planks",
+  "spruce_planks",
+  "birch_planks",
+  "jungle_planks",
+  "acacia_planks",
+  "dark_oak_planks",
+  "cherry_planks",
+  "mangrove_planks",
   "pale_oak_planks", // MC 1.21.4 Pale Garden biome
 ] as const;
 
 /** Count all logs (any type) in inventory */
 export function countAllLogs(bot: Bot): number {
-  return bot.inventory.items()
+  return bot.inventory
+    .items()
     .filter((i) => (LOG_TYPES as readonly string[]).includes(i.name))
     .reduce((sum, i) => sum + i.count, 0);
 }
 
 /** Count all planks (any type) in inventory */
 export function countAllPlanks(bot: Bot): number {
-  return bot.inventory.items()
+  return bot.inventory
+    .items()
     .filter((i) => (PLANK_TYPES as readonly string[]).includes(i.name))
     .reduce((sum, i) => sum + i.count, 0);
 }
 
 /** Block types that can be mined to obtain an item */
 const MINE_SOURCES: Record<string, string[]> = {
-  oak_log:      ["oak_log"],
-  spruce_log:   ["spruce_log"],
-  birch_log:    ["birch_log"],
-  jungle_log:   ["jungle_log"],
-  acacia_log:   ["acacia_log"],
+  oak_log: ["oak_log"],
+  spruce_log: ["spruce_log"],
+  birch_log: ["birch_log"],
+  jungle_log: ["jungle_log"],
+  acacia_log: ["acacia_log"],
   dark_oak_log: ["dark_oak_log"],
-  cherry_log:   ["cherry_log"],
+  cherry_log: ["cherry_log"],
   mangrove_log: ["mangrove_log"],
-  cobblestone:  ["stone", "cobblestone"],
-  coal:         ["coal_ore", "deepslate_coal_ore"],
-  sand:         ["sand"],
-  dirt:         ["dirt"],
+  cobblestone: ["stone", "cobblestone"],
+  coal: ["coal_ore", "deepslate_coal_ore"],
+  sand: ["sand"],
+  dirt: ["dirt"],
 };
 
 export interface GatherResult {
@@ -75,18 +89,14 @@ export interface GatherResult {
 
 /** Count how many of an item the bot currently has. */
 function countItem(bot: Bot, itemName: string): number {
-  return bot.inventory.items()
+  return bot.inventory
+    .items()
     .filter((i) => i.name === itemName)
     .reduce((sum, i) => sum + i.count, 0);
 }
 
 /** Navigation wrapper that respects AbortSignal. */
-async function safeGotoWithSignal(
-  bot: Bot,
-  goal: any,
-  signal: AbortSignal,
-  timeoutMs = 15000,
-): Promise<void> {
+async function safeGotoWithSignal(bot: Bot, goal: any, signal: AbortSignal, timeoutMs = 15000): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     if (signal.aborted) {
       reject(new Error("Aborted"));
@@ -130,13 +140,16 @@ async function safeGotoWithSignal(
       clearInterval(stallCheck);
     }
 
-    bot.pathfinder.goto(goal).then(() => {
-      cleanup();
-      resolve();
-    }).catch((err: any) => {
-      cleanup();
-      reject(err);
-    });
+    bot.pathfinder
+      .goto(goal)
+      .then(() => {
+        cleanup();
+        resolve();
+      })
+      .catch((err: any) => {
+        cleanup();
+        reject(err);
+      });
   });
 }
 
@@ -176,7 +189,7 @@ export async function gatherMaterials(
     const mineTargets = MINE_SOURCES[item];
     if (!mineTargets) continue;
 
-    let remaining = deficit(item);
+    const remaining = deficit(item);
     if (remaining <= 0) continue;
 
     onProgress(`Mining ${remaining}x ${item}...`, gathered / totalNeeded);
@@ -240,10 +253,7 @@ export async function gatherMaterials(
 }
 
 /** Determine crafting order with dependencies resolved bottom-up. */
-function resolveCraftOrder(
-  needed: Record<string, number>,
-  bot: Bot,
-): Array<{ item: string; craftCount: number }> {
+function resolveCraftOrder(needed: Record<string, number>, bot: Bot): Array<{ item: string; craftCount: number }> {
   const order: Array<{ item: string; craftCount: number }> = [];
   const visited = new Set<string>();
 
@@ -275,12 +285,7 @@ function resolveCraftOrder(
 }
 
 /** Craft an item, handling crafting table placement. */
-async function craftItem(
-  bot: Bot,
-  itemName: string,
-  count: number,
-  signal: AbortSignal,
-): Promise<boolean> {
+async function craftItem(bot: Bot, itemName: string, count: number, signal: AbortSignal): Promise<boolean> {
   const mcData = mcDataLoader(bot.version);
   const mcItem = mcData.itemsByName[itemName];
   if (!mcItem) return false;
@@ -292,9 +297,7 @@ async function craftItem(
   });
 
   // Try recipe with table first, fall back to hand crafting
-  let recipe = table
-    ? bot.recipesFor(mcItem.id, null, 1, table)[0]
-    : null;
+  let recipe = table ? bot.recipesFor(mcItem.id, null, 1, table)[0] : null;
 
   if (!recipe) {
     recipe = bot.recipesFor(mcItem.id, null, 1, null)[0];
@@ -313,7 +316,9 @@ async function craftItem(
           try {
             const { Vec3 } = await import("vec3");
             await bot.placeBlock(below, new Vec3(0, 1, 0));
-          } catch { /* placement failed */ }
+          } catch {
+            /* placement failed */
+          }
         }
       }
       table = bot.findBlock({

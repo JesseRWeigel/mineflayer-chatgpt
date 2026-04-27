@@ -108,15 +108,14 @@ function patchBundle(bundlePath: string): string {
 
     if (endIdx > matchStart) {
       const replacement =
-        `window.__pvSocket=${socketVar};` +
-        `window.__pvViewer=${viewerVar};` +
-        `window.__pvViewerReady=true` +
-        `})();`;
+        `window.__pvSocket=${socketVar};` + `window.__pvViewer=${viewerVar};` + `window.__pvViewerReady=true` + `})();`;
 
       code = code.substring(0, matchStart) + replacement;
     }
   } else {
-    console.warn("[UnifiedViewer] Could not patch bundle — version handler pattern not found. Falling back to unpatched bundle.");
+    console.warn(
+      "[UnifiedViewer] Could not patch bundle — version handler pattern not found. Falling back to unpatched bundle.",
+    );
   }
 
   return code;
@@ -211,12 +210,7 @@ function setupRelayNamespace(): void {
   });
 }
 
-function switchClientToBot(
-  socket: any,
-  botName: string,
-  WorldView: any,
-  viewDistance: number,
-): void {
+function switchClientToBot(socket: any, botName: string, WorldView: any, viewDistance: number): void {
   const entry = registeredBots.get(botName);
   if (!entry) {
     socket.emit("switchError", `Bot "${botName}" not registered`);

@@ -14,7 +14,11 @@ const activeStops: (() => void)[] = [];
 function shutdownAll() {
   console.log("\n[Main] Shutting down all bots...");
   for (const fn of activeStops) {
-    try { fn(); } catch { /* ignore errors during shutdown */ }
+    try {
+      fn();
+    } catch {
+      /* ignore errors during shutdown */
+    }
   }
   process.exit(0);
 }
@@ -39,10 +43,14 @@ process.on("uncaughtException", (err) => {
   console.error("[Main] Uncaught exception (non-fatal — process kept alive):", err.message || err);
 });
 
-async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlayStarted: { value: boolean }): Promise<string> {
+async function startBot(
+  roleConfig: BotRoleConfig,
+  restartCount: number,
+  overlayStarted: { value: boolean },
+): Promise<string> {
   console.log(`\n=== ${roleConfig.name} (${roleConfig.role}) (restart #${restartCount}) ===`);
-  const fastLabel = config.ollama.fastModel !== config.ollama.model
-    ? ` (fast decisions: ${config.ollama.fastModel})` : "";
+  const fastLabel =
+    config.ollama.fastModel !== config.ollama.model ? ` (fast decisions: ${config.ollama.fastModel})` : "";
   console.log(`LLM: ${config.ollama.model}${fastLabel} @ ${config.ollama.host}`);
   console.log(`Server: ${config.mc.host}:${config.mc.port} (MC ${config.mc.version})`);
   console.log(`Decision interval: ${config.bot.decisionIntervalMs}ms`);
@@ -54,19 +62,23 @@ async function startBot(roleConfig: BotRoleConfig, restartCount: number, overlay
     overlayStarted.value = true;
   }
 
-  const { bot, queueChat, stop } = await createBot({
-    onThought: (thought) => console.log(`[${roleConfig.name}] 💭 ${thought}`),
-    onAction: (action, result) => console.log(`[${roleConfig.name}] 🎮 [${action}] ${result}`),
-    onChat: (message) => console.log(`[${roleConfig.name}] 💬 ${message}`),
-  }, roleConfig);
+  const { bot, queueChat, stop } = await createBot(
+    {
+      onThought: (thought) => console.log(`[${roleConfig.name}] 💭 ${thought}`),
+      onAction: (action, result) => console.log(`[${roleConfig.name}] 🎮 [${action}] ${result}`),
+      onChat: (message) => console.log(`[${roleConfig.name}] 💬 ${message}`),
+    },
+    roleConfig,
+  );
 
   // Set up Twitch chat (Atlas only — Flora doesn't need her own chat connection)
-  const twitch = roleConfig.name === "Atlas"
-    ? createTwitchChat((msg) => {
-        queueChat(msg);
-        addChatMessage(msg.username, msg.message, (msg as any).tier ?? "free");
-      })
-    : null;
+  const twitch =
+    roleConfig.name === "Atlas"
+      ? createTwitchChat((msg) => {
+          queueChat(msg);
+          addChatMessage(msg.username, msg.message, (msg as any).tier ?? "free");
+        })
+      : null;
 
   let lastKickReason = "";
 
@@ -127,9 +139,10 @@ async function runBotLoop(roleConfig: BotRoleConfig): Promise<void> {
       return;
     }
 
-    const delay = lastKickReason.includes("duplicate_login") || lastKickReason.includes("You logged in from another location")
-      ? DUPLICATE_LOGIN_DELAY_MS
-      : RESTART_DELAY_MS;
+    const delay =
+      lastKickReason.includes("duplicate_login") || lastKickReason.includes("You logged in from another location")
+        ? DUPLICATE_LOGIN_DELAY_MS
+        : RESTART_DELAY_MS;
     console.log(`[${roleConfig.name}] Restarting in ${delay / 1000}s... (attempt ${restartCount}/${MAX_RESTARTS})`);
     await new Promise((r) => setTimeout(r, delay));
   }

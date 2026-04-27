@@ -12,34 +12,96 @@ const STASH_ROWS: { category: string; patterns: string[] }[] = [
   {
     category: "building",
     patterns: [
-      "log", "planks", "cobblestone", "stone", "deepslate", "glass", "sand",
-      "sandstone", "brick", "terracotta", "concrete", "gravel", "dirt",
+      "log",
+      "planks",
+      "cobblestone",
+      "stone",
+      "deepslate",
+      "glass",
+      "sand",
+      "sandstone",
+      "brick",
+      "terracotta",
+      "concrete",
+      "gravel",
+      "dirt",
     ],
   },
   {
     category: "metals",
     patterns: [
-      "raw_iron", "iron_ingot", "iron_nugget", "raw_copper", "copper_ingot",
-      "raw_gold", "gold_ingot", "gold_nugget", "coal", "diamond", "emerald",
-      "lapis", "redstone", "quartz", "netherite", "amethyst",
+      "raw_iron",
+      "iron_ingot",
+      "iron_nugget",
+      "raw_copper",
+      "copper_ingot",
+      "raw_gold",
+      "gold_ingot",
+      "gold_nugget",
+      "coal",
+      "diamond",
+      "emerald",
+      "lapis",
+      "redstone",
+      "quartz",
+      "netherite",
+      "amethyst",
     ],
   },
   {
     category: "food",
     patterns: [
-      "wheat", "seed", "bread", "carrot", "potato", "beetroot", "melon",
-      "pumpkin", "apple", "porkchop", "beef", "chicken", "mutton", "cod",
-      "salmon", "rabbit", "stew", "cookie", "cake", "pie", "sugar",
-      "egg", "cocoa", "mushroom", "kelp", "sweet_berries",
+      "wheat",
+      "seed",
+      "bread",
+      "carrot",
+      "potato",
+      "beetroot",
+      "melon",
+      "pumpkin",
+      "apple",
+      "porkchop",
+      "beef",
+      "chicken",
+      "mutton",
+      "cod",
+      "salmon",
+      "rabbit",
+      "stew",
+      "cookie",
+      "cake",
+      "pie",
+      "sugar",
+      "egg",
+      "cocoa",
+      "mushroom",
+      "kelp",
+      "sweet_berries",
     ],
   },
   {
     category: "tools",
     patterns: [
-      "sword", "pickaxe", "axe", "shovel", "hoe", "bow", "crossbow",
-      "arrow", "shield", "helmet", "chestplate", "leggings", "boots",
-      "fishing_rod", "shears", "flint_and_steel", "compass", "clock",
-      "spyglass", "trident",
+      "sword",
+      "pickaxe",
+      "axe",
+      "shovel",
+      "hoe",
+      "bow",
+      "crossbow",
+      "arrow",
+      "shield",
+      "helmet",
+      "chestplate",
+      "leggings",
+      "boots",
+      "fishing_rod",
+      "shears",
+      "flint_and_steel",
+      "compass",
+      "clock",
+      "spyglass",
+      "trident",
     ],
   },
 ];
@@ -64,7 +126,7 @@ export function getRowOffset(category: string): number {
 export function shouldKeep(
   itemName: string,
   keepItems: { name: string; minCount: number }[],
-  currentCounts: Map<string, number>
+  currentCounts: Map<string, number>,
 ): boolean {
   for (const keep of keepItems) {
     if (itemName.includes(keep.name)) {
@@ -87,7 +149,7 @@ export { STASH_ROWS };
 export async function depositStash(
   bot: Bot,
   stashPos: { x: number; y: number; z: number },
-  keepItems: { name: string; minCount: number }[]
+  keepItems: { name: string; minCount: number }[],
 ): Promise<string> {
   // Walk to stash area
   await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 30000);
@@ -112,11 +174,7 @@ export async function depositStash(
   // For each category, find nearest chest at the right row offset and deposit
   for (const [category, items] of byCategory) {
     const rowOffset = getRowOffset(category);
-    const chestPos = new Vec3(
-      stashPos.x + rowOffset,
-      stashPos.y,
-      stashPos.z
-    );
+    const chestPos = new Vec3(stashPos.x + rowOffset, stashPos.y, stashPos.z);
 
     // Find the nearest chest block near the expected position
     const chest = bot.findBlock({
@@ -186,7 +244,7 @@ export async function withdrawStash(
   bot: Bot,
   stashPos: { x: number; y: number; z: number },
   itemName: string,
-  count: number
+  count: number,
 ): Promise<string> {
   await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 30000);
 
@@ -231,11 +289,15 @@ export async function withdrawStash(
           try {
             await container.withdraw(slot.type, null, take);
             withdrawn += take;
-          } catch { /* slot empty or race */ }
+          } catch {
+            /* slot empty or race */
+          }
         }
       }
       container.close();
-    } catch { /* can't open chest */ }
+    } catch {
+      /* can't open chest */
+    }
   }
 
   if (withdrawn === 0) return `No ${itemName} found in any stash chest.`;

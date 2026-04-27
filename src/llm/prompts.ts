@@ -36,15 +36,14 @@ export function buildStrategicPrompt(role: RoleContext): string {
     : "gather_wood, mine_block, go_to, explore, craft, eat, attack, flee, place_block, sleep, idle, chat, respond_to_chat, invoke_skill, generate_skill, neural_combat, deposit_stash, withdraw_stash";
 
   // Skills list
-  const builtinSkills = role.allowedSkills?.length
-    ? role.allowedSkills.join(", ")
-    : "";
+  const builtinSkills = role.allowedSkills?.length ? role.allowedSkills.join(", ") : "";
   const skillLines = !role.allowedSkills?.length ? getSkillPromptLines() : "";
 
   const dynamicSkills = getDynamicSkillNames();
-  const dynamicLine = dynamicSkills.length > 0
-    ? `\nDynamic skills (use invoke_skill): ${dynamicSkills.slice(0, 8).join(", ")}${dynamicSkills.length > 8 ? ` (+${dynamicSkills.length - 8} more)` : ""}`
-    : "";
+  const dynamicLine =
+    dynamicSkills.length > 0
+      ? `\nDynamic skills (use invoke_skill): ${dynamicSkills.slice(0, 8).join(", ")}${dynamicSkills.length > 8 ? ` (+${dynamicSkills.length - 8} more)` : ""}`
+      : "";
 
   const missionLine = role.seasonGoal
     ? `🎯 MISSION: ${role.seasonGoal}\nEvery decision should advance this mission.\n\n`
@@ -91,15 +90,18 @@ export function buildReactivePrompt(name: string, allowedActions?: string[]): st
     attack: "attack: Melee attack nearest mob",
     flee: "flee: Run away from danger",
     eat: "eat: Eat food to restore health/hunger",
-    neural_combat: "neural_combat: AI-driven combat (params: {\"duration\": 5})",
+    neural_combat: 'neural_combat: AI-driven combat (params: {"duration": 5})',
     go_to: "go_to: Move to a location",
     idle: "idle: Wait and reassess",
   };
   const reactiveRelevant = ["attack", "flee", "eat", "neural_combat", "idle"];
-  const available = (allowedActions?.length
-    ? reactiveRelevant.filter(a => allowedActions.includes(a) || a === "idle")
-    : reactiveRelevant
-  ).map(a => `- ${actionDescriptions[a] || a}`).join("\n");
+  const available = (
+    allowedActions?.length
+      ? reactiveRelevant.filter((a) => allowedActions.includes(a) || a === "idle")
+      : reactiveRelevant
+  )
+    .map((a) => `- ${actionDescriptions[a] || a}`)
+    .join("\n");
 
   return `You are ${name} in Minecraft. QUICK DECISION — react to the situation below.
 

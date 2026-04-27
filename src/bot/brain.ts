@@ -30,6 +30,7 @@ import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/
 import { skillRegistry } from "../skills/registry.js";
 import { BotMemoryStore } from "./memory.js";
 import { updateBulletin, formatTeamBulletin } from "./bulletin.js";
+import { createLogger } from "../util/logger.js";
 
 export interface ChatMessage {
   source: "minecraft" | "twitch" | "youtube";
@@ -62,6 +63,7 @@ export class BotBrain {
   private roleConfig: BotRoleConfig;
   private events: BrainEvents;
   private memStore: BotMemoryStore;
+  private log;
 
   // Processing state
   private processing = false;
@@ -103,16 +105,12 @@ export class BotBrain {
   private STRATEGIC_COOLDOWN_MS = 8000;
   private CRITIC_ENABLED = true;
 
-  constructor(
-    bot: Bot,
-    roleConfig: BotRoleConfig,
-    events: BrainEvents,
-    memStore: BotMemoryStore,
-  ) {
+  constructor(bot: Bot, roleConfig: BotRoleConfig, events: BrainEvents, memStore: BotMemoryStore) {
     this.bot = bot;
     this.roleConfig = roleConfig;
     this.events = events;
     this.memStore = memStore;
+    this.log = createLogger(roleConfig.name);
     this.homePos = roleConfig.homePos ?? null;
     this.IDLE_INTERVAL_MS = config.bot.idleIntervalMs ?? 10_000;
 
@@ -121,13 +119,13 @@ export class BotBrain {
       this.recentFailures.set(`skill:${skill}`, msg);
     }
     if (this.recentFailures.size > 0) {
-      console.log(`[Brain] Pre-populated ${this.recentFailures.size} blacklist entries from memory`);
+      this.log.debug("Brain", `Pre-populated ${this.recentFailures.size} blacklist entries from memory`);
     }
   }
 
   /** Start the event-driven brain. Call after spawn safety completes. */
   start(): void {
-    console.log(`[Brain] ${this.roleConfig.name} starting (idle interval: ${this.IDLE_INTERVAL_MS}ms)`);
+    this.log.info("Brain", `Starting (idle interval: ${this.IDLE_INTERVAL_MS}ms)`);
 
     // 1. Idle timer — triggers strategic planning when nothing else is happening
     this.resetIdleTimer();
@@ -161,7 +159,7 @@ export class BotBrain {
           y: this.bot.entity.position.y,
           z: this.bot.entity.position.z,
         },
-        time: (this.bot.time.timeOfDay < 13000 || this.bot.time.timeOfDay > 23000) ? "Daytime" : "Nighttime",
+        time: this.bot.time.timeOfDay < 13000 || this.bot.time.timeOfDay > 23000 ? "Daytime" : "Nighttime",
         inventory: this.bot.inventory.items().map((i) => `${i.name}x${i.count}`),
         seasonGoal: this.memStore.getSeasonGoal() ?? undefined,
       };
@@ -187,7 +185,7 @@ export class BotBrain {
   queueChat(msg: ChatMessage): void {
     const viewerFilter = filterViewerMessage(msg.message);
     if (!viewerFilter.safe) {
-      console.log(`[Brain] Filtered viewer message from ${msg.username}: ${viewerFilter.reason}`);
+      this.log.debug("Brain", `Filtered viewer message from ${msg.username}: ${viewerFilter.reason}`);
       msg.message = viewerFilter.cleaned;
     }
     this.pendingChatMessages.push(msg);
@@ -223,7 +221,7 @@ export class BotBrain {
     if (this.stopped) return;
 
     // Deduplicate: don't queue same type if already pending with equal/higher priority
-    const existingIdx = this.eventQueue.findIndex(e => e.type === event.type);
+    const existingIdx = this.eventQueue.findIndex((e) => e.type === event.type);
     if (existingIdx !== -1) {
       if (event.priority < this.eventQueue[existingIdx].priority) {
         this.eventQueue.splice(existingIdx, 1); // Replace with higher priority
@@ -270,7 +268,7 @@ export class BotBrain {
           break;
       }
     } catch (err) {
-      console.error(`[Brain:${event.type}] Error:`, err);
+      this.log.error(`Brain:${event.type}`, "Error:", err);
     } finally {
       this.processing = false;
       this.resetIdleTimer();
@@ -290,16 +288,14 @@ export class BotBrain {
     const now = Date.now();
     if (now - this.lastReactiveMs < this.REACTIVE_COOLDOWN_MS) return;
 
-    const hostiles = Object.values(this.bot.entities).filter(e =>
-      e !== this.bot.entity &&
-      isHostile(e) &&
-      e.position.distanceTo(this.bot.entity.position) < 16
+    const hostiles = Object.values(this.bot.entities).filter(
+      (e) => e !== this.bot.entity && isHostile(e) && e.position.distanceTo(this.bot.entity.position) < 16,
     );
 
     if (hostiles.length === 0) return;
 
     // Don't spam for the same hostile
-    const hostileKey = hostiles.map(h => `${h.name}:${Math.round(h.position.x)}`).join(",");
+    const hostileKey = hostiles.map((h) => `${h.name}:${Math.round(h.position.x)}`).join(",");
     if (hostileKey === this.lastHostileSeen && now - this.lastReactiveMs < 10_000) return;
     this.lastHostileSeen = hostileKey;
 
@@ -344,30 +340,35 @@ export class BotBrain {
     const headBlock = this.bot.blockAt(pos.offset(0, 1, 0));
     if (feetBlock?.name === "water" || headBlock?.name === "water") {
       // Wait 3s for natural swim-out
-      await new Promise(r => setTimeout(r, 3000));
+      await new Promise((r) => setTimeout(r, 3000));
       const feetNow = this.bot.blockAt(this.bot.entity.position);
       const headNow = this.bot.blockAt(this.bot.entity.position.offset(0, 1, 0));
       if (feetNow?.name !== "water" && headNow?.name !== "water") return false;
 
       if (this.roleConfig.safeSpawn) {
         const { x, z } = this.roleConfig.safeSpawn;
-        console.log(`[Brain] In water — TPing to safeSpawn (${x},80,${z})`);
+        this.log.debug("Brain", `In water — TPing to safeSpawn (${x},80,${z})`);
         this.bot.chat(`/tp ${x} 80 ${z}`);
-        await new Promise(r => setTimeout(r, 4000));
+        await new Promise((r) => setTimeout(r, 4000));
         return true;
       }
       return false;
     }
 
     // Underground/buried escape
-    const isInsideSolid = feetBlock && feetBlock.name !== "air" && feetBlock.name !== "cave_air"
-      && feetBlock.name !== "water" && feetBlock.diggable && pos.y < 55;
+    const isInsideSolid =
+      feetBlock &&
+      feetBlock.name !== "air" &&
+      feetBlock.name !== "cave_air" &&
+      feetBlock.name !== "water" &&
+      feetBlock.diggable &&
+      pos.y < 55;
     if (isInsideSolid) {
       const tx = Math.floor(pos.x);
       const tz = Math.floor(pos.z);
-      console.log(`[Brain] Buried in ${feetBlock?.name} at Y=${pos.y.toFixed(1)} — escaping`);
+      this.log.debug("Brain", `Buried in ${feetBlock?.name} at Y=${pos.y.toFixed(1)} — escaping`);
       this.bot.chat(`/tp ${tx} 80 ${tz}`);
-      await new Promise(r => setTimeout(r, 2000));
+      await new Promise((r) => setTimeout(r, 2000));
       return true;
     }
 
@@ -383,9 +384,7 @@ export class BotBrain {
 
     // Pending chat messages
     if (this.pendingChatMessages.length > 0) {
-      const chatStr = this.pendingChatMessages
-        .map(m => `[${m.source}] ${m.username}: ${m.message}`)
-        .join("\n");
+      const chatStr = this.pendingChatMessages.map((m) => `[${m.source}] ${m.username}: ${m.message}`).join("\n");
       ctx += `\n\nMESSAGES FROM PLAYERS/VIEWERS:\n${chatStr}`;
       this.pendingChatMessages.length = 0;
     }
@@ -442,15 +441,27 @@ export class BotBrain {
     // Build a tiny situation description
     let situation: string;
     if (reason === "hostile_nearby" && entities?.length) {
-      const hostileList = entities.slice(0, 3).map((e: Entity) =>
-        `${e.name || e.mobType} (${e.position.distanceTo(this.bot.entity.position).toFixed(0)} blocks)`
-      ).join(", ");
-      const equipment = this.bot.inventory.items()
-        .filter(i => i.name.includes("sword") || i.name.includes("shield") || i.name.includes("bow"))
-        .map(i => i.name).join(", ") || "bare hands";
-      const foodItems = this.bot.inventory.items()
-        .filter(i => ["bread", "cooked_beef", "cooked_porkchop", "apple", "cooked_chicken", "baked_potato"].includes(i.name))
-        .map(i => `${i.name}x${i.count}`).join(", ") || "none";
+      const hostileList = entities
+        .slice(0, 3)
+        .map(
+          (e: Entity) =>
+            `${e.name || e.mobType} (${e.position.distanceTo(this.bot.entity.position).toFixed(0)} blocks)`,
+        )
+        .join(", ");
+      const equipment =
+        this.bot.inventory
+          .items()
+          .filter((i) => i.name.includes("sword") || i.name.includes("shield") || i.name.includes("bow"))
+          .map((i) => i.name)
+          .join(", ") || "bare hands";
+      const foodItems =
+        this.bot.inventory
+          .items()
+          .filter((i) =>
+            ["bread", "cooked_beef", "cooked_porkchop", "apple", "cooked_chicken", "baked_potato"].includes(i.name),
+          )
+          .map((i) => `${i.name}x${i.count}`)
+          .join(", ") || "none";
       situation = `THREAT: ${hostileList}\nHealth: ${this.bot.health}/20, Food: ${this.bot.food}/20\nEquipment: ${equipment}\nFood items: ${foodItems}`;
     } else if (reason === "took_damage") {
       situation = `TOOK DAMAGE! Health: ${this.bot.health}/20. Check for nearby threats and react.`;
@@ -471,11 +482,9 @@ export class BotBrain {
     if (!msg) return;
 
     const activity = `${this.lastAction || "exploring"} (${this.currentGoal || "no specific goal"})`;
-    const response = await chatWithLLM(
-      `[${msg.source}] ${msg.username}: ${msg.message}`,
-      activity,
-      { name: this.roleConfig.name },
-    );
+    const response = await chatWithLLM(`[${msg.source}] ${msg.username}: ${msg.message}`, activity, {
+      name: this.roleConfig.name,
+    });
 
     const chatFilter = filterChatMessage(response);
     const safeResponse = chatFilter.safe ? response : chatFilter.cleaned;
@@ -499,7 +508,7 @@ export class BotBrain {
       const dz = this.bot.entity.position.z - this.homePos.z;
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist >= this.roleConfig.leashRadius * 1.5) {
-        console.log(`[Brain] LEASH: ${dist.toFixed(0)} blocks away — forcing return home`);
+        this.log.info("Brain", `LEASH: ${dist.toFixed(0)} blocks away — forcing return home`);
         const result = await executeAction(this.bot, "go_to", this.homePos);
         this.events.onAction("go_to", result);
         return;
@@ -535,7 +544,12 @@ export class BotBrain {
       `Result: ${result}`,
       goal ? `Goal: ${goal} (${this.goalStepsLeft} steps left)` : "No active goal.",
       `Health: ${this.bot.health}/20, Food: ${this.bot.food}/20`,
-      `Inventory: ${this.bot.inventory.items().map(i => `${i.name}x${i.count}`).join(", ") || "empty"}`,
+      `Inventory: ${
+        this.bot.inventory
+          .items()
+          .map((i) => `${i.name}x${i.count}`)
+          .join(", ") || "empty"
+      }`,
     ].join("\n");
 
     const verdict = await queryCritic(this.roleConfig.name, criticContext, this.roleConfig.allowedActions);
@@ -546,14 +560,14 @@ export class BotBrain {
     }
 
     if (verdict.goalComplete) {
-      console.log(`[Brain:critic] Goal "${this.currentGoal}" complete. Re-planning.`);
+      this.log.info("Brain:critic", `Goal "${this.currentGoal}" complete. Re-planning.`);
       this.currentGoal = "";
       this.goalStepsLeft = 0;
       // Trigger strategic re-plan after a brief pause
       setTimeout(() => this.triggerReplan(), 1000);
     } else if (verdict.nextAction && verdict.success) {
       // Critic suggests next step — execute directly without full LLM call
-      console.log(`[Brain:critic] Next step: ${verdict.nextAction}`);
+      this.log.debug("Brain:critic", `Next step: ${verdict.nextAction}`);
       await this.executeDecision({
         thought: verdict.thought,
         action: verdict.nextAction,
@@ -561,7 +575,7 @@ export class BotBrain {
       });
     } else if (!verdict.success) {
       // Action failed — trigger strategic re-plan
-      console.log(`[Brain:critic] Action failed. Re-planning.`);
+      this.log.info("Brain:critic", "Action failed. Re-planning.");
       setTimeout(() => this.triggerReplan(), 500);
     }
   }
@@ -569,8 +583,11 @@ export class BotBrain {
   // ─── Action execution ─────────────────────────────────────────────────────
 
   private async executeDecision(decision: {
-    thought: string; action: string; params: Record<string, any>;
-    goal?: string; goalSteps?: number;
+    thought: string;
+    action: string;
+    params: Record<string, any>;
+    goal?: string;
+    goalSteps?: number;
   }): Promise<void> {
     // Filter thought for safety
     const thoughtFilter = filterContent(decision.thought);
@@ -588,7 +605,8 @@ export class BotBrain {
 
     // Display thought
     this.events.onThought(decision.thought);
-    console.log(`[Brain] "${decision.thought}" → ${decision.action}`);
+    this.log.info("Brain", `"${decision.thought}" → ${decision.action}`);
+    this.log.debug("Brain", "Decision params:", JSON.stringify(decision.params));
 
     // Update overlay
     updateOverlay({
@@ -599,22 +617,29 @@ export class BotBrain {
         y: this.bot.entity.position.y,
         z: this.bot.entity.position.z,
       },
-      time: (this.bot.time.timeOfDay < 13000 || this.bot.time.timeOfDay > 23000) ? "Daytime" : "Nighttime",
+      time: this.bot.time.timeOfDay < 13000 || this.bot.time.timeOfDay > 23000 ? "Daytime" : "Nighttime",
       thought: decision.thought,
       action: decision.action,
       actionResult: "...",
-      inventory: this.bot.inventory.items().map(i => `${i.name}x${i.count}`),
+      inventory: this.bot.inventory.items().map((i) => `${i.name}x${i.count}`),
     });
 
     // TTS in background
-    generateSpeech(decision.thought).then(url => {
-      if (url) speakThought(url);
-    }).catch(() => {});
+    generateSpeech(decision.thought)
+      .then((url) => {
+        if (url) speakThought(url);
+      })
+      .catch(() => {});
 
     // ── Action gating ──
     const UNIVERSAL_ACTIONS = new Set([
-      "idle", "respond_to_chat", "invoke_skill", "deposit_stash",
-      "withdraw_stash", "chat", "generate_skill",
+      "idle",
+      "respond_to_chat",
+      "invoke_skill",
+      "deposit_stash",
+      "withdraw_stash",
+      "chat",
+      "generate_skill",
     ]);
     if (
       this.roleConfig.allowedActions.length > 0 &&
@@ -623,7 +648,7 @@ export class BotBrain {
       !this.roleConfig.allowedSkills.includes(decision.action)
     ) {
       const gateMsg = `Action "${decision.action}" not allowed for ${this.roleConfig.name}. Use: ${this.roleConfig.allowedActions.join(", ")}`;
-      console.log(`[Brain] GATED: ${gateMsg}`);
+      this.log.debug("Brain", `GATED: ${gateMsg}`);
       this.events.onAction(decision.action, gateMsg);
       this.lastResult = gateMsg;
       return;
@@ -633,7 +658,7 @@ export class BotBrain {
     const actionKey = this.getActionKey(decision);
     if (this.recentFailures.has(actionKey)) {
       const blockMsg = `Blocked: "${actionKey}" recently failed. Try something else.`;
-      console.log(`[Brain] ${blockMsg}`);
+      this.log.debug("Brain", blockMsg);
       this.events.onAction(decision.action, blockMsg);
       this.lastResult = blockMsg;
       // Trigger re-plan since this action was blocked
@@ -661,7 +686,7 @@ export class BotBrain {
     this.lastAction = decision.action;
     this.lastResult = result;
     this.events.onAction(decision.action, result);
-    console.log(`[Brain] Result: ${result}`);
+    this.log.info("Brain", `Result: ${result}`);
 
     // Update team bulletin
     updateBulletin({
@@ -687,9 +712,9 @@ export class BotBrain {
         y: this.bot.entity.position.y,
         z: this.bot.entity.position.z,
       },
-      time: (this.bot.time.timeOfDay < 13000 || this.bot.time.timeOfDay > 23000) ? "Daytime" : "Nighttime",
+      time: this.bot.time.timeOfDay < 13000 || this.bot.time.timeOfDay > 23000 ? "Daytime" : "Nighttime",
       actionResult: result,
-      inventory: this.bot.inventory.items().map(i => `${i.name}x${i.count}`),
+      inventory: this.bot.inventory.items().map((i) => `${i.name}x${i.count}`),
     });
 
     // ── Track goal ──
@@ -699,7 +724,10 @@ export class BotBrain {
     }
 
     // ── Track success/failure ──
-    const isSuccess = /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished|sleep|zzz/i.test(result);
+    const isSuccess =
+      /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished|sleep|zzz/i.test(
+        result,
+      );
     this.lastActionWasSuccess = isSuccess;
 
     // Track repeats
@@ -723,7 +751,7 @@ export class BotBrain {
     if (isSuccess && decision.action === "build_house" && !this.homePos) {
       const p = this.bot.entity.position;
       this.homePos = { x: Math.round(p.x), y: Math.round(p.y), z: Math.round(p.z) };
-      console.log(`[Brain] Home locked at ${this.homePos.x}, ${this.homePos.y}, ${this.homePos.z}`);
+      this.log.debug("Brain", `Home locked at ${this.homePos.x}, ${this.homePos.y}, ${this.homePos.z}`);
     }
 
     // Track history
@@ -801,7 +829,10 @@ export class BotBrain {
     if (isSkillAction) {
       if (!isSuccess) {
         const isAlreadyRunning = result.startsWith("Already running skill");
-        const isPreconditionFailure = /missing:|need \d|no water|no trees|no coal|no iron|no pickaxe|Can't craft|could not find|not enough|need to (mine|craft|find|smelt)|Can't sleep|terrain too rough|not nighttime|already sleeping|zzz/i.test(result);
+        const isPreconditionFailure =
+          /missing:|need \d|no water|no trees|no coal|no iron|no pickaxe|Can't craft|could not find|not enough|need to (mine|craft|find|smelt)|Can't sleep|terrain too rough|not nighttime|already sleeping|zzz/i.test(
+            result,
+          );
 
         if (!isAlreadyRunning && !isPreconditionFailure) {
           const prevCount = (this.failureCounts.get(actionKey) ?? 0) + 1;
@@ -837,17 +868,41 @@ export class BotBrain {
     // Dynamic precondition clearing
     for (const [key, msg] of this.recentFailures.entries()) {
       if (/missing.*coal/i.test(msg)) {
-        const count = this.bot.inventory.items().filter(i => i.name === "coal").reduce((s, i) => s + i.count, 0);
-        if (count > 0) { this.recentFailures.delete(key); this.failureCounts.delete(key); }
+        const count = this.bot.inventory
+          .items()
+          .filter((i) => i.name === "coal")
+          .reduce((s, i) => s + i.count, 0);
+        if (count > 0) {
+          this.recentFailures.delete(key);
+          this.failureCounts.delete(key);
+        }
       } else if (/missing.*stick/i.test(msg)) {
-        const count = this.bot.inventory.items().filter(i => i.name === "stick").reduce((s, i) => s + i.count, 0);
-        if (count > 0) { this.recentFailures.delete(key); this.failureCounts.delete(key); }
+        const count = this.bot.inventory
+          .items()
+          .filter((i) => i.name === "stick")
+          .reduce((s, i) => s + i.count, 0);
+        if (count > 0) {
+          this.recentFailures.delete(key);
+          this.failureCounts.delete(key);
+        }
       } else if (/missing.*wood|missing.*log|missing.*plank/i.test(msg)) {
-        const count = this.bot.inventory.items().filter(i => i.name.includes("log") || i.name.includes("planks")).reduce((s, i) => s + i.count, 0);
-        if (count > 0) { this.recentFailures.delete(key); this.failureCounts.delete(key); }
+        const count = this.bot.inventory
+          .items()
+          .filter((i) => i.name.includes("log") || i.name.includes("planks"))
+          .reduce((s, i) => s + i.count, 0);
+        if (count > 0) {
+          this.recentFailures.delete(key);
+          this.failureCounts.delete(key);
+        }
       } else if (/no torch/i.test(msg)) {
-        const count = this.bot.inventory.items().filter(i => i.name === "torch").reduce((s, i) => s + i.count, 0);
-        if (count > 0) { this.recentFailures.delete(key); this.failureCounts.delete(key); }
+        const count = this.bot.inventory
+          .items()
+          .filter((i) => i.name === "torch")
+          .reduce((s, i) => s + i.count, 0);
+        if (count > 0) {
+          this.recentFailures.delete(key);
+          this.failureCounts.delete(key);
+        }
       }
     }
   }

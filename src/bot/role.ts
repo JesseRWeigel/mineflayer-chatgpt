@@ -197,10 +197,4 @@ export const BLADE_CONFIG: BotRoleConfig = {
 };
 
 /** All bot configs in startup order. */
-export const BOT_ROSTER: BotRoleConfig[] = [
-  ATLAS_CONFIG,
-  FLORA_CONFIG,
-  FORGE_CONFIG,
-  MASON_CONFIG,
-  BLADE_CONFIG,
-];
+export const BOT_ROSTER: BotRoleConfig[] = [ATLAS_CONFIG, FLORA_CONFIG, FORGE_CONFIG, MASON_CONFIG, BLADE_CONFIG];

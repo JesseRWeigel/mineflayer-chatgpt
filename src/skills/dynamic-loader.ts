@@ -10,10 +10,7 @@ import type { Skill } from "./types.js";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PROJECT_ROOT = path.resolve(__dirname, "../../");
 
-const SKILL_DIRS = [
-  path.join(PROJECT_ROOT, "skills/voyager"),
-  path.join(PROJECT_ROOT, "skills/generated"),
-];
+const SKILL_DIRS = [path.join(PROJECT_ROOT, "skills/voyager"), path.join(PROJECT_ROOT, "skills/generated")];
 
 // All Voyager skills concatenated — used as a helper library in the vm context so skills
 // can call each other (e.g. smeltFiveRawIron calls craftFurnace, placeItem, smeltItem)
@@ -136,8 +133,11 @@ async function exploreUntil(bot, direction, maxTime, callback) {
 
 const sandboxRequire = createRequire(import.meta.url);
 function safeRequire(mod: string) {
-  try { return sandboxRequire(mod); }
-  catch { return {}; }
+  try {
+    return sandboxRequire(mod);
+  } catch {
+    return {};
+  }
 }
 
 export function loadDynamicSkills(): void {
@@ -150,8 +150,11 @@ export function loadDynamicSkills(): void {
     const parts: string[] = [];
     for (const file of fs.readdirSync(voyagerDir)) {
       if (!file.endsWith(".js")) continue;
-      try { parts.push(fs.readFileSync(path.join(voyagerDir, file), "utf-8")); }
-      catch { /* skip unreadable files */ }
+      try {
+        parts.push(fs.readFileSync(path.join(voyagerDir, file), "utf-8"));
+      } catch {
+        /* skip unreadable files */
+      }
     }
     voyagerHelperBundle = parts.join("\n\n");
   }
@@ -194,12 +197,24 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
         // A malicious skill could escape via prototype chain. Only load skills from trusted sources.
         // mcData is required by many Voyager skills (require('minecraft-data')(version))
         let mcData: any;
-        try { mcData = safeRequire("minecraft-data")(bot.version); } catch { mcData = {}; }
+        try {
+          mcData = safeRequire("minecraft-data")(bot.version);
+        } catch {
+          mcData = {};
+        }
         const ctx = vm.createContext({
-          bot, Vec3, mcData,
+          bot,
+          Vec3,
+          mcData,
           require: safeRequire,
-          console, setTimeout, clearTimeout,
-          setInterval, clearInterval, Promise, Math, JSON,
+          console,
+          setTimeout,
+          clearTimeout,
+          setInterval,
+          clearInterval,
+          Promise,
+          Math,
+          JSON,
         });
 
         // Shim bot.pathfinder.waitForGoal — the old pathfinder API used setGoal+waitForGoal but
@@ -212,9 +227,12 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
                bot.pathfinder.waitForGoal = (timeout) =>
                  new Promise(r => setTimeout(r, typeof timeout === 'number' ? timeout : 4000));
              }`,
-            ctx, { filename: "pathfinder-shim" }
+            ctx,
+            { filename: "pathfinder-shim" },
           );
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         // Null-safe equip wrapper — many Voyager skills call bot.equip(item) without null-checking.
         // If the bot lacks the expected tool the item lookup returns null/undefined and the raw
@@ -225,18 +243,27 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
           vm.runInContext(
             `const _origEquip = bot.equip.bind(bot);
              bot.equip = async (item, dest) => { if (!item) return; return _origEquip(item, dest); };`,
-            ctx, { filename: "equip-shim" }
+            ctx,
+            { filename: "equip-shim" },
           );
-        } catch { /* ignore */ }
+        } catch {
+          /* ignore */
+        }
 
         // Load Voyager primitives first (mineBlock, placeItem, craftItem, smeltItem, killMob, exploreUntil)
-        try { vm.runInContext(VOYAGER_PRIMITIVES, ctx, { filename: "voyager-primitives" }); }
-        catch { /* primitives may throw on parse errors — ignore, skills will fail gracefully */ }
+        try {
+          vm.runInContext(VOYAGER_PRIMITIVES, ctx, { filename: "voyager-primitives" });
+        } catch {
+          /* primitives may throw on parse errors — ignore, skills will fail gracefully */
+        }
 
         // Load the Voyager helper bundle so skills can call each other as helpers
         if (voyagerHelperBundle) {
-          try { vm.runInContext(voyagerHelperBundle, ctx, { filename: "voyager-helpers" }); }
-          catch { /* helpers may throw if partially evaluated — ignore */ }
+          try {
+            vm.runInContext(voyagerHelperBundle, ctx, { filename: "voyager-helpers" });
+          } catch {
+            /* helpers may throw if partially evaluated — ignore */
+          }
         }
 
         // Run the definition to populate the context (does not invoke the function yet).
@@ -261,7 +288,7 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
         }) as Promise<void>;
 
         const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`${name} timed out after 120s`)), 120_000)
+          setTimeout(() => reject(new Error(`${name} timed out after 120s`)), 120_000),
         );
 
         await Promise.race([vmPromise, timeoutPromise]);
@@ -276,8 +303,14 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
 }
 
 const STATIC_SKILL_NAMES = new Set([
-  "build_house","craft_gear","light_area","build_farm",
-  "strip_mine","smelt_ores","go_fishing","build_bridge",
+  "build_house",
+  "craft_gear",
+  "light_area",
+  "build_farm",
+  "strip_mine",
+  "smelt_ores",
+  "go_fishing",
+  "build_bridge",
 ]);
 
 export function getDynamicSkillNames(): string[] {

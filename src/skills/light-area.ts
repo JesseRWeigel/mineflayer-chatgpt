@@ -6,7 +6,8 @@ const { goals, Movements } = pkg;
 
 export const lightAreaSkill: Skill = {
   name: "light_area",
-  description: "Place torches in a grid pattern around the bot (every 5 blocks, 15-block radius). Uses torches from inventory.",
+  description:
+    "Place torches in a grid pattern around the bot (every 5 blocks, 15-block radius). Uses torches from inventory.",
   params: {},
 
   estimateMaterials(_bot, _params) {
@@ -16,7 +17,7 @@ export const lightAreaSkill: Skill = {
 
   async execute(bot, _params, signal, onProgress): Promise<SkillResult> {
     const torches = bot.inventory.items().filter((i) => i.name === "torch");
-    let torchCount = torches.reduce((s, i) => s + i.count, 0);
+    const torchCount = torches.reduce((s, i) => s + i.count, 0);
 
     if (torchCount === 0) {
       return { success: false, message: "No torches in inventory! Craft some first (coal + sticks)." };
@@ -39,10 +40,7 @@ export const lightAreaSkill: Skill = {
           const y = center.y + dy;
           const block = bot.blockAt(new Vec3(x, y, z));
           const above = bot.blockAt(new Vec3(x, y + 1, z));
-          if (
-            block && block.name !== "air" && block.name !== "water" &&
-            above && above.name === "air"
-          ) {
+          if (block && block.name !== "air" && block.name !== "water" && above && above.name === "air") {
             positions.push(new Vec3(x, y + 1, z));
             break;
           }
@@ -74,7 +72,12 @@ export const lightAreaSkill: Skill = {
           bot.pathfinder.setMovements(moves);
           await Promise.race([
             bot.pathfinder.goto(new goals.GoalNear(pos.x, pos.y, pos.z, 3)),
-            new Promise<void>((_, rej) => setTimeout(() => { bot.pathfinder.stop(); rej(new Error("nav timeout")); }, 8000)),
+            new Promise<void>((_, rej) =>
+              setTimeout(() => {
+                bot.pathfinder.stop();
+                rej(new Error("nav timeout"));
+              }, 8000),
+            ),
           ]);
         }
 
@@ -84,17 +87,27 @@ export const lightAreaSkill: Skill = {
         const below = bot.blockAt(pos.offset(0, -1, 0));
         const atPos = bot.blockAt(pos);
         // Skip if target spot is already occupied or ground is gone
-        if (below && below.name !== "air" && below.name !== "water" &&
-            atPos && (atPos.name === "air" || atPos.name === "torch")) {
+        if (
+          below &&
+          below.name !== "air" &&
+          below.name !== "water" &&
+          atPos &&
+          (atPos.name === "air" || atPos.name === "torch")
+        ) {
           await bot.equip(torch, "hand");
           await bot.lookAt(below.position.offset(0.5, 1, 0.5));
           const ok = await Promise.race([
-            bot.placeBlock(below, new Vec3(0, 1, 0)).then(() => true).catch(() => false),
+            bot
+              .placeBlock(below, new Vec3(0, 1, 0))
+              .then(() => true)
+              .catch(() => false),
             new Promise<boolean>((r) => setTimeout(() => r(false), 2000)),
           ]);
           if (ok) placed++;
         }
-      } catch { /* skip this position */ }
+      } catch {
+        /* skip this position */
+      }
 
       if (i % 3 === 0) {
         onProgress({

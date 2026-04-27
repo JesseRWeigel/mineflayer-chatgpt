@@ -20,7 +20,13 @@ export const goFishingSkill: Skill = {
 
   async execute(bot, _params, signal, onProgress): Promise<SkillResult> {
     // --- Step 1: Get or craft a fishing rod ---
-    onProgress({ skillName: "go_fishing", phase: "Preparing", progress: 0, message: "Looking for fishing rod...", active: true });
+    onProgress({
+      skillName: "go_fishing",
+      phase: "Preparing",
+      progress: 0,
+      message: "Looking for fishing rod...",
+      active: true,
+    });
 
     let rod = bot.inventory.items().find((i) => i.name === "fishing_rod");
     if (!rod) {
@@ -29,13 +35,20 @@ export const goFishingSkill: Skill = {
       if (!rod) {
         return {
           success: false,
-          message: "Can't fish without a fishing rod! Need 3 sticks + 2 string. String comes from killing spiders or finding cobwebs.",
+          message:
+            "Can't fish without a fishing rod! Need 3 sticks + 2 string. String comes from killing spiders or finding cobwebs.",
         };
       }
     }
 
     // --- Step 2: Find water ---
-    onProgress({ skillName: "go_fishing", phase: "Finding water", progress: 0.05, message: "Heading to water...", active: true });
+    onProgress({
+      skillName: "go_fishing",
+      phase: "Finding water",
+      progress: 0.05,
+      message: "Heading to water...",
+      active: true,
+    });
 
     const water = bot.findBlock({
       matching: (b) => b.name === "water",
@@ -49,7 +62,9 @@ export const goFishingSkill: Skill = {
     setMovements(bot);
     try {
       await bot.pathfinder.goto(new goals.GoalNear(water.position.x, water.position.y + 1, water.position.z, 3));
-    } catch { /* try anyway */ }
+    } catch {
+      /* try anyway */
+    }
 
     // --- Step 3: Fish! ---
     let caught = 0;
@@ -89,7 +104,11 @@ export const goFishingSkill: Skill = {
         }
       } catch {
         // Clean up - make sure rod is deactivated
-        try { bot.deactivateItem(); } catch { /* ok */ }
+        try {
+          bot.deactivateItem();
+        } catch {
+          /* ok */
+        }
         continue;
       }
     }
@@ -117,11 +136,17 @@ async function waitForBite(bot: Bot, signal: AbortSignal, timeoutMs: number): Pr
       clearInterval(check);
       signal.removeEventListener("abort", onAbort);
     };
-    const onAbort = () => { cleanup(); resolve(false); };
+    const onAbort = () => {
+      cleanup();
+      resolve(false);
+    };
     signal.addEventListener("abort", onAbort, { once: true });
 
     const timeout = setTimeout(() => {
-      if (!resolved) { cleanup(); resolve(false); }
+      if (!resolved) {
+        cleanup();
+        resolve(false);
+      }
     }, timeoutMs);
 
     let bobber: any = null;
@@ -192,7 +217,8 @@ async function craftFishingRod(bot: Bot, signal: AbortSignal): Promise<void> {
   const mcData = mcDataLoader(bot.version);
 
   // Need 3 sticks + 2 string
-  const stringCount = bot.inventory.items()
+  const stringCount = bot.inventory
+    .items()
     .filter((i) => i.name === "string")
     .reduce((s, i) => s + i.count, 0);
   if (stringCount < 2) return;
@@ -200,13 +226,18 @@ async function craftFishingRod(bot: Bot, signal: AbortSignal): Promise<void> {
   // Ensure sticks
   const stickItem = mcData.itemsByName["stick"];
   if (stickItem) {
-    const stickCount = bot.inventory.items()
+    const stickCount = bot.inventory
+      .items()
       .filter((i) => i.name === "stick")
       .reduce((s, i) => s + i.count, 0);
     if (stickCount < 3) {
       const recipe = bot.recipesFor(stickItem.id, null, 1, null)[0];
       if (recipe) {
-        try { await bot.craft(recipe, 1, undefined); } catch {}
+        try {
+          await bot.craft(recipe, 1, undefined);
+        } catch {
+          /* best-effort */
+        }
       }
     }
   }
@@ -220,10 +251,16 @@ async function craftFishingRod(bot: Bot, signal: AbortSignal): Promise<void> {
     setMovements(bot);
     try {
       await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2));
-    } catch {}
+    } catch {
+      /* best-effort */
+    }
     const recipe = bot.recipesFor(rodItem.id, null, 1, table)[0];
     if (recipe) {
-      try { await bot.craft(recipe, 1, table); } catch {}
+      try {
+        await bot.craft(recipe, 1, table);
+      } catch {
+        /* best-effort */
+      }
     }
   }
 }

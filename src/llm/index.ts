@@ -10,8 +10,10 @@ import {
   buildChatPrompt,
   type RoleContext,
 } from "./prompts.js";
+import { createLogger } from "../util/logger.js";
 
 const ollama = new Ollama({ host: config.ollama.host });
+const llmLog = createLogger();
 
 export interface LLMTool {
   name: string;
@@ -41,9 +43,18 @@ function extractJSON(raw: string): string | null {
   let escaped = false;
   for (let i = startIdx; i < content.length; i++) {
     const ch = content[i];
-    if (escaped) { escaped = false; continue; }
-    if (ch === "\\" && inString) { escaped = true; continue; }
-    if (ch === '"') { inString = !inString; continue; }
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\" && inString) {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
     if (inString) continue;
     if (ch === "{") depth++;
     else if (ch === "}") {
@@ -58,35 +69,63 @@ function extractJSON(raw: string): string | null {
   const opens = (s.match(/\{/g) || []).length;
   const closes = (s.match(/\}/g) || []).length;
   s += "}".repeat(Math.max(0, opens - closes));
-  try { JSON.parse(s); return s; } catch { return null; }
+  try {
+    JSON.parse(s);
+    return s;
+  } catch {
+    return null;
+  }
 }
 
 /** Normalize action names from LLM responses. */
 const ACTION_ALIASES: Record<string, string> = {
-  "go to": "go_to", "goto": "go_to",
-  "move": "explore", "walk": "explore", "travel": "explore",
-  "teleport": "go_to",
-  "mine": "mine_block", "mine block": "mine_block", "mine_blocks": "mine_block",
-  "gather": "gather_wood", "gather wood": "gather_wood", "gatherwood": "gather_wood", "chop": "gather_wood",
-  "place block": "place_block", "placeblock": "place_block",
-  "message": "chat", "say": "chat", "speak": "chat",
+  "go to": "go_to",
+  goto: "go_to",
+  move: "explore",
+  walk: "explore",
+  travel: "explore",
+  teleport: "go_to",
+  mine: "mine_block",
+  "mine block": "mine_block",
+  mine_blocks: "mine_block",
+  gather: "gather_wood",
+  "gather wood": "gather_wood",
+  gatherwood: "gather_wood",
+  chop: "gather_wood",
+  "place block": "place_block",
+  placeblock: "place_block",
+  message: "chat",
+  say: "chat",
+  speak: "chat",
   "respond to chat": "respond_to_chat",
-  "invoke skill": "invoke_skill", "invokeskill": "invoke_skill",
-  "generate skill": "generate_skill", "generateskill": "generate_skill",
+  "invoke skill": "invoke_skill",
+  invokeskill: "invoke_skill",
+  "generate skill": "generate_skill",
+  generateskill: "generate_skill",
   "neural combat": "neural_combat",
-  "build house": "build_house", "build farm": "build_farm",
-  "craft gear": "craft_gear", "strip mine": "strip_mine",
-  "craft_item": "craft", "crafting": "craft",
+  "build house": "build_house",
+  "build farm": "build_farm",
+  "craft gear": "craft_gear",
+  "strip mine": "strip_mine",
+  craft_item: "craft",
+  crafting: "craft",
 };
 
 /** Parse and normalize a raw LLM JSON response into a decision. */
-function parseDecision(raw: string, botName: string): {
-  thought: string; action: string; params: Record<string, any>;
-  goal?: string; goalSteps?: number;
+function parseDecision(
+  raw: string,
+  botName: string,
+): {
+  thought: string;
+  action: string;
+  params: Record<string, any>;
+  goal?: string;
+  goalSteps?: number;
 } {
   const jsonStr = extractJSON(raw);
   if (!jsonStr) {
-    console.error(`[LLM] No JSON found in response: "${raw.slice(0, 200)}"`);
+    llmLog.warn("LLM", `No JSON found in response: "${raw.slice(0, 200)}"`);
+    llmLog.debug("LLM", "Full raw response:", raw);
     return { thought: "Brain buffering...", action: "idle", params: {} };
   }
 
@@ -140,7 +179,11 @@ function parseDecision(raw: string, botName: string): {
 
   // Strip <think> tokens that qwen3 models sometimes leak into JSON fields
   let thought = String(parsed.thought || parsed.reason || parsed.reasoning || "...");
-  thought = thought.replace(/<think>[\s\S]*?<\/think>/g, "").replace(/<think>[\s\S]*/g, "").trim() || "...";
+  thought =
+    thought
+      .replace(/<think>[\s\S]*?<\/think>/g, "")
+      .replace(/<think>[\s\S]*/g, "")
+      .trim() || "...";
 
   return {
     thought,
@@ -181,10 +224,15 @@ export async function queryStrategic(
       },
     });
 
-    console.log(`[LLM:strategic] (${response.message.content.length} chars): ${response.message.content.slice(0, 200)}`);
+    llmLog.info(
+      "LLM:strategic",
+      `(${response.message.content.length} chars): ${response.message.content.slice(0, 200)}`,
+    );
+    llmLog.debug("LLM:strategic", "Full prompt:", JSON.stringify(messages, null, 2));
+    llmLog.debug("LLM:strategic", "Full response:", response.message.content);
     return parseDecision(response.message.content, role.name);
   } catch (err) {
-    console.error("[LLM:strategic] Error:", err);
+    llmLog.error("LLM:strategic", "Error:", err);
     return { thought: "Planning...", action: "idle", params: {} };
   }
 }
@@ -215,10 +263,15 @@ export async function queryReactive(
       },
     });
 
-    console.log(`[LLM:reactive] (${response.message.content.length} chars): ${response.message.content.slice(0, 150)}`);
+    llmLog.info(
+      "LLM:reactive",
+      `(${response.message.content.length} chars): ${response.message.content.slice(0, 150)}`,
+    );
+    llmLog.debug("LLM:reactive", "Situation:", situation);
+    llmLog.debug("LLM:reactive", "Full response:", response.message.content);
     return parseDecision(response.message.content, name);
   } catch (err) {
-    console.error("[LLM:reactive] Error:", err);
+    llmLog.error("LLM:reactive", "Error:", err);
     return { thought: "Danger!", action: "flee", params: {} };
   }
 }
@@ -232,8 +285,10 @@ export async function queryCritic(
   actionContext: string,
   allowedActions?: string[],
 ): Promise<{
-  success: boolean; thought: string;
-  nextAction: string | null; nextParams: Record<string, any>;
+  success: boolean;
+  thought: string;
+  nextAction: string | null;
+  nextParams: Record<string, any>;
   goalComplete: boolean;
 }> {
   const messages: LLMMessage[] = [
@@ -252,7 +307,9 @@ export async function queryCritic(
       },
     });
 
-    console.log(`[LLM:critic] (${response.message.content.length} chars): ${response.message.content.slice(0, 150)}`);
+    llmLog.info("LLM:critic", `(${response.message.content.length} chars): ${response.message.content.slice(0, 150)}`);
+    llmLog.debug("LLM:critic", "Action context:", actionContext);
+    llmLog.debug("LLM:critic", "Full response:", response.message.content);
     const jsonStr = extractJSON(response.message.content);
     if (!jsonStr) {
       return { success: false, thought: "Hmm...", nextAction: null, nextParams: {}, goalComplete: true };
@@ -274,32 +331,40 @@ export async function queryCritic(
       goalComplete: parsed.goalComplete ?? false,
     };
   } catch (err) {
-    console.error("[LLM:critic] Error:", err);
+    llmLog.error("LLM:critic", "Error:", err);
     return { success: false, thought: "Error evaluating", nextAction: null, nextParams: {}, goalComplete: true };
   }
 }
 
 // ─── Legacy query function (kept for backward compatibility) ────────────────
 
-function buildSystemPrompt(roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string; allowedActions?: string[]; allowedSkills?: string[]; priorities?: string }): string {
+function buildSystemPrompt(roleConfig?: {
+  name: string;
+  personality: string;
+  seasonGoal?: string;
+  role?: string;
+  allowedActions?: string[];
+  allowedSkills?: string[];
+  priorities?: string;
+}): string {
   const name = roleConfig?.name ?? config.bot.name;
   const seasonGoal = roleConfig?.seasonGoal ?? getSeasonGoal();
   const missionBanner = seasonGoal
     ? `🎯 YOUR MISSION THIS SEASON: ${seasonGoal}\nEvery decision should inch toward this mission. When choosing between two actions, pick the one that advances the mission.\n\n`
     : "";
 
-  const personalityOverride = roleConfig?.personality
-    ? `${roleConfig.personality}\n\n`
-    : "";
+  const personalityOverride = roleConfig?.personality ? `${roleConfig.personality}\n\n` : "";
 
   const roleStr = roleConfig?.role ? `YOUR ROLE: ${roleConfig.role}\n\n` : "";
 
-  const roleOverride = (roleConfig?.allowedActions && roleConfig.allowedActions.length > 0) ? `
+  const roleOverride =
+    roleConfig?.allowedActions && roleConfig.allowedActions.length > 0
+      ? `
 
 ROLE OVERRIDE — USE ONLY THESE ACTIONS AND SKILLS:
 
 AVAILABLE ACTIONS (${roleConfig.name}'s toolkit):
-${roleConfig.allowedActions.map(a => `- ${a}`).join("\n")}
+${roleConfig.allowedActions.map((a) => `- ${a}`).join("\n")}
 - idle: Do nothing, just look around. params: {}
 - respond_to_chat: Reply to a player/viewer message. params: { "message": string }
 - invoke_skill: Run a dynamic skill by exact name. params: { "skill": string }
@@ -307,10 +372,11 @@ ${roleConfig.allowedActions.map(a => `- ${a}`).join("\n")}
 - withdraw_stash: Take items you need from the shared stash. params: { "item": string, "count": number }
 
 SKILLS (${roleConfig.name}'s specialties):
-${(roleConfig.allowedSkills ?? []).map(s => `- ${s}`).join("\n") || "- (none — use actions above)"}
+${(roleConfig.allowedSkills ?? []).map((s) => `- ${s}`).join("\n") || "- (none — use actions above)"}
 
 ${roleConfig.priorities ?? ""}
-` : null;
+`
+      : null;
 
   return `${missionBanner}${personalityOverride}${roleStr}You are ${name}, an AI playing Minecraft on a livestream. Chat controls you.
 
@@ -330,13 +396,16 @@ RESPONSE FORMAT:
 CRAFTING: Logs→planks(4), planks→sticks(2→4), 3planks+2sticks→wooden_pickaxe, 2planks→crafting_table.
 Wool from killing sheep. 3 wool + 3 planks → bed.
 
-${roleOverride ? `
+${
+  roleOverride
+    ? `
 IMPORTANT RULES:
 - READ inventory before choosing. Don't craft without materials.
 - If action fails, try something COMPLETELY different.
 - PREFER SKILLS over manual actions.
 ${roleOverride}
-` : `SURVIVAL PRIORITIES:
+`
+    : `SURVIVAL PRIORITIES:
 1. Hostile mob within 8 blocks: neural_combat (duration: 5)
 2. Health < 6: flee then fight
 3. Hunger < 8: eat
@@ -353,11 +422,12 @@ SKILLS:
 ${getSkillPromptLines()}
 
 DYNAMIC SKILLS: ${(() => {
-  const names = getDynamicSkillNames();
-  if (names.length === 0) return "none yet";
-  return names.slice(0, 8).join(", ") + (names.length > 8 ? ` (+${names.length - 8} more)` : "");
-})()}
-`}`;
+        const names = getDynamicSkillNames();
+        if (names.length === 0) return "none yet";
+        return names.slice(0, 8).join(", ") + (names.length > 8 ? ` (+${names.length - 8} more)` : "");
+      })()}
+`
+}`;
 }
 
 /**
@@ -368,7 +438,15 @@ export async function queryLLM(
   context: string,
   recentMessages: LLMMessage[] = [],
   memoryContext: string = "",
-  roleConfig?: { name: string; personality: string; seasonGoal?: string; role?: string; allowedActions?: string[]; allowedSkills?: string[]; priorities?: string }
+  roleConfig?: {
+    name: string;
+    personality: string;
+    seasonGoal?: string;
+    role?: string;
+    allowedActions?: string[];
+    allowedSkills?: string[];
+    priorities?: string;
+  },
 ): Promise<{ thought: string; action: string; params: Record<string, any>; goal?: string; goalSteps?: number }> {
   const memorySection = memoryContext ? `\n\nYOUR MEMORY (learn from this): ${memoryContext}\n` : "";
   const messages: LLMMessage[] = [
@@ -390,7 +468,7 @@ export async function queryLLM(
 
     // Retry once on short/empty response
     if (response.message.content.trim().length < 20) {
-      console.warn("[LLM] Short/empty response — retrying with fallback prompt...");
+      llmLog.warn("LLM", "Short/empty response — retrying with fallback prompt...");
       response = await ollama.chat({
         model: config.ollama.fastModel,
         think: false,
@@ -408,19 +486,20 @@ export async function queryLLM(
       });
     }
 
-    console.log(`[LLM] Raw response (${response.message.content.length} chars): ${response.message.content.slice(0, 300)}`);
+    llmLog.info(
+      "LLM",
+      `Raw response (${response.message.content.length} chars): ${response.message.content.slice(0, 300)}`,
+    );
+    llmLog.debug("LLM", "Full prompt:", JSON.stringify(messages, null, 2));
+    llmLog.debug("LLM", "Full response:", response.message.content);
     return parseDecision(response.message.content, roleConfig?.name ?? config.bot.name);
   } catch (err) {
-    console.error("[LLM] Error:", err);
+    llmLog.error("LLM", "Error:", err);
     return { thought: "Brain freeze...", action: "idle", params: {} };
   }
 }
 
-export async function chatWithLLM(
-  prompt: string,
-  context: string,
-  roleConfig?: { name: string }
-): Promise<string> {
+export async function chatWithLLM(prompt: string, context: string, roleConfig?: { name: string }): Promise<string> {
   try {
     const response = await ollama.chat({
       model: config.ollama.fastModel,
@@ -442,7 +521,7 @@ export async function chatWithLLM(
     text = text.replace(/<think>[\s\S]*/g, "").trim(); // unclosed <think> tags
     return text || "Hmm...";
   } catch (err) {
-    console.error("[LLM] Chat error:", err);
+    llmLog.error("LLM", "Chat error:", err);
     return "Sorry, my brain lagged for a sec.";
   }
 }

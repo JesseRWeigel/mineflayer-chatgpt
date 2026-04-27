@@ -10,7 +10,11 @@
     "start": "tsx src/index.ts",
     "server": "cd server && java -Xmx2G -Xms1G -jar paper.jar --nogui",
     "download-skills": "node scripts/download-voyager-skills.mjs",
-    "test": "node --import tsx --test --test-force-exit src/**/*.test.ts"
+    "test": "node --import tsx --test --test-force-exit src/**/*.test.ts",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts'"
   },
   "keywords": [
     "minecraft",
@@ -40,11 +44,16 @@
     "vec3": "^0.1.10"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/express": "^5.0.6",
     "@types/node": "^22.0.0",
     "@types/tmi.js": "^1.8.6",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.2",
     "tsup": "^8.0.0",
     "tsx": "^4.7.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "typescript-eslint": "^8.58.1"
   }
 }

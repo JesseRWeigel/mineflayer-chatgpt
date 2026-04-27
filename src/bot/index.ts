@@ -52,9 +52,7 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   memStore.load();
   memStore.healBrokenSkillsFromRegistry(new Set(skillRegistry.keys()));
 
-  console.log(
-    `[Bot] Connecting to ${config.mc.host}:${config.mc.port} as ${roleConfig.username}...`
-  );
+  console.log(`[Bot] Connecting to ${config.mc.host}:${config.mc.port} as ${roleConfig.username}...`);
 
   const bot = mineflayer.createBot({
     host: config.mc.host,
@@ -78,7 +76,9 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // ── Spawn safety ──────────────────────────────────────────────────────────
   let spawnSafetyRunning = false;
   let resolveSpawnSafetyDone!: () => void;
-  const spawnSafetyDone = new Promise<void>((r) => { resolveSpawnSafetyDone = r; });
+  const spawnSafetyDone = new Promise<void>((r) => {
+    resolveSpawnSafetyDone = r;
+  });
 
   async function runSpawnSafety() {
     if (spawnSafetyRunning) return;
@@ -145,7 +145,13 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       const sx = Math.floor(pos.x);
       const sz = Math.floor(pos.z);
       let foundLand = false;
-      for (const [dx, dz] of [[0, 300], [300, 0], [0, -300], [-300, 0], [300, 300]]) {
+      for (const [dx, dz] of [
+        [0, 300],
+        [300, 0],
+        [0, -300],
+        [-300, 0],
+        [300, 300],
+      ]) {
         bot.chat(`/tp ${sx + dx} 80 ${sz + dz}`);
         await new Promise((r) => setTimeout(r, 3000));
         const fb = bot.blockAt(bot.entity.position);
@@ -170,7 +176,10 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       let hasCeiling = false;
       for (let dy = 1; dy <= 6; dy++) {
         const b = bot.blockAt(pos.offset(0, dy, 0));
-        if (b && b.name !== "air" && b.name !== "cave_air") { hasCeiling = true; break; }
+        if (b && b.name !== "air" && b.name !== "cave_air") {
+          hasCeiling = true;
+          break;
+        }
       }
       if (hasCeiling) {
         const sx = Math.floor(pos.x);
@@ -273,9 +282,9 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   bot.on("spawn", async () => {
     if (roleConfig.username === "Atlas") {
       bot.chat("/gamerule keepInventory true");
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));
       bot.chat("/gamerule doMobSpawning true");
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise((r) => setTimeout(r, 500));
     }
     runSpawnSafety().catch((e) => console.warn("[Bot] Spawn safety error:", e));
   });
@@ -307,11 +316,13 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     };
 
     // Start the brain after spawn safety completes
-    spawnSafetyDone.then(() => {
-      brain.start();
-    }).catch((e) => {
-      console.error("[Bot] Brain start failed:", e);
-    });
+    spawnSafetyDone
+      .then(() => {
+        brain.start();
+      })
+      .catch((e) => {
+        console.error("[Bot] Brain start failed:", e);
+      });
   });
 
   return {

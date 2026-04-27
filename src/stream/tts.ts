@@ -45,20 +45,27 @@ export async function generateSpeech(text: string): Promise<string | null> {
     await new Promise<void>((resolve, reject) => {
       const chunks: Buffer[] = [];
       audioStream.on("data", (chunk: Buffer) => {
-        try { chunks.push(chunk); } catch { /* ignore */ }
+        try {
+          chunks.push(chunk);
+        } catch {
+          /* ignore */
+        }
       });
       audioStream.on("end", () => {
         try {
           fs.writeFileSync(filepath, Buffer.concat(chunks));
           resolve();
-        } catch (e) { reject(e); }
+        } catch (e) {
+          reject(e);
+        }
       });
       audioStream.on("error", reject);
     });
 
     // Clean up old audio files (keep last 10)
-    const files = fs.readdirSync(AUDIO_DIR)
-      .filter(f => f.startsWith("thought-") && f.endsWith(".mp3"))
+    const files = fs
+      .readdirSync(AUDIO_DIR)
+      .filter((f) => f.startsWith("thought-") && f.endsWith(".mp3"))
       .sort();
     while (files.length > 10) {
       const old = files.shift()!;
