@@ -54,22 +54,41 @@ function renderActions(names: string[]): string {
   return names.map((a) => ACTION_SIGNATURES[a] ?? a).join(", ");
 }
 
+/**
+ * Actions every role can take regardless of specialisation. These are the
+ * escape hatches — without them a bot has no way to gather, fetch from the
+ * stash, or run a learned skill.
+ */
+const UNIVERSAL_ACTIONS = [
+  "explore",
+  "idle",
+  "respond_to_chat",
+  "invoke_skill",
+  "give_item",
+  "deposit_stash",
+  "withdraw_stash",
+];
+
+/**
+ * Single source of truth for "what can this bot actually do?".
+ *
+ * The strategic planner and the critic MUST resolve the same set. They used to
+ * derive it separately: the planner merged in UNIVERSAL_ACTIONS while the critic
+ * received raw role.allowedActions plus "idle". Since the critic prompt says
+ * "Only suggest actions from this list", that omission left roles like Blade
+ * (attack/flee/go_to/eat/sleep/chat) with no legal way to gather or fetch, so
+ * the critic concluded "no action can actually gather logs" and idled the bot.
+ */
+export function resolveAllowedActions(roleActions?: string[]): string[] {
+  if (!roleActions?.length) return Object.keys(ACTION_SIGNATURES);
+  return [...roleActions, ...UNIVERSAL_ACTIONS.filter((u) => !roleActions.includes(u))];
+}
+
 export function buildStrategicPrompt(role: RoleContext): string {
   const name = role.name;
 
   // Build action list — role-specific if configured, otherwise full list
-  const universalNames = [
-    "explore",
-    "idle",
-    "respond_to_chat",
-    "invoke_skill",
-    "give_item",
-    "deposit_stash",
-    "withdraw_stash",
-  ];
-  const actions = role.allowedActions?.length
-    ? renderActions([...role.allowedActions, ...universalNames.filter((u) => !role.allowedActions!.includes(u))])
-    : renderActions(Object.keys(ACTION_SIGNATURES));
+  const actions = renderActions(resolveAllowedActions(role.allowedActions));
 
   // Skills list
   const builtinSkills = role.allowedSkills?.length ? role.allowedSkills.join(", ") : "";
@@ -182,9 +201,9 @@ ${available}
  * Determines if we should continue the current goal or re-plan.
  */
 export function buildCriticPrompt(name: string, allowedActions?: string[]): string {
-  const actionLine = allowedActions?.length
-    ? `\nAVAILABLE ACTIONS: ${allowedActions.join(", ")}, idle\nOnly suggest actions from this list.`
-    : "";
+  // Same resolution the planner uses, so the critic can never be blind to an
+  // action the planner just chose.
+  const actionLine = `\nAVAILABLE ACTIONS: ${resolveAllowedActions(allowedActions).join(", ")}\nOnly suggest actions from this list.`;
 
   return `You are ${name}'s inner critic. Evaluate the last action and decide what's next.
 
