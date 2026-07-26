@@ -106,7 +106,7 @@ SESSION=$(ls -t logs/sessions/*.json 2>/dev/null | head -1)
 if [[ -n "$SESSION" ]]; then
   echo "SESSION=$(basename "$SESSION" .json)"
   # Sum deaths and deposits across bots without needing jq.
-  python3 - "$SESSION" <<'PY' 2>/dev/null || true
+  STATS=$(python3 - "$SESSION" <<'PY' 2>/dev/null || true
 import json, sys
 d = json.load(open(sys.argv[1]))
 bots = d.get("perBot", {})
@@ -116,11 +116,31 @@ print(f"DEATHS={tot('deaths')}")
 print(f"DEPOSITS={tot('deposits')}")
 print(f"ITEMS_DEPOSITED={tot('itemsDeposited')}")
 print(f"ACTION_SUCCESS_PCT={round(succ * 100 / acts) if acts else 0}")
+print(f"SESSION_ACTIONS={acts}")
 worst = max(bots.items(), key=lambda kv: kv[1].get("deaths", 0), default=None)
 if worst and worst[1].get("deaths", 0):
     print(f"MOST_DEATHS={worst[0]}:{worst[1]['deaths']}")
 print(f"MILESTONES={len(d.get('milestones', []))}")
 PY
+)
+  echo "$STATS"
+
+  # A swarm that only withdraws drains its own stash. deposit_stash bounced 66
+  # times in a 5h session with zero successful deposits because auto-expansion
+  # required carried planks while bots carry logs (fixed 1cdbb15). Alert if the
+  # session has done real work and still banked nothing.
+  DEPOSITS=$(sed -n 's/^DEPOSITS=//p' <<<"$STATS")
+  SESSION_ACTIONS=$(sed -n 's/^SESSION_ACTIONS=//p' <<<"$STATS")
+  if [[ -n "${DEPOSITS:-}" && -n "${SESSION_ACTIONS:-}" ]]; then
+    (( SESSION_ACTIONS > 2000 && DEPOSITS == 0 )) && ALERTS+=("no_deposits_in_${SESSION_ACTIONS}_actions")
+  fi
+
+  # Fall damage was the top death cause; capped at every Movements site in
+  # 2db72c2. A single bot running away with the death count means it regressed.
+  DEATHS=$(sed -n 's/^DEATHS=//p' <<<"$STATS")
+  if [[ -n "${DEATHS:-}" && -n "${SESSION_ACTIONS:-}" ]]; then
+    (( SESSION_ACTIONS > 2000 && DEATHS > 60 )) && ALERTS+=("deaths_high_${DEATHS}")
+  fi
 fi
 
 # ── Verdict ────────────────────────────────────────────────────────────────
