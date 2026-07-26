@@ -365,10 +365,40 @@ export async function depositStash(
     // next bounce). All materials are still bot-earned; this only removes
     // the multi-step timing coordination the LLM can't hold.
     if (!chestItem) {
-      const planks = bot.inventory
-        .items()
-        .filter((i) => i.name.endsWith("_planks"))
-        .reduce((sum, i) => sum + i.count, 0);
+      const countPlanks = () =>
+        bot.inventory
+          .items()
+          .filter((i) => i.name.endsWith("_planks"))
+          .reduce((sum, i) => sum + i.count, 0);
+
+      let planks = countPlanks();
+
+      // Bots arrive at the stash carrying LOGS, not planks: they gather wood
+      // and deposit it raw. Requiring 8 planks meant a bot standing at a full
+      // stash holding 4 oak_log (16 planks' worth) counted as zero and reported
+      // "need more chests" instead of expanding. Measured: 66 bounces and zero
+      // successful expansions in a 5h session, while the LLM narrated the
+      // problem it could not act on ("Forge's chest dream still stuck").
+      // Convert first — logs to planks is a 2x2 recipe, so no table is needed.
+      if (planks < 8) {
+        try {
+          const mcData = (await import("minecraft-data")).default(bot.version);
+          const log = bot.inventory.items().find((i) => i.name.endsWith("_log"));
+          if (log) {
+            const plankDef = mcData.itemsByName[log.name.replace("_log", "_planks")];
+            const recipe = plankDef && bot.recipesFor(plankDef.id, null, 1, null)[0];
+            if (recipe) {
+              const logsNeeded = Math.ceil((8 - planks) / 4); // 1 log = 4 planks
+              await bot.craft(recipe, Math.min(logsNeeded, log.count), undefined);
+              planks = countPlanks();
+              console.log(`[Stash] Converted logs to planks for expansion (${planks} planks)`);
+            }
+          }
+        } catch {
+          /* couldn't convert — fall through to the plank check below */
+        }
+      }
+
       if (planks >= 8) {
         try {
           const mcData = (await import("minecraft-data")).default(bot.version);
