@@ -8,7 +8,7 @@ const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
 import { hasStructureNearby, addStructure, getNearestStructure } from "../bot/memory.js";
 import { getBotMemoryStore, getAllMemoryStores } from "../bot/memory-registry.js";
-import { collectNearbyDrops } from "../bot/navigation.js";
+import { baseMoves, collectNearbyDrops } from "../bot/navigation.js";
 
 /** All door types — any wood's door works interchangeably */
 const DOOR_TYPES = [
@@ -461,7 +461,7 @@ async function clearInventoryJunk(bot: Bot) {
 }
 
 function setMovements(bot: Bot) {
-  const moves = new Movements(bot);
+  const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
   moves.allowFreeMotion = false;

@@ -1,5 +1,5 @@
 import type { Bot } from "mineflayer";
-import { collectNearbyDrops, safeGoto } from "../bot/navigation.js";
+import { baseMoves, collectNearbyDrops, safeGoto } from "../bot/navigation.js";
 import type { Skill, SkillResult } from "./types.js";
 import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
@@ -399,7 +399,7 @@ export const buildFarmSkill: Skill = {
 // --- Helpers ---
 
 function setMovements(bot: Bot) {
-  const moves = new Movements(bot);
+  const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
   moves.allowFreeMotion = false;

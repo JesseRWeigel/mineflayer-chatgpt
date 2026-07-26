@@ -5,6 +5,7 @@ import mcDataLoader from "minecraft-data";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import { Vec3 } from "vec3";
+import { baseMoves } from "../bot/navigation.js";
 
 /** Tool tiers from best to worst. */
 const TIERS = [
@@ -204,7 +205,7 @@ export const craftGearSkill: Skill = {
         if (table && recipe) {
           const pkg = await import("mineflayer-pathfinder");
           const { goals, Movements } = pkg.default;
-          const moves = new Movements(bot);
+          const moves = baseMoves(bot);
           moves.canDig = false;
           bot.pathfinder.setMovements(moves);
           try {
@@ -268,7 +269,7 @@ export const craftGearSkill: Skill = {
         if (table) {
           const pkg = await import("mineflayer-pathfinder");
           const { goals, Movements } = pkg.default;
-          const moves = new Movements(bot);
+          const moves = baseMoves(bot);
           moves.canDig = false;
           bot.pathfinder.setMovements(moves);
           try {
@@ -343,7 +344,7 @@ async function craftPiece(
   if (table) {
     const pkg = await import("mineflayer-pathfinder");
     const { goals, Movements } = pkg.default;
-    const moves = new Movements(bot);
+    const moves = baseMoves(bot);
     moves.canDig = false;
     bot.pathfinder.setMovements(moves);
     try {

@@ -13,7 +13,7 @@ import { depositStash, withdrawStash } from "../skills/stash.js";
 import { config } from "../config.js";
 
 import { STASH_POS } from "./role.js";
-import { safeMoves, explorerMoves, safeGoto, collectNearbyDrops } from "./navigation.js";
+import { baseMoves, safeMoves, explorerMoves, safeGoto, collectNearbyDrops } from "./navigation.js";
 export { safeMoves, explorerMoves, safeGoto, collectNearbyDrops };
 
 /** Hard cap for a single DIRECT action. Longer than any legit action (gather
@@ -263,7 +263,7 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
 
   // If underground, surface first — explorerMoves can't dig through solid blocks
   if (bot.entity.position.y < 63) {
-    const digMoves = new Movements(bot);
+    const digMoves = baseMoves(bot);
     digMoves.canDig = true;
     digMoves.allowFreeMotion = true;
     digMoves.allow1by1towers = true;
@@ -349,7 +349,7 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
         // If we're still not adjacent, retry once with digging allowed: the
         // bot chews through the bush exactly like a player would.
         if (bot.entity.position.distanceTo(new Vec3(basePos.x, basePos.y, basePos.z)) > 4.5) {
-          const bushMoves = new Movements(bot);
+          const bushMoves = baseMoves(bot);
           bushMoves.canDig = true;
           bushMoves.allow1by1towers = false;
           bushMoves.maxDropDown = 3;
@@ -613,7 +613,7 @@ async function mineBlock(
 
   // Allow digging so pathfinder can reach underground ores through stone
   const { Movements } = (await import("mineflayer-pathfinder")).default;
-  const digMoves = new Movements(bot);
+  const digMoves = baseMoves(bot);
   digMoves.canDig = true;
   bot.pathfinder.setMovements(digMoves);
   await safeGoto(bot, new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2));
@@ -712,7 +712,7 @@ async function goTo(bot: Bot, x: number, y: number, z: number): Promise<string> 
     // Rescue mode: safe movements can't dig or tower, so a bot standing in a
     // pit (or behind one block of dirt) is permanently stuck. Retry once with
     // digging + 1x1 towers enabled before giving up.
-    const rescue = new Movements(bot);
+    const rescue = baseMoves(bot);
     rescue.canDig = true;
     rescue.allow1by1towers = true;
     bot.pathfinder.setMovements(rescue);
@@ -801,7 +801,7 @@ async function explore(bot: Bot, direction: string): Promise<string> {
 
   // If underground (below y=67), try to dig/climb to the surface before exploring laterally.
   if (bot.entity.position.y < 67) {
-    const digMoves = new Movements(bot);
+    const digMoves = baseMoves(bot);
     digMoves.canDig = true;
     digMoves.allowFreeMotion = true;
     digMoves.allow1by1towers = true;
@@ -834,7 +834,7 @@ async function explore(bot: Bot, direction: string): Promise<string> {
       // Previously "up" wasn't a case, silently aliased to the default
       // (east!) and honest-failed. Dig/tower toward the surface instead,
       // using the bot's own tools and blocks.
-      const upMoves = new Movements(bot);
+      const upMoves = baseMoves(bot);
       upMoves.canDig = true;
       upMoves.allow1by1towers = true;
       upMoves.allowFreeMotion = true;

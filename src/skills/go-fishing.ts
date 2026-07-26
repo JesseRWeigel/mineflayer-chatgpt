@@ -4,6 +4,7 @@ import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
+import { baseMoves } from "../bot/navigation.js";
 
 const FISH_ATTEMPTS = 5;
 const BITE_TIMEOUT_MS = 35000;
@@ -204,7 +205,7 @@ async function waitForBite(bot: Bot, signal: AbortSignal, timeoutMs: number): Pr
 }
 
 function setMovements(bot: Bot) {
-  const moves = new Movements(bot);
+  const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
   moves.allowFreeMotion = false;

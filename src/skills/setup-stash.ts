@@ -9,6 +9,7 @@ import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
 import { safeGoto } from "../bot/actions.js";
+import { baseMoves } from "../bot/navigation.js";
 
 export const setupStashSkill: Skill = {
   name: "setup_stash",
@@ -330,7 +331,7 @@ export const setupStashSkill: Skill = {
 // --- Helpers ---
 
 function setMovements(bot: Bot) {
-  const moves = new Movements(bot);
+  const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
   moves.allowFreeMotion = false;

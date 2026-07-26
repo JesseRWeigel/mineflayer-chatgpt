@@ -3,7 +3,7 @@ import type { Skill, SkillResult } from "./types.js";
 import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
-import { collectNearbyDrops } from "../bot/navigation.js";
+import { baseMoves, collectNearbyDrops } from "../bot/navigation.js";
 
 const TUNNEL_LENGTH = 40;
 const TORCH_INTERVAL = 6;
@@ -55,7 +55,7 @@ export const stripMineSkill: Skill = {
         message: `Digging down to Y=${TARGET_Y} (iron depth)...`,
         active: true,
       });
-      const digMoves = new Movements(bot);
+      const digMoves = baseMoves(bot);
       digMoves.canDig = true;
       digMoves.allow1by1towers = true;
       bot.pathfinder.setMovements(digMoves);
@@ -257,7 +257,7 @@ async function followVein(bot: Bot, start: Vec3, oreName: string, ores: string[]
 
 async function moveToPosition(bot: Bot, targetPos: Vec3): Promise<void> {
   try {
-    const moves = new Movements(bot);
+    const moves = baseMoves(bot);
     moves.canDig = false;
     bot.pathfinder.setMovements(moves);
     // Bounded: an unreachable GoalBlock here hung strip_mine (and the whole

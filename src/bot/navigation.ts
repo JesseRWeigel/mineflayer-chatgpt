@@ -2,9 +2,29 @@ import type { Bot } from "mineflayer";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 
+/**
+ * Every Movements config in the codebase MUST start here.
+ *
+ * mineflayer-pathfinder defaults to maxDropDown=4 and allowParkour=true. Four
+ * blocks is one block into fall-damage range, so the defaults actively route
+ * bots off ledges. Fall damage has been the top death cause for weeks: capping
+ * it in safeMoves and explorerMoves only covered 2 of the 22 construction
+ * sites, and the other 20 kept walking bots off cliffs. Atlas took 19 of his
+ * 22 deaths this way in a single 5h session.
+ *
+ * Callers layer their own flags on top (canDig, allow1by1towers, and so on).
+ * Fall safety is not theirs to opt out of.
+ */
+export function baseMoves(bot: Bot): InstanceType<typeof Movements> {
+  const moves = new Movements(bot);
+  moves.maxDropDown = 3; // 3 blocks = no fall damage, 4 = 1.5 hearts
+  moves.allowParkour = false;
+  return moves;
+}
+
 /** Create safe movement defaults — no digging, no block placement, just walk/jump */
 export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
-  const moves = new Movements(bot);
+  const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
   moves.allowFreeMotion = false;
@@ -21,7 +41,7 @@ export function safeMoves(bot: Bot): InstanceType<typeof Movements> {
 
 /** Movement config for exploring — allows swimming across water (allowFreeMotion=true) */
 export function explorerMoves(bot: Bot): InstanceType<typeof Movements> {
-  const moves = new Movements(bot);
+  const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
   moves.allowFreeMotion = true; // needed for pathfinder to route through water
@@ -180,7 +200,9 @@ export async function digOutIfStuck(bot: Bot): Promise<boolean> {
 
   // Dig a staircase up and out using digging-capable movement (the bot's own
   // pickaxe/hands), then walk clear. Targets ~3 blocks up to clear the pit rim.
-  const moves = new Movements(bot);
+  // Digging-capable, but still fall-capped: this runs when a bot is stuck in a
+  // mined-out pit, which is exactly where the big drops are.
+  const moves = baseMoves(bot);
   moves.canDig = true;
   moves.allow1by1towers = true;
   bot.pathfinder.setMovements(moves);

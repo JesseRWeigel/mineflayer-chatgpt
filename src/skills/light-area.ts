@@ -2,6 +2,7 @@ import type { Bot } from "mineflayer";
 import type { Skill, SkillResult } from "./types.js";
 import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
+import { baseMoves } from "../bot/navigation.js";
 const { goals, Movements } = pkg;
 
 export const lightAreaSkill: Skill = {
@@ -86,7 +87,7 @@ export const lightAreaSkill: Skill = {
       try {
         const dist = bot.entity.position.distanceTo(pos);
         if (dist > 4.5) {
-          const moves = new Movements(bot);
+          const moves = baseMoves(bot);
           moves.canDig = false;
           moves.allow1by1towers = false;
           moves.scafoldingBlocks = [];

@@ -5,6 +5,7 @@ import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
 import { withdrawStash } from "./stash.js";
+import { baseMoves } from "../bot/navigation.js";
 
 /** Items that can be smelted: input → output name. */
 const SMELT_RECIPES: Record<string, string> = {
@@ -306,7 +307,7 @@ export const smeltOresSkill: Skill = {
 };
 
 function setMovements(bot: Bot) {
-  const moves = new Movements(bot);
+  const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
   moves.allowFreeMotion = false;
