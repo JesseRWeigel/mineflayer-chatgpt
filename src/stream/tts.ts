@@ -1,6 +1,7 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
 import fs from "fs";
 import path from "path";
+import type { Readable } from "stream";
 import { fileURLToPath } from "url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -77,27 +78,62 @@ function discardTTS(): void {
 let audioCounter = 0;
 
 /**
+ * Only one synthesis runs at a time.
+ *
+ * MsEdgeTTS._send() reconnects whenever its socket is not OPEN:
+ *
+ *   for (let i = 1; i <= 3 && this._ws.readyState !== this._ws.OPEN; i++)
+ *       await this._initClient();   // overwrites this._ws, never closes it
+ *
+ * Concurrent callers all observe the same non-OPEN socket and each drive that
+ * loop, so the orphans multiply. Measured: 5 concurrent calls after a 45s idle
+ * gap orphaned ~692 sockets, and a 19h session accumulated 55,219. Serialising
+ * keeps at most one _initClient() in flight.
+ */
+let synthesizing = false;
+
+/**
+ * Microsoft drops idle Edge TTS connections. Letting _send() discover that and
+ * reconnect is the unsafe path, so retire the instance ourselves once it has
+ * been idle long enough to be suspect.
+ */
+const IDLE_RECYCLE_MS = 15_000;
+let lastSynthesisAt = 0;
+
+/**
  * Generate a TTS audio file from text and return the filename.
  * Files are saved to overlay/audio/ and served via the overlay HTTP server.
  */
 export async function generateSpeech(text: string): Promise<string | null> {
+  // Thoughts are ephemeral livestream flavour. Dropping one while another is
+  // mid-flight beats queueing a backlog that never drains.
+  if (synthesizing) return null;
+  synthesizing = true;
+
+  let audioStream: Readable | undefined;
+
   try {
+    if (ttsInstance && Date.now() - lastSynthesisAt > IDLE_RECYCLE_MS) {
+      discardTTS();
+    }
+
     const tts = await getTTS();
     const filename = `thought-${++audioCounter}.mp3`;
     const filepath = path.join(AUDIO_DIR, filename);
 
-    const { audioStream } = tts.toStream(text);
+    audioStream = tts.toStream(text).audioStream;
+    const stream = audioStream;
 
     await new Promise<void>((resolve, reject) => {
       const chunks: Buffer[] = [];
-      audioStream.on("data", (chunk: Buffer) => {
+      stream.on("data", (chunk: Buffer) => {
         try {
           chunks.push(chunk);
         } catch {
           /* ignore */
         }
       });
-      audioStream.on("end", () => {
+      stream.on("end", () => {
         try {
           fs.writeFileSync(filepath, Buffer.concat(chunks));
           resolve();
@@ -105,8 +141,10 @@ export async function generateSpeech(text: string): Promise<string | null> {
           reject(e);
         }
       });
-      audioStream.on("error", reject);
+      stream.on("error", reject);
     });
+
+    lastSynthesisAt = Date.now();
 
     // Clean up old audio files (keep last 10)
     const files = fs
@@ -125,5 +163,15 @@ export async function generateSpeech(text: string): Promise<string | null> {
     // reclaimed; the next call re-inits via getTTS().
     discardTTS();
     return null;
+  } finally {
+    // MsEdgeTTS only releases _streams[requestId] from the stream's destroy()
+    // handler. Listening for "end" alone retained one entry per synthesis,
+    // which is 19k+ live stream objects in a 19h session.
+    try {
+      audioStream?.destroy();
+    } catch {
+      /* already destroyed */
+    }
+    synthesizing = false;
   }
 }
