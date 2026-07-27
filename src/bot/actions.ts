@@ -1450,6 +1450,31 @@ async function flee(bot: Bot): Promise<string> {
     }
   }
 
+  // No open route anywhere in the fan. Bots spend most of their time in mining
+  // tunnels (mine_block is a top-3 action), so surface-style candidates hit
+  // solid rock and the bot stands beside the mob until it dies: 49 cornered
+  // events in one session, every one with all 15 candidates rejected, while
+  // deaths nearly doubled and falls spread across all four roles.
+  //
+  // Tunnel out instead. The bots carry pickaxes, this is what a player does
+  // when cornered underground, and it needs no action the roles do not already
+  // have — which matters for Forge, whose role has no attack at all.
+  try {
+    const digAway = baseMoves(bot);
+    digAway.canDig = true;
+    digAway.allow1by1towers = false; // no pillaring: that is a fall risk
+    bot.pathfinder.setMovements(digAway);
+
+    const flat = new Vec3(dir.x, 0, dir.z).normalize();
+    const digTarget = bot.entity.position.plus(flat.scaled(7));
+    await safeGoto(bot, new goals.GoalNear(digTarget.x, digTarget.y, digTarget.z, 3), 8000);
+    return `Tunnelled away from ${hostile.name || "danger"}!`;
+  } catch {
+    /* even digging failed — report honestly below */
+  } finally {
+    bot.pathfinder.setMovements(safeMoves(bot));
+  }
+
   console.log(`[FleeDebug] no standable escape from ${hostile.name} — ${candidates.length} candidates rejected`);
   return `Cornered by ${hostile.name || "danger"} — no escape route. Fight or find cover.`;
 }
