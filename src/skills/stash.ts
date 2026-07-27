@@ -603,36 +603,91 @@ export async function withdrawStash(
 /** Find open ground just past the stash rows and place a chest from inventory.
  *  Part of auto-expansion: the bot supplies its own chest; this only handles
  *  the placement mechanics (goto, equip, place) that the LLM kept fumbling. */
+/** Leave breathing room around the stash rows before placing anything. */
+export const CHEST_MIN_RING = 3;
+export const CHEST_MAX_RING = 16;
+
+/**
+ * Candidate [dx, dy, dz] offsets for a new stash chest, nearest ring first.
+ *
+ * Must cover every horizontal direction. The original scan walked dx 10..16
+ * with dz -2..2, a strip on the +X side only, so once that strip filled up
+ * expansion was impossible regardless of how many chests a bot carried.
+ */
+export function chestPlacementOffsets(): Array<[number, number, number]> {
+  const offsets: Array<[number, number, number]> = [];
+
+  for (let r = CHEST_MIN_RING; r <= CHEST_MAX_RING; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue; // ring perimeter only
+        // Slight vertical tolerance for uneven ground around the base.
+        for (const dy of [0, 1, -1]) offsets.push([dx, dy, dz]);
+      }
+    }
+  }
+
+  return offsets;
+}
+
 async function placeChestNearStash(
   bot: Bot,
   stashPos: { x: number; y: number; z: number },
 ): Promise<ReturnType<Bot["blockAt"]>> {
   const chestItem = bot.inventory.items().find((i) => i.name === "chest");
   if (!chestItem) return null;
-  for (let dx = 10; dx <= 16; dx++) {
-    for (const dz of [0, 2, -2, 1, -1]) {
-      const base = new Vec3(stashPos.x + dx, stashPos.y, stashPos.z + dz);
+
+  // The old scan covered dx 10..16 with dz -2..2: a 7x5 strip in the +X
+  // direction only, 35 spots all on one side of the stash. After weeks of base
+  // building that strip is occupied, so bots arrived holding a chest and had
+  // nowhere to put it. Measured: 41 of 55 expansion attempts failed this way
+  // with a chest already in hand, which surfaced as "stash full, need more
+  // chests" and sent four rounds of fixes chasing chest supply instead.
+  //
+  // Search rings outward in every direction. Block-state checks are free, so
+  // gather candidates first and only spend walk time on the nearest few.
+  const spots: InstanceType<typeof Vec3>[] = [];
+
+  for (const [dx, dy, dz] of chestPlacementOffsets()) {
+    const base = new Vec3(stashPos.x + dx, stashPos.y + dy, stashPos.z + dz);
+    const ground = bot.blockAt(base.offset(0, -1, 0));
+    const target = bot.blockAt(base);
+    const above = bot.blockAt(base.offset(0, 1, 0));
+    if (!ground || ground.boundingBox !== "block") continue;
+    if (!target || target.name !== "air") continue;
+    if (!above || above.name !== "air") continue;
+    spots.push(base);
+  }
+
+  if (spots.length === 0) {
+    console.log(`[Stash] No open placement spot within ${CHEST_MAX_RING} blocks of the stash`);
+    return null;
+  }
+
+  // Nearest first — every attempt costs a walk, so try the cheap ones.
+  const from = bot.entity.position;
+  spots.sort((a, b) => a.distanceTo(from) - b.distanceTo(from));
+
+  for (const base of spots.slice(0, 8)) {
+    try {
+      await safeGoto(bot, new goals.GoalNear(base.x, base.y, base.z, 2), 15000);
+      await bot.equip(chestItem, "hand");
       const ground = bot.blockAt(base.offset(0, -1, 0));
-      const target = bot.blockAt(base);
-      const above = bot.blockAt(base.offset(0, 1, 0));
-      if (!ground || ground.boundingBox !== "block" || !target || target.name !== "air" || !above) continue;
-      if (above.name !== "air") continue;
-      try {
-        await safeGoto(bot, new goals.GoalNear(base.x, base.y, base.z, 2), 15000);
-        await bot.equip(chestItem, "hand");
-        await Promise.race([
-          bot.placeBlock(ground, new Vec3(0, 1, 0)),
-          new Promise<void>((_, rej) => setTimeout(() => rej(new Error("place timeout")), 5000)),
-        ]);
-        const placed = bot.findBlock({ matching: (b) => b.name === "chest", maxDistance: 4 });
-        if (placed) {
-          console.log(`[Stash] Expanded: placed a new chest at ${placed.position}`);
-          return placed;
-        }
-      } catch {
-        continue;
+      if (!ground) continue;
+      await Promise.race([
+        bot.placeBlock(ground, new Vec3(0, 1, 0)),
+        new Promise<void>((_, rej) => setTimeout(() => rej(new Error("place timeout")), 5000)),
+      ]);
+      const placed = bot.findBlock({ matching: (b) => b.name === "chest", maxDistance: 4 });
+      if (placed) {
+        console.log(`[Stash] Expanded: placed a new chest at ${placed.position}`);
+        return placed;
       }
+    } catch {
+      continue;
     }
   }
+
+  console.log(`[Stash] Found ${spots.length} open spots but every placement attempt failed`);
   return null;
 }
