@@ -359,6 +359,13 @@ export async function depositStash(
   // no free items), place it past the stash rows and deposit into it.
   if (noChest > 0) {
     let chestItem = bot.inventory.items().find((i) => i.name === "chest");
+
+    // Records which gate stopped the expansion. Every bail-out below used to be
+    // a silent catch or a falsy check, so three rounds of fixes were guesswork:
+    // the stash bounced 51-66 times per session and nobody could see whether it
+    // lacked logs, planks, a crafting table, or a recipe. Report the reason once
+    // per bounce so the next fix targets the gate that is actually closed.
+    let expandBail = "";
     // No chest carried? CRAFT one on the spot from carried planks (8) — the
     // "craft a chest and carry it" mission produced talk but no carried
     // chests across a full day (crafted ones get spent/deposited before the
@@ -384,18 +391,22 @@ export async function depositStash(
         try {
           const mcData = (await import("minecraft-data")).default(bot.version);
           const log = bot.inventory.items().find((i) => i.name.endsWith("_log"));
-          if (log) {
+          if (!log) {
+            expandBail = `carrying ${planks} planks and no logs`;
+          } else {
             const plankDef = mcData.itemsByName[log.name.replace("_log", "_planks")];
             const recipe = plankDef && bot.recipesFor(plankDef.id, null, 1, null)[0];
-            if (recipe) {
+            if (!recipe) {
+              expandBail = `no plank recipe for ${log.name}`;
+            } else {
               const logsNeeded = Math.ceil((8 - planks) / 4); // 1 log = 4 planks
               await bot.craft(recipe, Math.min(logsNeeded, log.count), undefined);
               planks = countPlanks();
               console.log(`[Stash] Converted logs to planks for expansion (${planks} planks)`);
             }
           }
-        } catch {
-          /* couldn't convert — fall through to the plank check below */
+        } catch (err) {
+          expandBail = `plank craft threw: ${(err as Error).message}`;
         }
       }
 
@@ -404,21 +415,33 @@ export async function depositStash(
           const mcData = (await import("minecraft-data")).default(bot.version);
           const chestDef = mcData.itemsByName["chest"];
           const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 24 });
-          if (chestDef && table) {
+          if (!chestDef) {
+            expandBail = "no chest item definition";
+          } else if (!table) {
+            // A chest is a 3x3 recipe, so it needs a table. If the stash has no
+            // table within reach, expansion can never complete no matter how
+            // many planks the bot carries.
+            expandBail = `${planks} planks but no crafting_table within 24 blocks of the stash`;
+          } else {
             await safeGoto(bot, new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2), 15000);
             const recipe = bot.recipesFor(chestDef.id, null, 1, table)[0];
-            if (recipe) {
+            if (!recipe) {
+              expandBail = `${planks} planks, table found, but no chest recipe offered`;
+            } else {
               await Promise.race([
                 bot.craft(recipe, 1, table),
                 new Promise<void>((_, rej) => setTimeout(() => rej(new Error("craft timeout")), 15000)),
               ]);
               chestItem = bot.inventory.items().find((i) => i.name === "chest");
               if (chestItem) console.log("[Stash] Crafted a chest for expansion");
+              else expandBail = "chest craft completed but produced no chest";
             }
           }
-        } catch {
-          /* couldn't craft — fall through to the old full-stash report */
+        } catch (err) {
+          expandBail = `chest craft threw: ${(err as Error).message}`;
         }
+      } else if (!expandBail) {
+        expandBail = `only ${planks} planks after conversion`;
       }
     }
     if (chestItem) {
@@ -439,10 +462,16 @@ export async function depositStash(
           snapshotChest(placed.position, container.containerItems(), container.inventoryStart);
           container.close();
           noChest = 0;
+        } else {
+          expandBail = "carried a chest but found nowhere to place it near the stash";
         }
-      } catch {
-        /* expansion failed — report full as before */
+      } catch (err) {
+        expandBail = `chest placement threw: ${(err as Error).message}`;
       }
+    }
+
+    if (noChest > 0 && expandBail) {
+      console.log(`[Stash] Expansion blocked: ${expandBail}`);
     }
   }
 
