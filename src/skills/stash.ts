@@ -263,7 +263,9 @@ export async function depositStash(
   keepItems: { name: string; minCount: number }[],
 ): Promise<string> {
   // Walk to stash area
+  const startPos = bot.entity.position.clone();
   await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 30000);
+  const movedDist = bot.entity.position.distanceTo(startPos);
 
   // Fail fast if we never actually reached the stash (underground / blocked /
   // being chased). safeGoto returns after its 30s timeout WITHOUT throwing, so
@@ -281,13 +283,21 @@ export async function depositStash(
   //
   // Give them the capability to dig down to their own stash, the same way the
   // pit-escape helper does. baseMoves keeps the fall cap, so descending stays
-  // safe. Only worth attempting when the bot is already overhead: a horizontal
-  // gap means it is somewhere else entirely and should walk over first.
-  const horizontalGap = Math.hypot(
-    bot.entity.position.x - stashPos.x,
-    bot.entity.position.z - stashPos.z,
-  );
-  if (distToStash > 6 && horizontalGap < 12) {
+  // safe.
+  //
+  // The original guard was "only if already overhead" (horizontal gap under 12),
+  // on the reasoning that a distant bot should walk rather than tunnel sideways.
+  // That used position as a proxy for the real question. Once bots started
+  // strip-mining they stranded themselves in tunnels safeMoves cannot path out
+  // of, and the failure came back as 46 bounces at exactly 45 blocks — the same
+  // constant every time, meaning the bot never moved at all.
+  //
+  // Progress is the honest discriminator. A bot that walked most of the way and
+  // stopped short is navigating fine and should not tunnel. A bot that did not
+  // move is stuck, and digging is its only way out regardless of distance.
+  const horizontalGap = Math.hypot(bot.entity.position.x - stashPos.x, bot.entity.position.z - stashPos.z);
+  const madeNoProgress = movedDist < 3;
+  if (distToStash > 6 && (horizontalGap < 12 || madeNoProgress)) {
     const digMoves = baseMoves(bot);
     digMoves.canDig = true;
     digMoves.allow1by1towers = true;
@@ -300,6 +310,12 @@ export async function depositStash(
       bot.pathfinder.setMovements(safeMoves(bot));
     }
     distToStash = bot.entity.position.distanceTo(new Vec3(stashPos.x, stashPos.y, stashPos.z));
+    if (distToStash > 6) {
+      console.log(
+        `[Stash] dig-retry did not reach: still ${distToStash.toFixed(0)} blocks, ` +
+          `moved ${movedDist.toFixed(0)} on first goto, horizGap ${horizontalGap.toFixed(0)}`,
+      );
+    }
   }
 
   if (distToStash > 6) {
