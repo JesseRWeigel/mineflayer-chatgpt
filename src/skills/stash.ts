@@ -448,7 +448,13 @@ export async function depositStash(
       try {
         const placed = await placeChestNearStash(bot, stashPos);
         if (placed) {
-          const container = await openContainerTimed(bot, placed);
+          // A freshly placed chest is not immediately openable: the bot may be
+          // up to 2 blocks away from where it placed, and the block state needs
+          // a moment to register. The first successful expansion placed a chest
+          // and then died on "openContainer timeout", losing the deposit it had
+          // just made room for. Step adjacent, let the block settle, and retry
+          // once before giving up.
+          const container = await openNewChest(bot, placed);
           for (const item of bot.inventory.items()) {
             if (item.name === "chest") continue; // keep spare chests for next expansion
             if (shouldKeep(item.name, keepItems, keptCounts)) continue;
@@ -603,6 +609,34 @@ export async function withdrawStash(
 /** Find open ground just past the stash rows and place a chest from inventory.
  *  Part of auto-expansion: the bot supplies its own chest; this only handles
  *  the placement mechanics (goto, equip, place) that the LLM kept fumbling. */
+/**
+ * Open a chest the bot just placed.
+ *
+ * Placement finishes from up to 2 blocks away and the new block takes a moment
+ * to register, so an immediate openContainer hits the 10s timeout. That cost
+ * the very first successful expansion its deposit. Close the distance, let the
+ * block settle, and retry once.
+ */
+async function openNewChest(bot: Bot, placed: NonNullable<ReturnType<Bot["blockAt"]>>) {
+  const p = placed.position;
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      await safeGoto(bot, new goals.GoalNear(p.x, p.y, p.z, 1), 10000);
+    } catch {
+      /* already close enough, or cannot get closer — still try to open */
+    }
+    await new Promise((r) => setTimeout(r, attempt === 0 ? 400 : 1200));
+    try {
+      return await openContainerTimed(bot, placed);
+    } catch (err) {
+      if (attempt === 1) throw err;
+    }
+  }
+
+  throw new Error("openNewChest exhausted retries");
+}
+
 /** Leave breathing room around the stash rows before placing anything. */
 export const CHEST_MIN_RING = 3;
 export const CHEST_MAX_RING = 16;
