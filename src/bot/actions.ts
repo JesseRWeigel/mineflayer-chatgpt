@@ -291,6 +291,10 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
   // below and the action still reports "pathfinding failed". That message sent
   // previous fixes after the pathfinder while the real gate was the filters.
   const skip = { notLog: 0, floating: 0, belowNull: 0, approach: 0, budget: 0, samples: [] as string[] };
+  // Trunk bases hovering over air. Skipped by the main pass in favour of real
+  // trees, but kept as salvage: they are still wood, and chopping them is what
+  // removes them from future candidate lists.
+  const floaters: Vec3[] = [];
   const chopSpots: Vec3[] = []; // ground positions to replant saplings on
   // Aggregate travel budget: the old design allowed 4 tries x 90s per-tree goto
   // = 360s of pathing, which now trips the 150s action watchdog and hard-kills
@@ -334,7 +338,10 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
       // land here, and they need opposite fixes. 64 of 64 candidates were
       // rejected by this branch in one sample with zero approaches attempted.
       if (!below) skip.belowNull++;
-      else skip.floating++;
+      else {
+        skip.floating++;
+        if (floaters.length < 8) floaters.push(basePos);
+      }
       if (skip.samples.length < 3) {
         skip.samples.push(`(${basePos.x},${basePos.y},${basePos.z})below=${below?.name ?? "NULL"}`);
       }
@@ -421,6 +428,53 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
       );
     }
     if (tried >= 4 && gathered === 0) break; // give up after 4 failed attempts (~120s max)
+  }
+
+  // SALVAGE PASS: floating remnants are still wood.
+  //
+  // The main pass skips trunk bases hovering over air because they used to bait
+  // the finder toward unreachable targets. That reasoning inverted as the world
+  // changed: weeks of one-log chopping left floaters everywhere, and they are
+  // now the ONLY wood near base. Instrumentation showed candidates=64 with
+  // floating=64, belowNull=0 and zero approaches attempted, while the action
+  // reported "pathfinding failed" and the team starved for logs with wood
+  // hanging six blocks overhead.
+  //
+  // Raising the candidate cap was the previous answer (20 -> 64) and it bought
+  // weeks before all 64 were floaters too. Chopping them is self-correcting:
+  // every floater harvested is permanently one fewer bad candidate.
+  //
+  // Real trees still win — this only runs when the main pass came back empty.
+  if (gathered === 0 && floaters.length > 0) {
+    for (const fpos of floaters.slice(0, 3)) {
+      if (Date.now() - gatherStart > 100000) break;
+      try {
+        // Towers allowed so the bot can build up to a hovering trunk. baseMoves
+        // keeps maxDropDown=3 and parkour off, so climbing stays fall-safe.
+        const towerMoves = baseMoves(bot);
+        towerMoves.canDig = true;
+        towerMoves.allow1by1towers = true;
+        bot.pathfinder.setMovements(towerMoves);
+        await safeGoto(bot, new goals.GoalNear(fpos.x, fpos.y, fpos.z, 2), 20000, 8000);
+
+        let floater = bot.blockAt(fpos);
+        let felled = 0;
+        while (floater && (logTypes as readonly string[]).includes(floater.name) && felled < 12) {
+          await digSafe(bot, floater);
+          gathered++;
+          felled++;
+          floater = bot.blockAt(fpos.offset(0, felled, 0));
+        }
+        if (felled > 0) {
+          console.log(`[GatherDebug] salvaged ${felled} floating logs at (${fpos.x},${fpos.y},${fpos.z})`);
+          await collectNearbyDrops(bot, 6);
+        }
+      } catch {
+        continue;
+      } finally {
+        bot.pathfinder.setMovements(explorerMoves(bot));
+      }
+    }
   }
 
   // Sustainability: replant saplings so the forest regrows. Trees never come
