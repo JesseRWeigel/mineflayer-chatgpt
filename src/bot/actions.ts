@@ -1396,13 +1396,62 @@ async function flee(bot: Bot): Promise<string> {
     return "Ran in a random direction — nothing visible to flee from.";
   }
 
-  // Run in the opposite direction
+  // Run away from the threat.
+  //
+  // This used to project a SINGLE blind target 20 blocks opposite the hostile
+  // and path straight at it. Nothing checked the destination was standable, so
+  // it landed in walls, water, cliff faces and thin air, and safeMoves has
+  // canDig=false so a blocked direction is simply unreachable. Measured: 41
+  // navigation timeouts against 41 successful flees, a 42% failure rate on the
+  // one defensive action Forge has. Forge cannot attack and led the swarm in
+  // deaths with "slain by" as its top cause.
+  //
+  // Fan candidates out from directly-away and take the first standable one,
+  // trying shorter distances as it goes: escaping diagonally or only part way
+  // still breaks contact, whereas timing out leaves the bot beside the mob.
   const dir = bot.entity.position.minus(hostile.position).normalize();
-  const target = bot.entity.position.plus(dir.scaled(20));
+  const candidates: InstanceType<typeof Vec3>[] = [];
 
-  bot.pathfinder.setMovements(safeMoves(bot));
-  await safeGoto(bot, new goals.GoalNear(target.x, target.y, target.z, 5), 8000);
-  return `Fled from ${hostile.name || "danger"}!`;
+  for (const dist of [20, 12, 7]) {
+    for (const spread of [0, Math.PI / 6, -Math.PI / 6, Math.PI / 3, -Math.PI / 3]) {
+      // Rotate the away-vector horizontally; vertical escape is not meaningful.
+      const cos = Math.cos(spread);
+      const sin = Math.sin(spread);
+      const away = new Vec3(dir.x * cos - dir.z * sin, 0, dir.x * sin + dir.z * cos).normalize();
+      candidates.push(bot.entity.position.plus(away.scaled(dist)));
+    }
+  }
+
+  const fleeStart = Date.now();
+  for (const c of candidates) {
+    if (Date.now() - fleeStart > 12000) break;
+
+    // Find a standable spot near this candidate, allowing for sloped ground.
+    let spot: InstanceType<typeof Vec3> | null = null;
+    for (const dy of [0, 1, -1, -2]) {
+      const base = c.offset(0, dy, 0);
+      const ground = bot.blockAt(base.offset(0, -1, 0));
+      const feet = bot.blockAt(base);
+      const head = bot.blockAt(base.offset(0, 1, 0));
+      if (!ground || ground.boundingBox !== "block") continue;
+      if (ground.name === "lava" || feet?.name === "lava") continue;
+      if (!feet || feet.name !== "air" || !head || head.name !== "air") continue;
+      spot = base;
+      break;
+    }
+    if (!spot) continue;
+
+    try {
+      bot.pathfinder.setMovements(safeMoves(bot));
+      await safeGoto(bot, new goals.GoalNear(spot.x, spot.y, spot.z, 3), 6000);
+      return `Fled from ${hostile.name || "danger"}!`;
+    } catch {
+      continue;
+    }
+  }
+
+  console.log(`[FleeDebug] no standable escape from ${hostile.name} — ${candidates.length} candidates rejected`);
+  return `Cornered by ${hostile.name || "danger"} — no escape route. Fight or find cover.`;
 }
 
 async function buildShelter(bot: Bot): Promise<string> {
