@@ -290,7 +290,7 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
   // candidates never reach an approach at all: they are dropped by the filters
   // below and the action still reports "pathfinding failed". That message sent
   // previous fixes after the pathfinder while the real gate was the filters.
-  const skip = { notLog: 0, floating: 0, approach: 0, budget: 0 };
+  const skip = { notLog: 0, floating: 0, belowNull: 0, approach: 0, budget: 0, samples: [] as string[] };
   const chopSpots: Vec3[] = []; // ground positions to replant saplings on
   // Aggregate travel budget: the old design allowed 4 tries x 90s per-tree goto
   // = 360s of pathing, which now trips the 150s action watchdog and hard-kills
@@ -328,7 +328,16 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
     // unreachable targets (evidence: base at y=82 with the bot directly
     // below at y=74). A real trunk base sits on a solid block.
     if (!below || below.name === "air" || below.name === "water") {
-      skip.floating++;
+      // Split null from genuinely-floating: bot.blockAt returns null for an
+      // unloaded chunk, which is a chunk-loading problem, while air/water under
+      // a trunk base is a real remnant left by weeks of one-log chopping. Both
+      // land here, and they need opposite fixes. 64 of 64 candidates were
+      // rejected by this branch in one sample with zero approaches attempted.
+      if (!below) skip.belowNull++;
+      else skip.floating++;
+      if (skip.samples.length < 3) {
+        skip.samples.push(`(${basePos.x},${basePos.y},${basePos.z})below=${below?.name ?? "NULL"}`);
+      }
       continue;
     }
 
@@ -427,8 +436,9 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
   if (gathered === 0) {
     console.log(
       `[GatherDebug] empty gather: candidates=${allLogs.length} tried=${tried} ` +
-        `notLog=${skip.notLog} floating=${skip.floating} approachFailed=${skip.approach} ` +
-        `budgetHit=${skip.budget} botY=${bot.entity.position.y.toFixed(0)}`,
+        `notLog=${skip.notLog} floating=${skip.floating} belowNull=${skip.belowNull} ` +
+        `approachFailed=${skip.approach} budgetHit=${skip.budget} ` +
+        `botY=${bot.entity.position.y.toFixed(0)} samples=[${skip.samples.join(" ")}]`,
     );
   }
 
