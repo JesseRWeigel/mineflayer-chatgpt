@@ -621,15 +621,26 @@ async function openNewChest(bot: Bot, placed: NonNullable<ReturnType<Bot["blockA
   const p = placed.position;
 
   for (let attempt = 0; attempt < 2; attempt++) {
+    let approach = "ok";
     try {
       await safeGoto(bot, new goals.GoalNear(p.x, p.y, p.z, 1), 10000);
-    } catch {
-      /* already close enough, or cannot get closer — still try to open */
+    } catch (err) {
+      // Swallowed so we still attempt the open, but record it: if the approach
+      // fails the bot may be well outside interaction range, and openContainer
+      // would then time out for a reason that has nothing to do with the chest.
+      approach = `failed (${(err as Error).message})`;
     }
     await new Promise((r) => setTimeout(r, attempt === 0 ? 400 : 1200));
     try {
       return await openContainerTimed(bot, placed);
     } catch (err) {
+      // Distance is the discriminator: in-range means a protocol or block-state
+      // problem, out-of-range means the approach is the real failure.
+      const dist = bot.entity.position.distanceTo(p).toFixed(1);
+      const stillThere = bot.blockAt(p)?.name ?? "unknown";
+      console.log(
+        `[Stash] openNewChest attempt ${attempt + 1} failed: dist=${dist} block=${stillThere} approach=${approach}`,
+      );
       if (attempt === 1) throw err;
     }
   }
