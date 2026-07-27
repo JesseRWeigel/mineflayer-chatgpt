@@ -7,6 +7,7 @@ import { snapshotChest } from "./stash-ledger.js";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import { safeGoto } from "../bot/actions.js";
+import { baseMoves, safeMoves } from "../bot/navigation.js";
 
 /** bot.openContainer with a hard timeout — a chest GUI that never opens (block
  *  not truly reachable/loaded) otherwise blocks forever, hanging the calling
@@ -270,7 +271,37 @@ export async function depositStash(
   // loop, each a fresh withdrawStash with its own 30s goto — retries the same
   // unreachable spot and their timeouts sum past the 150s action watchdog. This
   // caused 16 deposit_stash hangs in 9 min when the team was stuck underground.
-  const distToStash = bot.entity.position.distanceTo(new Vec3(stashPos.x, stashPos.y, stashPos.z));
+  let distToStash = bot.entity.position.distanceTo(new Vec3(stashPos.x, stashPos.y, stashPos.z));
+
+  // The stash sits underground at y=70 while bots work the surface at y=90-100,
+  // so the recurring "21 blocks away" was the vertical gap: they stand directly
+  // above their own stash with no route down. safeMoves sets canDig=false, so
+  // the pathfinder refuses to tunnel and the deposit bounces. 33 of 46 deposit
+  // failures in one session were this exact case, at this exact distance.
+  //
+  // Give them the capability to dig down to their own stash, the same way the
+  // pit-escape helper does. baseMoves keeps the fall cap, so descending stays
+  // safe. Only worth attempting when the bot is already overhead: a horizontal
+  // gap means it is somewhere else entirely and should walk over first.
+  const horizontalGap = Math.hypot(
+    bot.entity.position.x - stashPos.x,
+    bot.entity.position.z - stashPos.z,
+  );
+  if (distToStash > 6 && horizontalGap < 12) {
+    const digMoves = baseMoves(bot);
+    digMoves.canDig = true;
+    digMoves.allow1by1towers = true;
+    bot.pathfinder.setMovements(digMoves);
+    try {
+      await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 25000);
+    } catch {
+      /* best effort — the distance check below decides */
+    } finally {
+      bot.pathfinder.setMovements(safeMoves(bot));
+    }
+    distToStash = bot.entity.position.distanceTo(new Vec3(stashPos.x, stashPos.y, stashPos.z));
+  }
+
   if (distToStash > 6) {
     return `Can't reach the stash — ${distToStash.toFixed(0)} blocks away (blocked or underground). Get to the surface near ${stashPos.x},${stashPos.y},${stashPos.z} first.`;
   }
