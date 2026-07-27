@@ -285,6 +285,12 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
 
   let gathered = 0;
   let tried = 0;
+  // Why candidates were rejected. The catch below logs approach failures, but it
+  // fired twice against ~30 failed gathers with up to 4 tries each, so most
+  // candidates never reach an approach at all: they are dropped by the filters
+  // below and the action still reports "pathfinding failed". That message sent
+  // previous fixes after the pathfinder while the real gate was the filters.
+  const skip = { notLog: 0, floating: 0, approach: 0, budget: 0 };
   const chopSpots: Vec3[] = []; // ground positions to replant saplings on
   // Aggregate travel budget: the old design allowed 4 tries x 90s per-tree goto
   // = 360s of pathing, which now trips the 150s action watchdog and hard-kills
@@ -295,9 +301,15 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
   const gatherStart = Date.now();
   for (const pos of allLogs) {
     if (gathered >= count) break;
-    if (Date.now() - gatherStart > 110000) break;
+    if (Date.now() - gatherStart > 110000) {
+      skip.budget++;
+      break;
+    }
     let log = bot.blockAt(pos);
-    if (!log || !(logTypes as readonly string[]).includes(log.name)) continue;
+    if (!log || !(logTypes as readonly string[]).includes(log.name)) {
+      skip.notLog++;
+      continue;
+    }
 
     // Target the BASE of the trunk, not whatever log findBlocks returned.
     // Big oaks return canopy BRANCH logs 8-10 blocks up — GoalNear(3) can
@@ -315,7 +327,10 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
     // trunk-tops hovering over air everywhere, and they bait the finder into
     // unreachable targets (evidence: base at y=82 with the bot directly
     // below at y=74). A real trunk base sits on a solid block.
-    if (!below || below.name === "air" || below.name === "water") continue;
+    if (!below || below.name === "air" || below.name === "water") {
+      skip.floating++;
+      continue;
+    }
 
     tried++;
     try {
@@ -390,6 +405,7 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
       // INSTRUMENTATION (wood-economy debugging): record exactly where the
       // approach fails so the fix targets evidence, not guesses — 80% of
       // gathers still die here even after the leaf-dig retry.
+      skip.approach++;
       const bp = bot.entity.position;
       console.log(
         `[GatherDebug] approach failed: bot(${bp.x.toFixed(0)},${bp.y.toFixed(0)},${bp.z.toFixed(0)}) -> base(${basePos.x},${basePos.y},${basePos.z}) dist=${bp.distanceTo(basePos).toFixed(0)}`,
@@ -403,6 +419,18 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
   // deforests the area and wood trips range ever farther. Saplings drop from
   // the leaf decay of the trees just chopped (collected above).
   const replanted = await replantSaplings(bot, chopSpots);
+
+  // Name the gate whenever a gather comes back empty. "pathfinding failed" is
+  // only true when skip.approach dominates; a high notLog or floating count
+  // means the candidate list was exhausted by filters before any approach was
+  // attempted, which is a completely different bug with a different fix.
+  if (gathered === 0) {
+    console.log(
+      `[GatherDebug] empty gather: candidates=${allLogs.length} tried=${tried} ` +
+        `notLog=${skip.notLog} floating=${skip.floating} approachFailed=${skip.approach} ` +
+        `budgetHit=${skip.budget} botY=${bot.entity.position.y.toFixed(0)}`,
+    );
+  }
 
   const collected = countLogsInInventory() - logsBefore;
   const replantNote = replanted > 0 ? ` Replanted ${replanted} sapling${replanted > 1 ? "s" : ""}.` : "";
