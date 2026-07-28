@@ -141,6 +141,34 @@ PY
   if [[ -n "${DEATHS:-}" && -n "${SESSION_ACTIONS:-}" ]]; then
     (( SESSION_ACTIONS > 2000 && DEATHS > 60 )) && ALERTS+=("deaths_high_${DEATHS}")
   fi
+
+  # RATE, not total. Cumulative counters cannot see a stall: deposits sat at 9
+  # for a full hour while the stash filled and expansion silently broke, and the
+  # zero-deposits alert stayed quiet because 9 is not 0. Compare against the
+  # previous run so a swarm that STOPS banking is caught even after a good start.
+  STATE_FILE="${TMPDIR:-/tmp}/swarm-health-prev.txt"
+  PREV_SESSION=""; PREV_DEPOSITS=""; PREV_DEATHS=""; PREV_ACTIONS=""
+  [[ -r "$STATE_FILE" ]] && source "$STATE_FILE"
+
+  SESSION_ID=$(basename "$SESSION" .json)
+  if [[ "$PREV_SESSION" == "$SESSION_ID" && -n "$PREV_DEPOSITS" && -n "$PREV_ACTIONS" ]]; then
+    ACTION_DELTA=$(( SESSION_ACTIONS - PREV_ACTIONS ))
+    DEPOSIT_DELTA=$(( DEPOSITS - PREV_DEPOSITS ))
+    DEATH_DELTA=$(( DEATHS - PREV_DEATHS ))
+    echo "DELTA_ACTIONS=$ACTION_DELTA DELTA_DEPOSITS=$DEPOSIT_DELTA DELTA_DEATHS=$DEATH_DELTA"
+
+    # Real work happened but nothing was banked: the economy is stalled.
+    (( ACTION_DELTA > 400 && DEPOSIT_DELTA == 0 )) && ALERTS+=("deposits_stalled_0_in_${ACTION_DELTA}_actions")
+    # Deaths outpacing deposits badly means the swarm is losing ground.
+    (( DEATH_DELTA > 10 && DEATH_DELTA > DEPOSIT_DELTA * 3 )) && ALERTS+=("death_spike_${DEATH_DELTA}_since_last")
+  fi
+
+  cat > "$STATE_FILE" <<STATE
+PREV_SESSION="$SESSION_ID"
+PREV_DEPOSITS="$DEPOSITS"
+PREV_DEATHS="$DEATHS"
+PREV_ACTIONS="$SESSION_ACTIONS"
+STATE
 fi
 
 # ── Verdict ────────────────────────────────────────────────────────────────
