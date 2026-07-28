@@ -779,16 +779,24 @@ async function placeChestNearStash(
   // action watchdog, so the per-attempt timeout drops as the count rises.
   const attemptStart = Date.now();
   let attempts = 0;
+  let budgetHit = false;
+  // Kept separate from the budget break: "time budget exhausted" used to
+  // overwrite the real per-attempt reason, so 52 of 54 failures reported the
+  // cap and hid why the individual placements failed.
   let lastErr = "no attempts made";
 
   for (const base of attemptSpots) {
     if (Date.now() - attemptStart > 45000) {
-      lastErr = "time budget exhausted";
+      budgetHit = true;
       break;
     }
     attempts++;
     try {
-      await safeGoto(bot, new goals.GoalNear(base.x, base.y, base.z, 2), 8000);
+      // 5s, not 8s. At 8s the 45s cap allowed only ~5 attempts, so expansion
+      // failed 54 times against 30 successes with 342 spots available and the
+      // budget as the dominant limiter. A spot needing more than 5s of walking
+      // is not the cheap one we sorted for anyway.
+      await safeGoto(bot, new goals.GoalNear(base.x, base.y, base.z, 2), 5000);
       await bot.equip(chestItem, "hand");
       const ground = bot.blockAt(base.offset(0, -1, 0));
       if (!ground) {
@@ -814,7 +822,8 @@ async function placeChestNearStash(
   }
 
   console.log(
-    `[Stash] ${spots.length} open spots, ${attempts} attempts across the ring, all failed. Last error: ${lastErr}`,
+    `[Stash] ${spots.length} open spots, ${attempts} attempts across the ring, all failed. ` +
+      `Last attempt error: ${lastErr}${budgetHit ? " (stopped on 45s budget)" : ""}`,
   );
   return null;
 }
