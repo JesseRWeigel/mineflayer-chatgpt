@@ -160,7 +160,15 @@ PY
     # Real work happened but nothing was banked: the economy is stalled.
     (( ACTION_DELTA > 400 && DEPOSIT_DELTA == 0 )) && ALERTS+=("deposits_stalled_0_in_${ACTION_DELTA}_actions")
     # Deaths outpacing deposits badly means the swarm is losing ground.
-    (( DEATH_DELTA > 10 && DEATH_DELTA > DEPOSIT_DELTA * 3 )) && ALERTS+=("death_spike_${DEATH_DELTA}_since_last")
+    #
+    # This was an AND of both conditions and stayed silent through 13 deaths in
+    # one hour, the worst rate of the run, because 13 was not greater than
+    # 6 deposits x 3. Requiring a spike to be BOTH large and lopsided means a
+    # large-but-not-lopsided spike reports healthy. Either signal alone is worth
+    # a look, so they are now independent.
+    (( DEATH_DELTA > 10 )) && ALERTS+=("death_spike_${DEATH_DELTA}_since_last")
+    (( DEATH_DELTA > 4 && DEPOSIT_DELTA > 0 && DEATH_DELTA > DEPOSIT_DELTA * 3 )) &&
+      ALERTS+=("deaths_outpacing_deposits_${DEATH_DELTA}v${DEPOSIT_DELTA}")
   fi
 
   cat > "$STATE_FILE" <<STATE

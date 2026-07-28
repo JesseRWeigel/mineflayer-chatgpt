@@ -446,7 +446,23 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
   //
   // Real trees still win — this only runs when the main pass came back empty.
   if (gathered === 0 && floaters.length > 0) {
-    for (const fpos of floaters.slice(0, 3)) {
+    // Height cap. Salvage pillars up to reach a hovering trunk, and falls became
+    // the top death cause concentrated in one bot: Forge took ~10 of the swarm's
+    // 12 falls while invoking gather_wood. Correlating timestamps put falls
+    // within 60s of a salvage at 1.9x their base rate, and the tall pillar is
+    // the plausible mechanism.
+    //
+    // A floater 3 blocks up is worth a short climb; one 10 blocks up is not
+    // worth a tower to fall off. Digging still reaches anything at or below
+    // head height, so most salvage value survives the cap.
+    const MAX_CLIMB = 4;
+    const reachable = floaters.filter((f) => f.y - bot.entity.position.y <= MAX_CLIMB);
+    const skippedHigh = floaters.length - reachable.length;
+    if (skippedHigh > 0) {
+      console.log(`[GatherDebug] skipped ${skippedHigh} floaters above +${MAX_CLIMB} (fall risk)`);
+    }
+
+    for (const fpos of reachable.slice(0, 3)) {
       if (Date.now() - gatherStart > 100000) break;
       try {
         // Towers allowed so the bot can build up to a hovering trunk. baseMoves
