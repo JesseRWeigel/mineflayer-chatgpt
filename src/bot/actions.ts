@@ -455,7 +455,13 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
     // A floater 3 blocks up is worth a short climb; one 10 blocks up is not
     // worth a tower to fall off. Digging still reaches anything at or below
     // head height, so most salvage value survives the cap.
-    const MAX_CLIMB = 4;
+    // 8, not 4. A cap of 4 skipped 190 floaters against 15 salvaged — 93% of
+    // opportunities — so bots ate the low remnants and then starved, with empty
+    // gathers (81) overtaking successes (58) and deposits halving. Fall damage
+    // is 0.5 hearts per block above 3, so an 8-block drop costs ~2.5 of 10
+    // hearts. Height alone was never the hazard: coming off the pillar is, and
+    // that is handled by the deliberate descent below.
+    const MAX_CLIMB = 8;
     const reachable = floaters.filter((f) => f.y - bot.entity.position.y <= MAX_CLIMB);
     const skippedHigh = floaters.length - reachable.length;
     if (skippedHigh > 0) {
@@ -464,6 +470,8 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
 
     for (const fpos of reachable.slice(0, 3)) {
       if (Date.now() - gatherStart > 100000) break;
+      // Ground level before any towering, so the descent below knows where home is.
+      const groundY = bot.entity.position.y;
       try {
         // Towers allowed so the bot can build up to a hovering trunk. baseMoves
         // keeps maxDropDown=3 and parkour off, so climbing stays fall-safe.
@@ -483,6 +491,16 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
         }
         if (felled > 0) {
           console.log(`[GatherDebug] salvaged ${felled} floating logs at (${fpos.x},${fpos.y},${fpos.z})`);
+
+          // Come down deliberately. Towering leaves the bot standing on a 1x1
+          // pillar it just built, and stepping off that is the plausible source
+          // of the fall deaths this pass was blamed for. safeMoves caps drops at
+          // 3 and forbids parkour, so this routes down instead of falling off.
+          if (bot.entity.position.y > groundY + 2) {
+            bot.pathfinder.setMovements(safeMoves(bot));
+            await safeGoto(bot, new goals.GoalY(Math.floor(groundY)), 10000).catch(() => {});
+          }
+
           await collectNearbyDrops(bot, 6);
         }
       } catch {
