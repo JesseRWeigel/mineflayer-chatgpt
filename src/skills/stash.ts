@@ -756,30 +756,65 @@ async function placeChestNearStash(
     return null;
   }
 
-  // Nearest first — every attempt costs a walk, so try the cheap ones.
+  // Nearest first — every attempt costs a walk, so try the cheap ones first.
   const from = bot.entity.position;
   spots.sort((a, b) => a.distanceTo(from) - b.distanceTo(from));
 
-  for (const base of spots.slice(0, 8)) {
+  // ...but do not spend every attempt in one pocket. Trying the 8 nearest spots
+  // meant 8 ADJACENT spots, which fail for the same reason, so expansion died
+  // with "Found 342 open spots but every placement attempt failed" while 340
+  // untried alternatives sat there. Nearest-first is right for cost and wrong
+  // for diversity when failures are spatially correlated.
+  //
+  // Take a handful of close spots, then sample across the rest so later
+  // attempts land in genuinely different areas.
+  const attemptSpots = spots.slice(0, 5);
+  const remainder = spots.slice(5);
+  const stride = Math.max(1, Math.floor(remainder.length / 12));
+  for (let i = 0; i < remainder.length && attemptSpots.length < 17; i += stride) {
+    attemptSpots.push(remainder[i]);
+  }
+
+  // Bounded overall: more chances, but the pair of gotos must stay inside the
+  // action watchdog, so the per-attempt timeout drops as the count rises.
+  const attemptStart = Date.now();
+  let attempts = 0;
+  let lastErr = "no attempts made";
+
+  for (const base of attemptSpots) {
+    if (Date.now() - attemptStart > 45000) {
+      lastErr = "time budget exhausted";
+      break;
+    }
+    attempts++;
     try {
-      await safeGoto(bot, new goals.GoalNear(base.x, base.y, base.z, 2), 15000);
+      await safeGoto(bot, new goals.GoalNear(base.x, base.y, base.z, 2), 8000);
       await bot.equip(chestItem, "hand");
       const ground = bot.blockAt(base.offset(0, -1, 0));
-      if (!ground) continue;
+      if (!ground) {
+        lastErr = "ground block vanished before placing";
+        continue;
+      }
       await Promise.race([
         bot.placeBlock(ground, new Vec3(0, 1, 0)),
         new Promise<void>((_, rej) => setTimeout(() => rej(new Error("place timeout")), 5000)),
       ]);
       const placed = bot.findBlock({ matching: (b) => b.name === "chest", maxDistance: 4 });
       if (placed) {
-        console.log(`[Stash] Expanded: placed a new chest at ${placed.position}`);
+        console.log(`[Stash] Expanded: placed a new chest at ${placed.position} (attempt ${attempts})`);
         return placed;
       }
-    } catch {
+      lastErr = "placeBlock resolved but no chest appeared";
+    } catch (err) {
+      // Capture the reason: the old silent catch is why "every placement
+      // attempt failed" could not be acted on without another round of guessing.
+      lastErr = (err as Error).message;
       continue;
     }
   }
 
-  console.log(`[Stash] Found ${spots.length} open spots but every placement attempt failed`);
+  console.log(
+    `[Stash] ${spots.length} open spots, ${attempts} attempts across the ring, all failed. Last error: ${lastErr}`,
+  );
   return null;
 }
