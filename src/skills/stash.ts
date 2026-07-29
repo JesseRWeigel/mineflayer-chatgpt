@@ -798,9 +798,29 @@ async function placeChestNearStash(
       // is not the cheap one we sorted for anyway.
       await safeGoto(bot, new goals.GoalNear(base.x, base.y, base.z, 2), 5000);
       await bot.equip(chestItem, "hand");
+
+      // A bot standing IN the target cannot place a block at its own feet, and
+      // the doomed placeBlock burns the whole 5s timeout. GoalNear(base, 2)
+      // permits arriving at distance 0, and the spot was validated as air
+      // BEFORE walking there: the bot is what fills it. 35 of 61 placement
+      // failures were "place timeout", and skipping a doomed attempt reclaims
+      // enough budget for roughly one extra real one.
+      const feet = bot.entity.position.floored();
+      if (feet.x === base.x && feet.z === base.z && Math.abs(feet.y - base.y) <= 1) {
+        lastErr = "bot ended up standing in the target spot";
+        continue;
+      }
+
       const ground = bot.blockAt(base.offset(0, -1, 0));
       if (!ground) {
         lastErr = "ground block vanished before placing";
+        continue;
+      }
+      // Re-verify the spot is still empty: another bot may have filled it while
+      // this one walked over.
+      const target = bot.blockAt(base);
+      if (target && target.name !== "air") {
+        lastErr = `spot taken by ${target.name} before placing`;
         continue;
       }
       await Promise.race([
