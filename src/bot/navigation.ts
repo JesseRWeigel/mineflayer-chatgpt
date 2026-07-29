@@ -269,6 +269,20 @@ export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
     }
   }
 
+  // Drowning is 32% of all deaths and this rescue leaves no trace, so there is
+  // no way to tell which of three things is happening: it never fires, it fires
+  // but finds no shore within 8 blocks, or it fires and loses the tug-of-war
+  // with the pathfinder (documented above: Blade drowned 16x while being
+  // rescued and shoved back under). Logged only when air is actually dropping,
+  // since this runs on a 3s timer per bot.
+  if (air < 16) {
+    const s = shore?.position;
+    console.log(
+      `[Drown] ${bot.username} air=${air} at (${base.x},${base.y},${base.z}) ` +
+        `shore=${s ? `${s.x},${s.y},${s.z}` : "NONE"} pathfinderStopped=${air < 12}`,
+    );
+  }
+
   try {
     bot.setControlState("jump", true); // swim upward toward the surface for air
     if (shore && shore.position) {
