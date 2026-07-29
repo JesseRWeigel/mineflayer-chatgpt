@@ -16,7 +16,12 @@ cd "$(dirname "$0")/.." || exit 1
 ALERTS=()
 
 # ── Process ────────────────────────────────────────────────────────────────
-WORKER=$(ps -eo pid,args | grep "tsx/dist/loader.mjs src/index.ts" | grep -v grep | awk '{print $1}' | head -1)
+# Match the two identifying strings INDEPENDENTLY, not adjacently. The old
+# pattern required "tsx/dist/loader.mjs src/index.ts" side by side, so adding
+# --max-old-space-size to the start script inserted a flag between them and the
+# monitor reported SWARM=down while the swarm ran normally. Coupling detection
+# to argument ORDER means any future flag breaks it the same way.
+WORKER=$(ps -eo pid,args | grep "tsx/dist/loader.mjs" | grep "src/index.ts" | grep -v grep | awk '{print $1}' | head -1)
 
 if [[ -z "$WORKER" ]]; then
   echo "SWARM=down"
