@@ -917,6 +917,22 @@ async function placeChestNearStash(
       }
       lastErr = "placeBlock resolved but no chest appeared";
     } catch (err) {
+      // Verify against the WORLD before believing the failure.
+      //
+      // placeBlock settles by waiting for a block-update packet. If the server
+      // places the chest and the client misses that packet, the promise never
+      // resolves and we report a timeout for a placement that actually worked,
+      // then throw away a chest we already spent.
+      //
+      // Every other hypothesis is dead: the failures log dist=1.7-3.1 (inside
+      // the ~4.5 reach), sight=visible, held=chest, grounded, and they persist
+      // after the chest-neighbour filter. Checking the world costs nothing and
+      // is more trustworthy than the API's promise either way.
+      const landed = bot.blockAt(base);
+      if (landed?.name.includes("chest")) {
+        console.log(`[Stash] Expanded: chest at ${base} landed despite "${(err as Error).message}"`);
+        return landed;
+      }
       // Capture the reason: the old silent catch is why "every placement
       // attempt failed" could not be acted on without another round of guessing.
       lastErr = (err as Error).message;
