@@ -283,6 +283,30 @@ export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
     );
   }
 
+  // DIG OUT when enclosed. Instrumentation showed the rescue firing correctly,
+  // finding a shore every time, stopping the pathfinder, and the bot drowning
+  // anyway: air 8 -> 9 -> 5 -> 0 while its position moved one block, at y=15.
+  //
+  // That is a flooded cave passage, not a lake. The shore scan accepts any
+  // solid block with air above within 8 blocks and never checks reachability,
+  // so it picked a spot 4 blocks away THROUGH SOLID ROCK. Swimming and jumping
+  // at a stone ceiling does nothing, which is why the rescue could work exactly
+  // as written and still be useless.
+  //
+  // A player in that spot digs up. The bots carry pickaxes, so give them the
+  // same move once air is genuinely short.
+  if (air < 10) {
+    const ceiling = bot.blockAt(bot.entity.position.offset(0, 2, 0));
+    if (ceiling && ceiling.boundingBox === "block" && ceiling.name !== "bedrock") {
+      try {
+        console.log(`[Drown] ${bot.username} enclosed at air=${air} — digging up through ${ceiling.name}`);
+        await bot.dig(ceiling);
+      } catch {
+        /* couldn't dig (no tool, or interrupted) — fall through to swimming */
+      }
+    }
+  }
+
   try {
     bot.setControlState("jump", true); // swim upward toward the surface for air
     if (shore && shore.position) {
