@@ -852,7 +852,19 @@ async function placeChestNearStash(
             const d = bot.entity.position.distanceTo(ground.position);
             const standingOn =
               bot.entity.position.floored().equals(ground.position.offset(0, 1, 0)) ? " standingOnGround" : "";
-            rej(new Error(`place timeout (dist=${d.toFixed(1)}${standingOn})`));
+            // Reach and footing are already ruled out: every failure landed at
+            // 1.7-3.1 blocks, well inside the ~4.5 limit, with no standingOn.
+            // Two hypotheses remain. The chest ring is now dense enough that
+            // line of sight to the reference face may be blocked, and bots work
+            // beside the farm water where placement can fail outright.
+            let sight = "?";
+            try {
+              sight = bot.canSeeBlock(ground) ? "visible" : "BLOCKED";
+            } catch {
+              /* helper unavailable on this build */
+            }
+            const feetBlock = bot.blockAt(bot.entity.position)?.name ?? "?";
+            rej(new Error(`place timeout (dist=${d.toFixed(1)}${standingOn} sight=${sight} in=${feetBlock})`));
           }, 5000);
         }),
       ]);
