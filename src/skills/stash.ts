@@ -830,9 +830,31 @@ async function placeChestNearStash(
         lastErr = `spot taken by ${target.name} before placing`;
         continue;
       }
+      // Look at the block first. placeBlock does this internally, but doing it
+      // explicitly and letting it settle avoids racing the server's view of
+      // where the bot is facing.
+      try {
+        await bot.lookAt(ground.position.offset(0.5, 1, 0.5));
+      } catch {
+        /* not fatal — placeBlock will try on its own */
+      }
+
       await Promise.race([
         bot.placeBlock(ground, new Vec3(0, 1, 0)),
-        new Promise<void>((_, rej) => setTimeout(() => rej(new Error("place timeout")), 5000)),
+        new Promise<void>((_, rej) => {
+          setTimeout(() => {
+            // "place timeout" returned as the dominant failure (28 of 46) even
+            // after the standing-in-spot fix removed one cause of it, and
+            // "bot ended up standing in the target spot" never appears now. So
+            // a DIFFERENT cause produces the same symptom, and the error string
+            // cannot tell them apart. Record reach and footing: placeBlock needs
+            // the reference block within ~4.5 blocks.
+            const d = bot.entity.position.distanceTo(ground.position);
+            const standingOn =
+              bot.entity.position.floored().equals(ground.position.offset(0, 1, 0)) ? " standingOnGround" : "";
+            rej(new Error(`place timeout (dist=${d.toFixed(1)}${standingOn})`));
+          }, 5000);
+        }),
       ]);
       const placed = bot.findBlock({ matching: (b) => b.name === "chest", maxDistance: 4 });
       if (placed) {
