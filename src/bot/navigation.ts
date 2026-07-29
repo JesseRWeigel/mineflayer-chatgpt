@@ -225,6 +225,39 @@ export async function digOutIfStuck(bot: Bot): Promise<boolean> {
  * is the bot's own swimming — self-preservation, not a cheat. Called on a fast
  * timer from the brain. Returns true if it took rescue action.
  */
+/**
+ * Blocks the drowning escape must never dig through.
+ *
+ * The first time the dig-out fired it logged "digging up through chest": a bot
+ * destroyed team storage to save itself, scattering whatever was banked in it.
+ * A drowning costs one respawn; a broken stash chest can scatter hundreds of
+ * items the team spent hours gathering. Bedrock is here because it cannot be
+ * broken at all and the attempt just wastes the remaining air.
+ */
+const PRECIOUS_BLOCKS = [
+  "chest",
+  "barrel",
+  "shulker",
+  "furnace",
+  "smoker",
+  "blast_furnace",
+  "crafting_table",
+  "brewing_stand",
+  "enchanting_table",
+  "anvil",
+  "bed",
+  "hopper",
+  "dispenser",
+  "dropper",
+  "beacon",
+  "bedrock",
+  "spawner",
+];
+
+function isPreciousBlock(name: string): boolean {
+  return PRECIOUS_BLOCKS.some((p) => name.includes(p));
+}
+
 export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
   const head = bot.blockAt(bot.entity.position.offset(0, 1, 0));
   if (!head || head.name !== "water") return false; // head not submerged → breathing fine
@@ -297,13 +330,15 @@ export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
   // same move once air is genuinely short.
   if (air < 10) {
     const ceiling = bot.blockAt(bot.entity.position.offset(0, 2, 0));
-    if (ceiling && ceiling.boundingBox === "block" && ceiling.name !== "bedrock") {
+    if (ceiling && ceiling.boundingBox === "block" && !isPreciousBlock(ceiling.name)) {
       try {
         console.log(`[Drown] ${bot.username} enclosed at air=${air} — digging up through ${ceiling.name}`);
         await bot.dig(ceiling);
       } catch {
         /* couldn't dig (no tool, or interrupted) — fall through to swimming */
       }
+    } else if (ceiling && isPreciousBlock(ceiling.name)) {
+      console.log(`[Drown] ${bot.username} enclosed at air=${air} but ceiling is ${ceiling.name} — will not dig it`);
     }
   }
 

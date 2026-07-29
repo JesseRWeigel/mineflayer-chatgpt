@@ -65,3 +65,21 @@ test("safeMoves and explorerMoves derive from baseMoves", () => {
     assert.match(body.slice(0, 300), /baseMoves\(bot\)/, `${fn} should build on baseMoves`);
   }
 });
+
+// Regression: the drowning dig-out escape fired and logged "digging up through
+// chest" — a bot destroyed team storage to save itself, scattering whatever was
+// banked in it. A drowning costs one respawn; a broken stash chest can scatter
+// hundreds of items the team spent hours gathering.
+test("drowning escape refuses to dig through valuable blocks", () => {
+  const source = fs.readFileSync(path.join(SRC, "bot", "navigation.ts"), "utf8");
+
+  // The guard must exist and cover storage, workstations and unbreakable blocks.
+  for (const name of ["chest", "barrel", "furnace", "crafting_table", "bed", "bedrock", "shulker"]) {
+    assert.match(source, new RegExp(`"${name}"`), `PRECIOUS_BLOCKS is missing "${name}"`);
+  }
+
+  // The dig call must be gated on that check, not on a bare boundingBox test.
+  const digBlock = source.slice(source.indexOf("if (air < 10)"), source.indexOf("if (air < 10)") + 600);
+  assert.match(digBlock, /isPreciousBlock\(/, "dig-out must consult isPreciousBlock before digging");
+  assert.match(digBlock, /bot\.dig\(/, "dig-out should still dig when the ceiling is ordinary");
+});
