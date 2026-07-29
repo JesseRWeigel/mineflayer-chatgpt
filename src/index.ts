@@ -235,6 +235,18 @@ setInterval(() => {
  *
  * Losing one skill invocation is far cheaper than losing the process: a crash
  * costs every bot its session and drops the swarm until the next hourly check.
+ *
+ * KNOWN LIMITATION, proven by the third crash: this fired zero times while the
+ * heap went from 173MB to 4,081MB. setInterval cannot preempt synchronous code,
+ * so a tight allocation loop that never yields keeps the timer from ever
+ * running. This guard can only catch a spike that happens ACROSS awaits, which
+ * so far is not the failure mode. The real mitigation is heap headroom via
+ * --max-old-space-size in package.json; this stays as a slow-leak backstop and
+ * for naming the active skill when it does get a chance to run.
+ *
+ * All three crashes so far occurred during a crafting operation (craftFurnace,
+ * craftWoodenPlanksFromAvailableLogs, and deposit_stash's chest craft), so
+ * bot.craft / bot.recipesFor is the current lead.
  */
 const HEAP_GUARD_MS = 2_000;
 const HEAP_ABORT_MB = 1500;
