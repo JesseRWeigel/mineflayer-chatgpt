@@ -695,6 +695,17 @@ async function openNewChest(bot: Bot, placed: NonNullable<ReturnType<Bot["blockA
   throw new Error("openNewChest exhausted retries");
 }
 
+/**
+ * Horizontal neighbours of a candidate spot. A chest in any of these would pair
+ * into a double chest, and an already-paired chest silently rejects placement.
+ */
+export const CHEST_NEIGHBOUR_OFFSETS: Array<[number, number]> = [
+  [1, 0],
+  [-1, 0],
+  [0, 1],
+  [0, -1],
+];
+
 /** Leave breathing room around the stash rows before placing anything. */
 export const CHEST_MIN_RING = 3;
 export const CHEST_MAX_RING = 16;
@@ -748,6 +759,24 @@ async function placeChestNearStash(
     if (!ground || ground.boundingBox !== "block") continue;
     if (!target || target.name !== "air") continue;
     if (!above || above.name !== "air") continue;
+
+    // Reject spots touching an existing chest.
+    //
+    // Placing a chest beside another forms a double chest, and a chest already
+    // paired into a double CANNOT accept a third: the server rejects the
+    // placement silently, so placeBlock never resolves and burns its timeout.
+    // That is what the diagnostic caught — 11 of 14 failures had the bot
+    // standing among chests with the target in reach and in plain sight
+    // (sight=visible in=chest).
+    //
+    // It also explains why expansion decayed as the ring filled: every chest
+    // placed makes its neighbours unplaceable, so the scatter that fixed
+    // placement eventually created the density that defeats it. With 328 open
+    // spots available, insisting on an isolated one is cheap.
+    if (CHEST_NEIGHBOUR_OFFSETS.some((o) => bot.blockAt(base.offset(o[0], 0, o[1]))?.name.includes("chest"))) {
+      continue;
+    }
+
     spots.push(base);
   }
 

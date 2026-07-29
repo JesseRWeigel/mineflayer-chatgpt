@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { chestPlacementOffsets, CHEST_MIN_RING, CHEST_MAX_RING } from "./stash.js";
+import { chestPlacementOffsets, CHEST_MIN_RING, CHEST_MAX_RING, CHEST_NEIGHBOUR_OFFSETS } from "./stash.js";
 
 // Regression: the original scan walked dx 10..16 with dz -2..2, which is a 7x5
 // strip on the +X side of the stash only. Once that strip filled with base
@@ -68,4 +68,24 @@ test("placement search allows slight vertical tolerance for uneven ground", () =
 
   assert.ok(ys.has(0));
   assert.ok(ys.has(1) || ys.has(-1), "no vertical tolerance for uneven terrain");
+});
+
+// Regression: chest placement decayed to 10% success as the stash ring filled.
+// The diagnostic showed 11 of 14 failures with the target in reach and in plain
+// sight (sight=visible in=chest) — the bot standing among a dense chest cluster.
+// Placing beside an existing chest forms a double chest, and a chest already
+// paired into a double silently rejects the placement, so placeBlock never
+// resolves. Candidate spots must therefore avoid chest neighbours.
+test("chest neighbour offsets cover all four horizontal directions", () => {
+  const dirs = CHEST_NEIGHBOUR_OFFSETS;
+
+  assert.equal(dirs.length, 4, "a chest pairs horizontally in exactly four directions");
+  assert.ok(dirs.some(([dx, dz]) => dx === 1 && dz === 0));
+  assert.ok(dirs.some(([dx, dz]) => dx === -1 && dz === 0));
+  assert.ok(dirs.some(([dx, dz]) => dx === 0 && dz === 1));
+  assert.ok(dirs.some(([dx, dz]) => dx === 0 && dz === -1));
+
+  // Diagonals do NOT pair into a double chest, so excluding them would
+  // needlessly discard valid spots.
+  assert.ok(!dirs.some(([dx, dz]) => dx !== 0 && dz !== 0), "diagonals do not form double chests");
 });
