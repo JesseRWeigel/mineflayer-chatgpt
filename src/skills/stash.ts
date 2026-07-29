@@ -768,11 +768,18 @@ async function placeChestNearStash(
   //
   // Take a handful of close spots, then sample across the rest so later
   // attempts land in genuinely different areas.
+  //
+  // Sample across the NEARER HALF only. Sampling the whole remainder reached
+  // ring-16 spots that cannot be walked to inside the 5s per-attempt budget, so
+  // once place-timeout was fixed, navigation timeouts became the dominant
+  // failure (15 of 23) with 327 open spots available. Diversity and
+  // reachability pull against each other; keep diversity WITHIN what is
+  // reachable rather than trading one for the other.
   const attemptSpots = spots.slice(0, 5);
-  const remainder = spots.slice(5);
-  const stride = Math.max(1, Math.floor(remainder.length / 12));
-  for (let i = 0; i < remainder.length && attemptSpots.length < 17; i += stride) {
-    attemptSpots.push(remainder[i]);
+  const pool = spots.slice(5, Math.max(6, Math.ceil(spots.length / 2)));
+  const stride = Math.max(1, Math.floor(pool.length / 12));
+  for (let i = 0; i < pool.length && attemptSpots.length < 17; i += stride) {
+    attemptSpots.push(pool[i]);
   }
 
   // Bounded overall: more chances, but the pair of gotos must stay inside the
