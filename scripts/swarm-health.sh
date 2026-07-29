@@ -34,6 +34,25 @@ echo "RSS_MB=$RSS_MB"
 # Pre-fix the leak drove this to 3,286MB. Node settles well under 1.5GB.
 (( RSS_MB > 2000 )) && ALERTS+=("rss_high_${RSS_MB}mb")
 
+# Heap trend from the in-process watchdog. RSS alone missed an OOM crash: the
+# hourly check read 875MB and the heap hit Node's ~4GB ceiling twelve minutes
+# later. The last few samples show direction, which a single reading cannot.
+LOG_PEEK=$(readlink "/proc/$WORKER/fd/1" 2>/dev/null)
+if [[ -n "$LOG_PEEK" && -r "$LOG_PEEK" ]]; then
+  HEAP_TREND=$(grep -oE "\[Heap\] used=[0-9]+MB" "$LOG_PEEK" 2>/dev/null | tail -3 | grep -oE "[0-9]+" | tr '\n' ' ')
+  [[ -n "$HEAP_TREND" ]] && echo "HEAP_TREND_MB=${HEAP_TREND% }"
+  HEAP_LAST=$(grep -oE "\[Heap\] used=[0-9]+MB" "$LOG_PEEK" 2>/dev/null | tail -1 | grep -oE "[0-9]+")
+  # 3GB of a ~4GB ceiling leaves roughly one sampling interval to react.
+  [[ -n "$HEAP_LAST" ]] && (( HEAP_LAST > 3000 )) && ALERTS+=("heap_near_limit_${HEAP_LAST}mb")
+fi
+
+# A short uptime means the swarm restarted since the last check. The OOM crash
+# was only noticed because a background task reported exit 134; the health check
+# itself would have called a freshly respawned swarm healthy.
+UPTIME_RAW=$(ps -o etimes= -p "$WORKER" | tr -d ' ')
+if [[ -n "${PREV_UPTIME_SEEN:-}" ]]; then :; fi
+(( UPTIME_RAW < 900 )) && echo "RECENTLY_RESTARTED=yes (${UPTIME_RAW}s)"
+
 # ── Minecraft server ───────────────────────────────────────────────────────
 if pgrep -f "paper.jar" >/dev/null; then
   echo "SERVER=up"

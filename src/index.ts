@@ -187,6 +187,28 @@ async function main() {
   await Promise.all(loops);
 }
 
+/**
+ * Heap watchdog.
+ *
+ * The swarm died with "FATAL ERROR: Ineffective mark-compacts near heap limit"
+ * at 4081MB, Node's default ~4GB ceiling. The hourly health check had read
+ * RSS=875MB twelve minutes earlier, so the heap tripled in the gap: hourly
+ * sampling cannot see a balloon that fast, and the crash left no growth curve
+ * to diagnose from.
+ *
+ * Logs heap every 2 minutes so the next occurrence has a trend, and warns from
+ * 2GB so the log says "climbing" before it says "dead".
+ */
+const HEAP_LOG_MS = 120_000;
+const HEAP_WARN_MB = 2048;
+setInterval(() => {
+  const mb = (n: number) => Math.round(n / 1048576);
+  const { heapUsed, heapTotal, external, rss } = process.memoryUsage();
+  const line = `[Heap] used=${mb(heapUsed)}MB total=${mb(heapTotal)}MB ext=${mb(external)}MB rss=${mb(rss)}MB`;
+  if (mb(heapUsed) >= HEAP_WARN_MB) console.warn(`${line} — CLIMBING toward the ~4GB ceiling`);
+  else console.log(line);
+}, HEAP_LOG_MS).unref();
+
 main().catch((err) => {
   console.error("[Main] Fatal error:", err);
   process.exit(1);
