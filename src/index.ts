@@ -5,6 +5,11 @@ import { config } from "./config.js";
 import { loadDynamicSkills } from "./skills/dynamic-loader.js";
 import { BOT_ROSTER, BotRoleConfig } from "./bot/role.js";
 import { startUnifiedViewer } from "./stream/unified-viewer.js";
+import { abortActiveSkill, getActiveSkillName } from "./skills/executor.js";
+import type { Bot } from "mineflayer";
+
+/** Live bot handles, so the heap guard can abort a runaway skill. */
+const LIVE_BOTS = new Map<string, Bot>();
 
 loadDynamicSkills();
 
@@ -70,6 +75,10 @@ async function startBot(
     },
     roleConfig,
   );
+
+  // Register for the heap guard, which needs live bot handles to abort a
+  // runaway skill before it takes the whole process down.
+  LIVE_BOTS.set(roleConfig.name, bot);
 
   // Set up Twitch chat (Atlas only — Flora doesn't need her own chat connection)
   const twitch =
@@ -208,6 +217,52 @@ setInterval(() => {
   if (mb(heapUsed) >= HEAP_WARN_MB) console.warn(`${line} — CLIMBING toward the ~4GB ceiling`);
   else console.log(line);
 }, HEAP_LOG_MS).unref();
+
+/**
+ * Fast heap guard.
+ *
+ * Two OOM crashes now, and the 2-minute log showed the heap flat at ~190MB
+ * right up to the last sample before death at 4,081MB. So this is one runaway
+ * allocation, not growth: the 2GB warning never fired because there was nothing
+ * gradual to warn about. Sampling every two minutes cannot see it, and the
+ * existing skill watchdogs are time-based, so a skill that eats 4GB in seconds
+ * dies of OOM long before any timeout fires.
+ *
+ * A generated skill was mid-execution at BOTH crashes (craftFurnace, then
+ * craftWoodenPlanksFromAvailableLogs). Neither skill's source contains an
+ * unbounded loop, so that is correlation rather than proof — which is exactly
+ * why this aborts and names the skill instead of assuming one is guilty.
+ *
+ * Losing one skill invocation is far cheaper than losing the process: a crash
+ * costs every bot its session and drops the swarm until the next hourly check.
+ */
+const HEAP_GUARD_MS = 2_000;
+const HEAP_ABORT_MB = 1500;
+let heapGuardTripped = false;
+
+setInterval(() => {
+  const usedMb = Math.round(process.memoryUsage().heapUsed / 1048576);
+
+  if (usedMb < HEAP_ABORT_MB) {
+    heapGuardTripped = false;
+    return;
+  }
+  if (heapGuardTripped) return; // already acted this episode
+  heapGuardTripped = true;
+
+  console.error(`[HeapGuard] heapUsed=${usedMb}MB crossed ${HEAP_ABORT_MB}MB — aborting active skills`);
+  for (const [name, bot] of LIVE_BOTS) {
+    const skill = getActiveSkillName(bot);
+    if (skill) {
+      console.error(`[HeapGuard] aborting "${skill}" on ${name}`);
+      try {
+        abortActiveSkill(bot);
+      } catch {
+        /* best effort */
+      }
+    }
+  }
+}, HEAP_GUARD_MS).unref();
 
 main().catch((err) => {
   console.error("[Main] Fatal error:", err);
