@@ -893,7 +893,20 @@ async function placeChestNearStash(
               /* helper unavailable on this build */
             }
             const feetBlock = bot.blockAt(bot.entity.position)?.name ?? "?";
-            rej(new Error(`place timeout (dist=${d.toFixed(1)}${standingOn} sight=${sight} in=${feetBlock})`));
+            // The neighbour filter reduced place timeouts 15.5/hr to 9/hr but
+            // did not solve them, and in=chest turned out to describe the BOT's
+            // footing rather than the target's neighbours. One hypothesis is
+            // untested: an earlier failure logged "must be holding an item to
+            // place", so the equip may not be completing. Record what is
+            // actually in hand and whether the bot is airborne, since placing
+            // mid-fall off a chest would also fail.
+            const held = bot.heldItem?.name ?? "EMPTY";
+            const onGround = bot.entity.onGround ? "grounded" : "AIRBORNE";
+            rej(
+              new Error(
+                `place timeout (dist=${d.toFixed(1)}${standingOn} sight=${sight} in=${feetBlock} held=${held} ${onGround})`,
+              ),
+            );
           }, 5000);
         }),
       ]);
