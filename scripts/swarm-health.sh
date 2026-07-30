@@ -112,8 +112,23 @@ if [[ -n "$LOG" && -r "$LOG" ]]; then
     (( IDLE_PCT > 50 )) && ALERTS+=("idle_rate_${IDLE_PCT}pct")
   fi
 
-  (( TIMEOUTS > 10 )) && ALERTS+=("llm_timeouts_${TIMEOUTS}")
-  (( TTS_ERR > 50 )) && ALERTS+=("tts_errors_${TTS_ERR}")
+  # Rates, not totals — found by auditing every threshold after deaths_high
+  # misfired at 62 deaths across a 17h session. Both of these count matches in a
+  # log that only grows, so on a long enough run they false-positive too. They
+  # read 0 today; they were just waiting for the uptime.
+  #
+  # Reference points: the LLM timeout disaster ran ~1,400/hr, and the TTS socket
+  # leak produced constant errors. Healthy is zero for both.
+  if (( UPTIME_RAW > 3600 )); then
+    TIMEOUTS_PER_HR=$(( TIMEOUTS * 3600 / UPTIME_RAW ))
+    TTS_ERR_PER_HR=$(( TTS_ERR * 3600 / UPTIME_RAW ))
+    (( TIMEOUTS_PER_HR > 20 )) && ALERTS+=("llm_timeouts_${TIMEOUTS_PER_HR}_per_hr")
+    (( TTS_ERR_PER_HR > 30 )) && ALERTS+=("tts_errors_${TTS_ERR_PER_HR}_per_hr")
+  else
+    # Under an hour, a raw count is still the honest measure.
+    (( TIMEOUTS > 10 )) && ALERTS+=("llm_timeouts_${TIMEOUTS}")
+    (( TTS_ERR > 50 )) && ALERTS+=("tts_errors_${TTS_ERR}")
+  fi
 
   # Top actions, for the digest.
   echo -n "TOP_ACTIONS="
@@ -159,11 +174,23 @@ PY
     (( SESSION_ACTIONS > 2000 && DEPOSITS == 0 )) && ALERTS+=("no_deposits_in_${SESSION_ACTIONS}_actions")
   fi
 
-  # Fall damage was the top death cause; capped at every Movements site in
-  # 2db72c2. A single bot running away with the death count means it regressed.
+  # RATE, not total — the same lesson as the deposits alert, learned twice.
+  #
+  # This was "more than 60 deaths", which fired at 62 deaths across a 16h55m
+  # session. That is 3.7/hr, among the healthiest rates of the whole run, on a
+  # swarm with zero new drownings or falls that hour. An absolute threshold on a
+  # monotonically increasing counter is a guaranteed future false positive: it
+  # is only a question of how long the process runs.
+  #
+  # I converted the deposits alert to deltas earlier and did not audit the rest
+  # for the same flaw, so this one waited 17 hours to misfire.
+  #
+  # Observed range this run: 2-6/hr healthy, ~14/hr at the worst spike.
   DEATHS=$(sed -n 's/^DEATHS=//p' <<<"$STATS")
-  if [[ -n "${DEATHS:-}" && -n "${SESSION_ACTIONS:-}" ]]; then
-    (( SESSION_ACTIONS > 2000 && DEATHS > 60 )) && ALERTS+=("deaths_high_${DEATHS}")
+  if [[ -n "${DEATHS:-}" && -n "${UPTIME_RAW:-}" ]] && (( UPTIME_RAW > 3600 )); then
+    DEATHS_PER_HR=$(( DEATHS * 3600 / UPTIME_RAW ))
+    echo "DEATHS_PER_HR=$DEATHS_PER_HR"
+    (( DEATHS_PER_HR > 12 )) && ALERTS+=("death_rate_${DEATHS_PER_HR}_per_hr")
   fi
 
   # RATE, not total. Cumulative counters cannot see a stall: deposits sat at 9
