@@ -333,6 +333,31 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     // Pathfinder config
     bot.pathfinder.thinkTimeout = 10000;
 
+    // BOUND THE SEARCH. This is the fourth OOM crash's root cause.
+    //
+    // mineflayer-pathfinder defaults to searchRadius = -1, documented in the
+    // library as "don't limit the search", and nothing here ever set it. A*
+    // then expands in every direction with only a timer to stop it, while
+    // closedDataSet and openDataMap accumulate for the whole thinkTimeout.
+    // gatherWood raises that to 30s, so an unreachable target means 30 seconds
+    // of unbounded node growth.
+    //
+    // That is why raising the heap ceiling from 4GB to 8GB did not help: with no
+    // spatial bound the search simply fills whatever memory exists and dies at
+    // the new limit. The crash reached 8,185MB of an 8,192MB ceiling.
+    //
+    // It also explains the profile — heap flat at ~300MB, then instant death.
+    // Nothing accumulates until one pathfind targets somewhere unreachable, and
+    // that search never converges.
+    //
+    // 128 blocks comfortably covers base, farm, mine and the wood leash radius
+    // (200 blocks is the leash, but wood gathering re-homes bots before
+    // searching). A path needing more than this is one the bot should not be
+    // attempting in a single hop anyway.
+    // Cast: the bundled @types/mineflayer-pathfinder predates searchRadius, but
+    // the runtime reads it (index.js:41 sets the -1 default, :75 consumes it).
+    (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 128;
+
     // Auto-eat config
     bot.autoEat.opts = {
       priority: "foodPoints",
