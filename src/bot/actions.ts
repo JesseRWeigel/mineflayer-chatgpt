@@ -355,7 +355,11 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
       // Increase think timeout for long-distance pathing around lakes (default 10s is too short)
       // Also delay stall detection by 32s to match — stall fires only AFTER bot starts moving
       const prevThinkTimeout = bot.pathfinder.thinkTimeout;
-      bot.pathfinder.thinkTimeout = 30000;
+      // 12s, not 30s. thinkTimeout is how long a doomed A* search has to fill
+      // its bounded volume with nodes, and this was the largest such window in
+      // the codebase. Combined with searchRadius=64 it bounds both the extent
+      // and the duration of the worst case.
+      bot.pathfinder.thinkTimeout = 12000;
       // Y-floor guard: if pathfinder dives below Y=60 (lake bed) stop navigation to prevent drowning
       const Y_FLOOR = 60;
       const yGuard = setInterval(() => {

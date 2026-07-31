@@ -350,13 +350,21 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     // Nothing accumulates until one pathfind targets somewhere unreachable, and
     // that search never converges.
     //
-    // 128 blocks comfortably covers base, farm, mine and the wood leash radius
-    // (200 blocks is the leash, but wood gathering re-homes bots before
-    // searching). A path needing more than this is one the bot should not be
-    // attempting in a single hop anyway.
+    // 64, not 128. A* only exhausts its bound when the goal is UNREACHABLE,
+    // and then it explores the whole permitted volume. Node count scales with
+    // the cube of the radius, so 128 blocks is roughly 8.5M candidate positions
+    // (~850MB of nodes) per search, times five bots searching at once. That is
+    // why searchRadius=128 still OOMed at 8,184MB within minutes.
+    //
+    // I sized the first bound like a travel distance instead of a memory
+    // budget. 64 blocks covers base, farm and mine, and cuts the worst-case
+    // volume by 8x.
     // Cast: the bundled @types/mineflayer-pathfinder predates searchRadius, but
     // the runtime reads it (index.js:41 sets the -1 default, :75 consumes it).
-    (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 128;
+    (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 64;
+    console.log(
+      `[Pathfinder] ${roleConfig.name}: searchRadius=64 thinkTimeout=${bot.pathfinder.thinkTimeout}ms`,
+    );
 
     // Auto-eat config
     bot.autoEat.opts = {
