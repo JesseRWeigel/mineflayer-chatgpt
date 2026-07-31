@@ -344,10 +344,20 @@ export async function depositStash(
     const rowOffset = getRowOffset(category);
     const chestPos = new Vec3(stashPos.x + rowOffset, stashPos.y, stashPos.z);
 
-    // Find the nearest chest block near the expected position
+    // Find the nearest chest for this category.
+    //
+    // maxDistance was 6, which assumed the tidy original layout: one chest per
+    // category row at stashPos.x + 0/2/4/6. The placement-diversity fix
+    // (2277e3d) scatters new chests across rings 3-16 to avoid the double-chest
+    // rejection, so category lookups increasingly found nothing at the expected
+    // offset, counted the items as noChest, and reported "All stash chests are
+    // full" when the real problem was "no chest at this row offset".
+    //
+    // 18 covers the whole placement ring, so a scattered chest still serves its
+    // category. Nearest-first keeps the row grouping when the tidy chests exist.
     const chest = bot.findBlock({
       matching: (b) => b.name === "chest" || b.name === "trapped_chest",
-      maxDistance: 6,
+      maxDistance: 18,
       point: chestPos,
     });
 
@@ -553,7 +563,10 @@ export async function depositStash(
   }
 
   if (noChest > 0 && deposited === 0) {
-    return "All stash chests are full! Need more chests.";
+    // Say what actually happened. noChest counts items whose category had NO
+    // reachable chest, not full ones, and the old wording sent several rounds of
+    // work chasing chest supply when the stash had space but the lookup missed.
+    return `No reachable chest for ${noChest} carried item${noChest === 1 ? "" : "s"} — the stash may need expanding, or its chests are out of range.`;
   }
   if (noChest > 0) {
     return `Deposited ${deposited} items. ${noChest} items couldn't fit — stash needs expansion.`;
