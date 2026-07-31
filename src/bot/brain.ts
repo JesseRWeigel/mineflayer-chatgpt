@@ -229,9 +229,49 @@ export class BotBrain {
     armorTimer.unref?.();
 
     // 0b. Self-unstick: if boxed into a hole, dig out (own hands, not a TP).
-    // Skip while a skill runs (e.g. strip_mine intentionally digs down).
+    //
+    // This used to be gated on `!this.processing`, which disabled it exactly
+    // when it was needed. A bot trapped in a FAILING ACTION LOOP is never idle:
+    // Forge spent 1,181 consecutive deposit attempts stuck 18 blocks from the
+    // stash, every one logging "moved 0 on first goto", and the rescue could not
+    // run because the brain was always mid-action. 3,512 log lines from one bot
+    // going nowhere.
+    //
+    // Same defect as the drowning rescue that swam at a stone ceiling: the
+    // mechanism was fine, its precondition was wrong. The drown timer already
+    // solved this correctly by overriding mid-action when air is critical.
+    //
+    // Key on real immobility instead of perceived idleness. A skill that
+    // legitimately stays put (strip_mine digging down) still moves, so this does
+    // not fight normal work.
+    let lastMovePos = this.bot.entity?.position?.clone() ?? null;
+    let lastMoveAt = Date.now();
+    const STUCK_MS = 90_000;
+
     const unstickTimer = setInterval(() => {
-      if (!this.processing && !isSkillRunning(this.bot)) digOutIfStuck(this.bot).catch(() => {});
+      const pos = this.bot.entity?.position;
+      if (!pos) return;
+
+      if (!lastMovePos || pos.distanceTo(lastMovePos) > 2) {
+        lastMovePos = pos.clone();
+        lastMoveAt = Date.now();
+        return;
+      }
+
+      const stuckFor = Date.now() - lastMoveAt;
+      const idle = !this.processing && !isSkillRunning(this.bot);
+
+      // Idle bots get the original gentle treatment; genuinely immobile ones get
+      // rescued whatever they believe they are doing.
+      if (idle || stuckFor > STUCK_MS) {
+        if (stuckFor > STUCK_MS) {
+          console.log(
+            `[Unstick] ${this.roleConfig.name} has not moved in ${Math.round(stuckFor / 1000)}s — digging out mid-action`,
+          );
+          lastMoveAt = Date.now(); // don't re-fire every tick while it works
+        }
+        digOutIfStuck(this.bot).catch(() => {});
+      }
     }, 25_000);
     unstickTimer.unref?.();
 
