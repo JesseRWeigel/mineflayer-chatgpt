@@ -170,6 +170,8 @@ PY
   # session has done real work and still banked nothing.
   DEPOSITS=$(sed -n 's/^DEPOSITS=//p' <<<"$STATS")
   SESSION_ACTIONS=$(sed -n 's/^SESSION_ACTIONS=//p' <<<"$STATS")
+  ITEMS_NOW=$(sed -n 's/^ITEMS_DEPOSITED=//p' <<<"$STATS")
+  ITEMS_NOW=${ITEMS_NOW:-0}
   if [[ -n "${DEPOSITS:-}" && -n "${SESSION_ACTIONS:-}" ]]; then
     (( SESSION_ACTIONS > 2000 && DEPOSITS == 0 )) && ALERTS+=("no_deposits_in_${SESSION_ACTIONS}_actions")
   fi
@@ -198,7 +200,7 @@ PY
   # zero-deposits alert stayed quiet because 9 is not 0. Compare against the
   # previous run so a swarm that STOPS banking is caught even after a good start.
   STATE_FILE="${TMPDIR:-/tmp}/swarm-health-prev.txt"
-  PREV_SESSION=""; PREV_DEPOSITS=""; PREV_DEATHS=""; PREV_ACTIONS=""
+  PREV_SESSION=""; PREV_DEPOSITS=""; PREV_DEATHS=""; PREV_ACTIONS=""; PREV_ITEMS="0"
   [[ -r "$STATE_FILE" ]] && source "$STATE_FILE"
 
   SESSION_ID=$(basename "$SESSION" .json)
@@ -218,8 +220,16 @@ PY
     # large-but-not-lopsided spike reports healthy. Either signal alone is worth
     # a look, so they are now independent.
     (( DEATH_DELTA > 10 )) && ALERTS+=("death_spike_${DEATH_DELTA}_since_last")
-    (( DEATH_DELTA > 4 && DEPOSIT_DELTA > 0 && DEATH_DELTA > DEPOSIT_DELTA * 3 )) &&
-      ALERTS+=("deaths_outpacing_deposits_${DEATH_DELTA}v${DEPOSIT_DELTA}")
+    # Compare deaths against ITEMS banked, not deposit EVENTS.
+    #
+    # This fired deaths_outpacing_deposits_9v2 on an hour that banked 407 items.
+    # Deposit count varies with inventory-fill timing: two trips carrying 200
+    # items each is productive, and the old rule read it as failing. Events were
+    # a proxy; items are the outcome.
+    ITEM_DELTA=$(( ITEMS_NOW - PREV_ITEMS ))
+    echo "DELTA_ITEMS=$ITEM_DELTA"
+    (( DEATH_DELTA > 4 && ITEM_DELTA < 50 )) &&
+      ALERTS+=("dying_without_banking_${DEATH_DELTA}deaths_${ITEM_DELTA}items")
   fi
 
   cat > "$STATE_FILE" <<STATE
@@ -227,6 +237,7 @@ PREV_SESSION="$SESSION_ID"
 PREV_DEPOSITS="$DEPOSITS"
 PREV_DEATHS="$DEATHS"
 PREV_ACTIONS="$SESSION_ACTIONS"
+PREV_ITEMS="$ITEMS_NOW"
 STATE
 fi
 
