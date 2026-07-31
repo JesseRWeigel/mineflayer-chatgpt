@@ -350,20 +350,30 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     // Nothing accumulates until one pathfind targets somewhere unreachable, and
     // that search never converges.
     //
-    // 64, not 128. A* only exhausts its bound when the goal is UNREACHABLE,
+    // 96. The progression here was measured, not guessed:
+    //   128  OOMed at 8,184MB within minutes (volume ~8.5M positions)
+    //    64  memory solved (heap max 285MB) but starved navigation:
+    //        ACTION_SUCCESS_PCT 63 -> 38, "No path to the goal" 15/hr -> 80/hr,
+    //        stuck 15/hr -> 166/hr, items 300/hr -> 154/hr
+    //    96  ~3.4x the node budget of 64, so roughly 970MB worst case against
+    //        an 8GB ceiling, while restoring reach for bots that explore ~119
+    //        blocks per hop against a 200-block wood leash.
+    //
+    // A* only exhausts its bound when the goal is UNREACHABLE,
     // and then it explores the whole permitted volume. Node count scales with
     // the cube of the radius, so 128 blocks is roughly 8.5M candidate positions
     // (~850MB of nodes) per search, times five bots searching at once. That is
     // why searchRadius=128 still OOMed at 8,184MB within minutes.
     //
     // I sized the first bound like a travel distance instead of a memory
-    // budget. 64 blocks covers base, farm and mine, and cuts the worst-case
-    // volume by 8x.
+    // budget, then over-corrected into one too tight to navigate with. Node
+    // count scales with the cube of radius, so the safe window is wide: 96 buys
+    // back reach at a fraction of the ceiling.
     // Cast: the bundled @types/mineflayer-pathfinder predates searchRadius, but
     // the runtime reads it (index.js:41 sets the -1 default, :75 consumes it).
-    (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 64;
+    (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 96;
     console.log(
-      `[Pathfinder] ${roleConfig.name}: searchRadius=64 thinkTimeout=${bot.pathfinder.thinkTimeout}ms`,
+      `[Pathfinder] ${roleConfig.name}: searchRadius=96 thinkTimeout=${bot.pathfinder.thinkTimeout}ms`,
     );
 
     // Auto-eat config
