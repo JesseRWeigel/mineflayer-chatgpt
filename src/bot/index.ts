@@ -286,6 +286,21 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   });
 
   // Death
+  //
+  // RESPAWN-LOOP BREAKER. Spawn safety runs once at connect and sets
+  // /spawnpoint wherever the bot lands. Nothing re-validates it afterwards, so a
+  // bot that dies while on a ledge or self-built pillar gets that spot as its
+  // PERMANENT respawn point — and then respawns into the same fatal drop
+  // forever. Mason did exactly this: 55 falls in one hour, 58 of the swarm's 95
+  // deaths, every one "fell from a high place. Respawning...".
+  //
+  // The loop is self-reinforcing and cannot break on its own, so detect it by
+  // repetition and clear the spawnpoint back to a safe landing.
+  let recentDeaths: number[] = [];
+  let respawnFixing = false;
+  const LOOP_WINDOW_MS = 180_000;
+  const LOOP_THRESHOLD = 4;
+
   bot.on("death", () => {
     const pos = bot.entity.position;
     const cause = lastDeathMessage || "unknown";
@@ -294,6 +309,27 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     console.log(`[Bot] I died! Cause: ${cause}. Respawning...`);
     lastDeathMessage = "";
     abortActiveSkill(bot);
+
+    const now = Date.now();
+    recentDeaths = recentDeaths.filter((t) => now - t < LOOP_WINDOW_MS);
+    recentDeaths.push(now);
+
+    if (recentDeaths.length >= LOOP_THRESHOLD && !respawnFixing) {
+      respawnFixing = true;
+      console.warn(
+        `[Bot] ${roleConfig.name} died ${recentDeaths.length}x in ${LOOP_WINDOW_MS / 1000}s — respawn point looks lethal, resetting it`,
+      );
+      recentDeaths = [];
+      // Re-run the same landing routine used at connect: spreadplayers to a
+      // topmost safe block, then set the spawnpoint where it actually lands.
+      setTimeout(() => {
+        runSpawnSafety()
+          .catch((e) => console.warn(`[Bot] respawn reset failed:`, e))
+          .finally(() => {
+            respawnFixing = false;
+          });
+      }, 2000);
+    }
   });
 
   // Kicked
