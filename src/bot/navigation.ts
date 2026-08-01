@@ -254,7 +254,7 @@ const PRECIOUS_BLOCKS = [
   "spawner",
 ];
 
-function isPreciousBlock(name: string): boolean {
+export function isPreciousBlock(name: string): boolean {
   return PRECIOUS_BLOCKS.some((p) => name.includes(p));
 }
 

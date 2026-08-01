@@ -7,11 +7,75 @@ import { snapshotChest } from "./stash-ledger.js";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import { safeGoto } from "../bot/actions.js";
-import { baseMoves, safeMoves } from "../bot/navigation.js";
+import { baseMoves, safeMoves, isPreciousBlock } from "../bot/navigation.js";
 
 /** bot.openContainer with a hard timeout — a chest GUI that never opens (block
  *  not truly reachable/loaded) otherwise blocks forever, hanging the calling
  *  skill to the 240s watchdog. Fail fast (10s) so the skill recovers. */
+/** Which held tool breaks this block fastest, if the bot has one.
+ *
+ *  Deliberately tiny: the only blocks this has to handle are what bots stack on
+ *  their own stash — cobblestone, planks, stairs, dirt. Returns the best material
+ *  available rather than the best that exists, so a bot with only a wooden
+ *  pickaxe still gets it equipped. */
+const TOOL_MATERIALS = ["netherite", "diamond", "iron", "stone", "golden", "wooden"];
+
+export function bestToolFor(blockName: string, inventory: string[]): string | null {
+  const kind = /(stone|cobble|ore|brick|concrete|deepslate|tuff|andesite|diorite|granite|furnace)/.test(blockName)
+    ? "pickaxe"
+    : /(log|planks|stairs|fence|door|wood|plank)/.test(blockName)
+      ? "axe"
+      : /(dirt|sand|gravel|grass_block|clay|soul)/.test(blockName)
+        ? "shovel"
+        : null;
+  if (!kind) return null;
+  for (const mat of TOOL_MATERIALS) {
+    const want = `${mat}_${kind}`;
+    if (inventory.includes(want)) return want;
+  }
+  return null;
+}
+
+/** Break the one block sitting on a chest so it can be opened.
+ *
+ *  Called BEFORE opening rather than after a failure: an obstructed chest costs a
+ *  full 10s openContainer timeout to discover, and with several categories per
+ *  deposit that alone approached the action watchdog. Checking a single block is
+ *  free by comparison.
+ *
+ *  Deliberately narrow — only the block directly above, only when it is safe to
+ *  break, and no retry. This gives the bots the capability to unseal storage they
+ *  built over themselves; it is not a general excavation licence. */
+async function clearChestRoof(bot: Bot, chestPos: Vec3): Promise<boolean> {
+  const above = bot.blockAt(chestPos.offset(0, 1, 0));
+  if (!above || !canClearObstruction(above.name)) return false;
+  // Hand-breaking cobblestone takes ~11s, which would just relocate the stall
+  // that this whole change exists to remove. mineflayer-tool is not loaded on
+  // this bot, so pick the tool directly.
+  const tool = bestToolFor(
+    above.name,
+    bot.inventory.items().map((i) => i.name),
+  );
+  if (tool) {
+    const held = bot.inventory.items().find((i) => i.name === tool);
+    if (held) {
+      try {
+        await bot.equip(held, "hand");
+      } catch {
+        /* equip races the deposit loop occasionally — digging by hand still works */
+      }
+    }
+  }
+  try {
+    await bot.dig(above);
+    console.log(`[Stash] Cleared ${above.name} off the chest at ${chestPos}`);
+    return true;
+  } catch (err) {
+    console.log(`[Stash] Could not clear ${above.name} off chest at ${chestPos}: ${(err as Error).message}`);
+    return false;
+  }
+}
+
 async function openContainerTimed(bot: Bot, block: Parameters<Bot["openContainer"]>[0]) {
   return (await Promise.race([
     bot.openContainer(block),
@@ -138,6 +202,66 @@ const FAILURE_WORDING: Record<DepositFailure, string> = {
   chest_unreachable: "couldn't walk to the chest",
   chest_open_failed: "the chest wouldn't open",
 };
+
+/** Does this block, sitting directly on top of a chest, stop the chest opening?
+ *
+ *  Minecraft refuses to open a chest with an opaque block above it. Measured over
+ *  78 attributed deposit failures: 47 had cobblestone above, 30 oak_planks, and
+ *  exactly 1 had air. The bots had built over their own stash (oak_stairs and
+ *  oak_fence show up in the side neighbours), sealing the chests they then could
+ *  not deposit into. One obstruction produced both attributed causes — the GUI
+ *  never opens, and a buried chest has no standable neighbour to path to.
+ *
+ *  Non-solid blocks are listed rather than derived because minecraft-data's
+ *  boundingBox is not loaded on this path, and the list only has to cover what
+ *  actually lands on a chest. Anything unknown is treated as obstructing, which
+ *  errs toward clearing rather than toward another silent 10s timeout. */
+const NON_OBSTRUCTING = [
+  "air",
+  "water",
+  "torch",
+  "lantern",
+  "rail",
+  "carpet",
+  "pressure_plate",
+  "button",
+  "sign",
+  "banner",
+  "vine",
+  "ladder",
+  "tripwire",
+  "redstone_wire",
+  "repeater",
+  "comparator",
+  "short_grass",
+  "tall_grass",
+  "fern",
+  "dead_bush",
+  "sapling",
+  "poppy",
+  "dandelion",
+  "wheat",
+];
+
+/** Match on name tokens, not substrings. `oak_stairs` contains "air", so a plain
+ *  includes() classified a stairs block as open sky and skipped the dig — caught
+ *  by the test below before it shipped. Bare "grass" and "snow" are absent for the
+ *  same reason: they would swallow the solid grass_block and snow_block. */
+function hasToken(name: string, token: string): boolean {
+  return name === token || name.startsWith(`${token}_`) || name.endsWith(`_${token}`) || name.includes(`_${token}_`);
+}
+
+export function obstructsChest(blockName: string | undefined | null): boolean {
+  if (!blockName) return false; // unloaded chunk — nothing to act on
+  return !NON_OBSTRUCTING.some((n) => hasToken(blockName, n));
+}
+
+/** Safe to break to free a chest? Never trade a chest, furnace or bed for a
+ *  deposit — the drowning dig-out already learned that lesson by destroying team
+ *  storage to save one bot. */
+export function canClearObstruction(blockName: string | undefined | null): boolean {
+  return obstructsChest(blockName) && !isPreciousBlock(blockName!);
+}
 
 /** Should a bounced deposit try to place another chest?
  *
@@ -426,6 +550,7 @@ export async function depositStash(
       }
       // Use fallback chest
       try {
+        await clearChestRoof(bot, fallback.position);
         const container = await openContainerTimed(bot, fallback);
         for (const item of items) {
           try {
@@ -458,6 +583,7 @@ export async function depositStash(
     try {
       await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
       distToChest = bot.entity.position.distanceTo(chest.position);
+      await clearChestRoof(bot, chest.position);
       const container = await openContainerTimed(bot, chest);
       for (const item of items) {
         try {

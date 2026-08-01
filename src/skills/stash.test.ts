@@ -8,6 +8,9 @@ import {
   CHEST_NEIGHBOUR_OFFSETS,
   summarizeDepositFailure,
   shouldAttemptExpansion,
+  obstructsChest,
+  canClearObstruction,
+  bestToolFor,
   type DepositFailure,
 } from "./stash.js";
 
@@ -149,4 +152,72 @@ test("expansion still fires when a real shortage is mixed with other causes", ()
 test("no failures means no expansion", () => {
   assert.equal(shouldAttemptExpansion(new Map()), false);
   assert.equal(shouldAttemptExpansion(new Map([["no_chest_found", 0]])), false);
+});
+
+// 77 of 78 attributed deposit failures had an opaque block directly above the
+// chest (47 cobblestone, 30 oak_planks, 1 air). Minecraft will not open a chest
+// under an opaque block, which produced both attributed causes at once.
+test("obstructsChest flags what actually landed on the stash", () => {
+  assert.equal(obstructsChest("cobblestone"), true);
+  assert.equal(obstructsChest("oak_planks"), true);
+  assert.equal(obstructsChest("oak_stairs"), true);
+  assert.equal(obstructsChest("air"), false);
+  assert.equal(obstructsChest("water"), false);
+});
+
+test("obstructsChest treats unknown blocks as obstructing", () => {
+  // Erring the other way costs another silent 10s openContainer timeout.
+  assert.equal(obstructsChest("some_modded_slab"), true);
+});
+
+test("obstructsChest ignores unloaded chunks", () => {
+  assert.equal(obstructsChest(undefined), false);
+  assert.equal(obstructsChest(null), false);
+});
+
+// The drowning dig-out once destroyed a team chest to save one bot. Never trade
+// storage for a deposit.
+test("canClearObstruction refuses to break valuables", () => {
+  assert.equal(canClearObstruction("chest"), false);
+  assert.equal(canClearObstruction("trapped_chest"), false);
+  assert.equal(canClearObstruction("furnace"), false);
+  assert.equal(canClearObstruction("bed"), false);
+  assert.equal(canClearObstruction("bedrock"), false);
+});
+
+test("canClearObstruction allows ordinary build blocks", () => {
+  assert.equal(canClearObstruction("cobblestone"), true);
+  assert.equal(canClearObstruction("oak_planks"), true);
+  assert.equal(canClearObstruction("dirt"), true);
+  assert.equal(canClearObstruction("air"), false);
+});
+
+// Hand-breaking cobblestone takes ~11s, which would relocate the stall rather
+// than remove it. mineflayer-tool is not loaded, so the pick is ours to make.
+test("bestToolFor matches tool kind to the block", () => {
+  assert.equal(bestToolFor("cobblestone", ["iron_pickaxe", "iron_axe"]), "iron_pickaxe");
+  assert.equal(bestToolFor("oak_planks", ["iron_pickaxe", "iron_axe"]), "iron_axe");
+  assert.equal(bestToolFor("oak_stairs", ["stone_axe"]), "stone_axe");
+  assert.equal(bestToolFor("dirt", ["iron_shovel"]), "iron_shovel");
+});
+
+test("bestToolFor prefers the best material the bot actually carries", () => {
+  assert.equal(bestToolFor("cobblestone", ["wooden_pickaxe", "iron_pickaxe"]), "iron_pickaxe");
+  assert.equal(bestToolFor("cobblestone", ["wooden_pickaxe"]), "wooden_pickaxe");
+});
+
+test("bestToolFor returns null when no suitable tool is carried", () => {
+  assert.equal(bestToolFor("cobblestone", ["iron_axe", "bread"]), null);
+  assert.equal(bestToolFor("wool", ["iron_pickaxe"]), null);
+});
+
+// The substring version classified oak_stairs as open sky because "stairs"
+// contains "air", silently skipping the dig for 47 of the observed obstructions.
+test("obstructsChest matches tokens, not substrings", () => {
+  assert.equal(obstructsChest("oak_stairs"), true, "stairs contains 'air'");
+  assert.equal(obstructsChest("grass_block"), true, "solid grass_block is not tall_grass");
+  assert.equal(obstructsChest("snow_block"), true);
+  assert.equal(obstructsChest("cave_air"), false);
+  assert.equal(obstructsChest("tall_grass"), false);
+  assert.equal(obstructsChest("oak_wall_sign"), false);
 });
