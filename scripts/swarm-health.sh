@@ -78,7 +78,15 @@ echo "BOTS_CONNECTED=$MC_SOCKETS"
 # One shared TTS connection is correct. Anything more means close() regressed.
 (( MS_SOCKETS > 2 )) && ALERTS+=("tts_socket_leak_${MS_SOCKETS}")
 (( SOCKETS > 200 )) && ALERTS+=("socket_count_high_${SOCKETS}")
-(( MC_SOCKETS < 5 )) && ALERTS+=("bots_disconnected_${MC_SOCKETS}_of_5")
+# Grace period. Bots launch 10s apart, so any check landing in the first
+# ~2 minutes sees a partial roster and cries wolf. This false-fired three times
+# during startup, and an alert that routinely fires on healthy systems trains
+# you to ignore alerts.
+if (( UPTIME_RAW > 120 )); then
+  (( MC_SOCKETS < 5 )) && ALERTS+=("bots_disconnected_${MC_SOCKETS}_of_5")
+elif (( MC_SOCKETS < 5 )); then
+  echo "BOTS_STILL_CONNECTING=${MC_SOCKETS}_of_5"
+fi
 
 # ── Log-derived activity ───────────────────────────────────────────────────
 # The worker's stdout is redirected to a task output file; read it off fd 1
