@@ -20,6 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { isNeuralServerRunning } from "../neural/bridge.js";
 import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
+import { createFallTracker } from "./fall-tracker.js";
 
 // Re-export types used by src/index.ts
 export type { ChatMessage, BrainEvents as BotEvents };
@@ -310,13 +311,15 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // index.js:421) so it never applies to explore's coordinate goals, and the
   // teleport fallback is gated off by default. Record the actual drop instead
   // of guessing a third time.
-  let lastGroundY = bot.entity?.position.y ?? 0;
-  let lastGroundAt = 0;
+  //
+  // The first version of this logged nothing across two real fall deaths: it
+  // recorded ground height on every grounded tick, but a falling bot LANDS
+  // before it dies, and that landing overwrote the height with the bottom of the
+  // fall. See fall-tracker.ts — the origin is captured on the ground->airborne
+  // transition so it survives the landing tick.
+  const fallTracker = createFallTracker(bot.entity?.position.y ?? 0);
   bot.on("move", () => {
-    if (bot.entity?.onGround) {
-      lastGroundY = bot.entity.position.y;
-      lastGroundAt = Date.now();
-    }
+    if (bot.entity) fallTracker.update(bot.entity.position.y, bot.entity.onGround, Date.now());
   });
 
   bot.on("death", () => {
@@ -336,11 +339,11 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const worn = [5, 6, 7, 8]
       .map((slot) => bot.inventory.slots[slot]?.name ?? "-")
       .join(",");
-    const drop = lastGroundY - pos.y;
+    const drop = fallTracker.dropFrom(pos.y);
     const fallInfo =
       drop > 1
-        ? ` Fell ${drop.toFixed(1)} blocks from y=${lastGroundY.toFixed(0)} ` +
-          `(last on ground ${((Date.now() - lastGroundAt) / 1000).toFixed(1)}s ago)`
+        ? ` Fell ${drop.toFixed(1)} blocks from y=${fallTracker.originY().toFixed(0)} ` +
+          `(airborne ${(fallTracker.airborneMs(Date.now()) / 1000).toFixed(1)}s)`
         : "";
     console.log(`[Bot] I died! Cause: ${cause}. Armor: ${worn}.${fallInfo} Respawning...`);
     lastDeathMessage = "";
