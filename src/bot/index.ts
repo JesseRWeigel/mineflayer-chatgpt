@@ -301,6 +301,24 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   const LOOP_WINDOW_MS = 180_000;
   const LOOP_THRESHOLD = 4;
 
+  // Highest ground the bot last stood on, and when. Falls are the top killer
+  // (13 of 33 deaths this session, 9 of them Atlas) and every movement config
+  // already caps maxDropDown at 3, so the pathfinder is not routing them off
+  // ledges — two of the sampled falls happened right after `idle` and `eat`,
+  // with no navigation running at all. Two hypotheses died against the source
+  // before this: allowFreeMotion only engages for entity goals (pathfinder
+  // index.js:421) so it never applies to explore's coordinate goals, and the
+  // teleport fallback is gated off by default. Record the actual drop instead
+  // of guessing a third time.
+  let lastGroundY = bot.entity?.position.y ?? 0;
+  let lastGroundAt = 0;
+  bot.on("move", () => {
+    if (bot.entity?.onGround) {
+      lastGroundY = bot.entity.position.y;
+      lastGroundAt = Date.now();
+    }
+  });
+
   bot.on("death", () => {
     const pos = bot.entity.position;
     const cause = lastDeathMessage || "unknown";
@@ -318,7 +336,13 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const worn = [5, 6, 7, 8]
       .map((slot) => bot.inventory.slots[slot]?.name ?? "-")
       .join(",");
-    console.log(`[Bot] I died! Cause: ${cause}. Armor: ${worn}. Respawning...`);
+    const drop = lastGroundY - pos.y;
+    const fallInfo =
+      drop > 1
+        ? ` Fell ${drop.toFixed(1)} blocks from y=${lastGroundY.toFixed(0)} ` +
+          `(last on ground ${((Date.now() - lastGroundAt) / 1000).toFixed(1)}s ago)`
+        : "";
+    console.log(`[Bot] I died! Cause: ${cause}. Armor: ${worn}.${fallInfo} Respawning...`);
     lastDeathMessage = "";
     abortActiveSkill(bot);
 

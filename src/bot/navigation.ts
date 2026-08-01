@@ -44,7 +44,14 @@ export function explorerMoves(bot: Bot): InstanceType<typeof Movements> {
   const moves = baseMoves(bot);
   moves.canDig = false;
   moves.allow1by1towers = false;
-  moves.allowFreeMotion = true; // needed for pathfinder to route through water
+  // NOT what the old comment claimed ("needed to route through water") — water
+  // routing is liquidCost, and allowFreeMotion is only read when the goal has an
+  // .entity (pathfinder index.js:421), so it is a no-op for explore's coordinate
+  // goals. Where it DOES apply, entity goals, it walks a straight line at the
+  // target with no drop check, which would defeat maxDropDown below. Left as-is
+  // this round because no observed fall came from an entity goal; the fall
+  // instrumentation in bot/index.ts will say whether that changes.
+  moves.allowFreeMotion = true;
   moves.scafoldingBlocks = [];
   // Fall safety: Atlas the explorer was 25 of 31 fall deaths over the week,
   // roaming off cliffs/ledges. Cap how far the pathfinder will drop (default
