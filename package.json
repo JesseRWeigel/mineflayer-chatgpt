@@ -7,14 +7,15 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "dev": "tsx watch src/index.ts",
-    "start": "tsx --max-old-space-size=8192 src/index.ts",
+    "start": "tsx --max-old-space-size=3072 src/index.ts",
     "server": "cd server && java -Xmx2G -Xms1G -jar paper.jar --nogui",
     "download-skills": "node scripts/download-voyager-skills.mjs",
     "test": "node --import tsx --test --test-force-exit src/**/*.test.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write 'src/**/*.ts'",
-    "format:check": "prettier --check 'src/**/*.ts'"
+    "format:check": "prettier --check 'src/**/*.ts'",
+    "swarm": "bash scripts/run-swarm.sh"
   },
   "keywords": [
     "minecraft",
