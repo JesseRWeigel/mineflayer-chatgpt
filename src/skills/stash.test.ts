@@ -11,6 +11,7 @@ import {
   obstructsChest,
   canClearObstruction,
   bestToolFor,
+  withinReach,
   type DepositFailure,
 } from "./stash.js";
 
@@ -220,4 +221,20 @@ test("obstructsChest matches tokens, not substrings", () => {
   assert.equal(obstructsChest("cave_air"), false);
   assert.equal(obstructsChest("tall_grass"), false);
   assert.equal(obstructsChest("oak_wall_sign"), false);
+});
+
+// The first deploy of the unsealing put clearChestRoof after safeGoto inside one
+// try, so "No path to the goal!" skipped the clear entirely — circular, since a
+// sealed chest is what has no standable neighbour to path to. Reach, not
+// pathfinder success, decides whether a bot can dig the roof off.
+test("withinReach covers the distances the failures actually sat at", () => {
+  for (const d of [0.6, 0.7, 1.1, 1.8, 1.9, 2.4, 2.5]) {
+    assert.equal(withinReach(d), true, `observed failure distance ${d} must be actionable`);
+  }
+});
+
+test("withinReach rejects out-of-range and unmeasured distances", () => {
+  assert.equal(withinReach(4.6), false);
+  assert.equal(withinReach(12), false);
+  assert.equal(withinReach(Number.NaN), false, "unmeasured must not count as in reach");
 });

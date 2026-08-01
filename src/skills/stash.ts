@@ -12,6 +12,15 @@ import { baseMoves, safeMoves, isPreciousBlock } from "../bot/navigation.js";
 /** bot.openContainer with a hard timeout — a chest GUI that never opens (block
  *  not truly reachable/loaded) otherwise blocks forever, hanging the calling
  *  skill to the 240s watchdog. Fail fast (10s) so the skill recovers. */
+/** Server-enforced interaction range for digging and opening containers.
+ *  Used to decide whether a bot can act on a chest the pathfinder failed to
+ *  route to — the observed failures sat at dist 0.6-2.5, comfortably inside it. */
+export const INTERACT_REACH = 4.5;
+
+export function withinReach(dist: number): boolean {
+  return Number.isFinite(dist) && dist <= INTERACT_REACH;
+}
+
 /** Which held tool breaks this block fastest, if the bot has one.
  *
  *  Deliberately tiny: the only blocks this has to handle are what bots stack on
@@ -581,9 +590,27 @@ export async function depositStash(
     // the 10s timeout is what we are actually paying.
     let distToChest = Number.NaN;
     try {
-      await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
+      // Navigation failure must NOT skip the roof clear. First deploy of the
+      // unsealing put clearChestRoof after safeGoto inside one try, so a thrown
+      // "No path to the goal!" jumped straight to the catch and the roof stayed
+      // on — circular, because a sealed chest is exactly what has no standable
+      // neighbour to path to. That was 20 of 38 failures, and the first two
+      // failures after deploy were both this case with zero roofs cleared.
+      let navErr: Error | null = null;
+      try {
+        await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
+      } catch (e) {
+        navErr = e as Error;
+      }
       distToChest = bot.entity.position.distanceTo(chest.position);
-      await clearChestRoof(bot, chest.position);
+
+      // Standing close enough to touch it is what matters, not whether the
+      // pathfinder said so. Digging and opening both work from here.
+      if (withinReach(distToChest)) {
+        await clearChestRoof(bot, chest.position);
+      } else if (navErr) {
+        throw navErr; // genuinely could not get there — keep the old attribution
+      }
       const container = await openContainerTimed(bot, chest);
       for (const item of items) {
         try {
@@ -596,7 +623,7 @@ export async function depositStash(
       snapshotChest(chest.position, container.containerItems(), container.inventoryStart);
       container.close();
     } catch (err) {
-      const walked = Number.isFinite(distToChest) && distToChest <= 4.5;
+      const walked = withinReach(distToChest);
       // A chest one block away that will neither open nor be pathed to points at
       // the space around it, not at the chest lookup. Minecraft refuses to open a
       // chest with an opaque block directly above, and a buried chest also has no
