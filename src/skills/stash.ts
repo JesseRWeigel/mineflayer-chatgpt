@@ -139,6 +139,23 @@ const FAILURE_WORDING: Record<DepositFailure, string> = {
   chest_open_failed: "the chest wouldn't open",
 };
 
+/** Should a bounced deposit try to place another chest?
+ *
+ *  Only when a category had NO chest at all. Measured over 38 attributed failures:
+ *  no_chest_found was 0, every chest was located at rowGap 0.0-1.4 (exactly its
+ *  expected row), and the deposits still bounced — 20 because the pathfinder could
+ *  not reach a chest 1-2 blocks away, 18 because openContainer timed out at
+ *  dist 0.6-2.5, point blank and well inside the ~4.5 reach.
+ *
+ *  Expansion fired 18 times anyway, because it keyed off the merged counter. It
+ *  cannot possibly help: adding a chest does not make an existing, located,
+ *  adjacent chest open. Each attempt also burns a 45s placement budget the bot
+ *  could spend gathering, and the resulting "all placement attempts failed" is
+ *  what sent seven earlier hypotheses chasing chest supply that was never short. */
+export function shouldAttemptExpansion(failures: Map<DepositFailure, number>): boolean {
+  return (failures.get("no_chest_found") ?? 0) > 0;
+}
+
 /** Render per-cause item tallies as one clause, dominant cause first. Pure so the
  *  wording can be tested without a live world. */
 export function summarizeDepositFailure(failures: Map<DepositFailure, number>): string {
@@ -454,11 +471,26 @@ export async function depositStash(
       container.close();
     } catch (err) {
       const walked = Number.isFinite(distToChest) && distToChest <= 4.5;
+      // A chest one block away that will neither open nor be pathed to points at
+      // the space around it, not at the chest lookup. Minecraft refuses to open a
+      // chest with an opaque block directly above, and a buried chest also has no
+      // standable neighbour to path to — one obstruction would explain BOTH
+      // attributed causes at once. Log what is actually there before assuming it.
+      const above = bot.blockAt(chest.position.offset(0, 1, 0));
+      const sides = [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 0, 1],
+        [0, 0, -1],
+      ]
+        .map(([dx, dy, dz]) => bot.blockAt(chest.position.offset(dx, dy, dz))?.name ?? "?")
+        .join("/");
       noteFailure(
         walked ? "chest_open_failed" : "chest_unreachable",
         items.length,
-        `category ${category}: chest at dist=${Number.isFinite(distToChest) ? distToChest.toFixed(1) : "?"} ` +
-          `rowGap=${chest.position.distanceTo(chestPos).toFixed(1)} — ${(err as Error).message}`,
+        `category ${category}: chest at ${chest.position} dist=${Number.isFinite(distToChest) ? distToChest.toFixed(1) : "?"} ` +
+          `rowGap=${chest.position.distanceTo(chestPos).toFixed(1)} above=${above?.name ?? "?"} ` +
+          `sides=${sides} — ${(err as Error).message}`,
       );
     }
   }
@@ -469,7 +501,7 @@ export async function depositStash(
   // placement in 24h — so give the deposit routine the capability directly:
   // if items bounced and this bot is CARRYING a chest (crafted by the team —
   // no free items), place it past the stash rows and deposit into it.
-  if (noChest > 0) {
+  if (shouldAttemptExpansion(failures)) {
     let chestItem = bot.inventory.items().find((i) => i.name === "chest");
 
     // Records which gate stopped the expansion. Every bail-out below used to be

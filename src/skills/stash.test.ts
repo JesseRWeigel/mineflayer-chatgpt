@@ -7,6 +7,7 @@ import {
   CHEST_MAX_RING,
   CHEST_NEIGHBOUR_OFFSETS,
   summarizeDepositFailure,
+  shouldAttemptExpansion,
   type DepositFailure,
 } from "./stash.js";
 
@@ -125,4 +126,27 @@ test("summarizeDepositFailure omits zero-count causes", () => {
     ]),
   );
   assert.equal(msg, "4 couldn't walk to the chest");
+});
+
+// Expansion fired 18 times against 0 no_chest_found failures, burning a 45s
+// placement budget each time on a chest shortage that did not exist. Adding a
+// chest cannot make an already-located adjacent chest open.
+test("expansion only when a category genuinely had no chest", () => {
+  assert.equal(shouldAttemptExpansion(new Map([["no_chest_found", 1]])), true);
+  assert.equal(shouldAttemptExpansion(new Map([["chest_open_failed", 18]])), false);
+  assert.equal(shouldAttemptExpansion(new Map([["chest_unreachable", 20]])), false);
+});
+
+test("expansion still fires when a real shortage is mixed with other causes", () => {
+  const mixed = new Map<DepositFailure, number>([
+    ["chest_open_failed", 18],
+    ["chest_unreachable", 20],
+    ["no_chest_found", 2],
+  ]);
+  assert.equal(shouldAttemptExpansion(mixed), true);
+});
+
+test("no failures means no expansion", () => {
+  assert.equal(shouldAttemptExpansion(new Map()), false);
+  assert.equal(shouldAttemptExpansion(new Map([["no_chest_found", 0]])), false);
 });
