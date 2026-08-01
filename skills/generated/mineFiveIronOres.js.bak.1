@@ -1,0 +1,30 @@
+async function mineFiveIronOres(bot) {
+  const mcData = require('minecraft-data')(bot.version);
+  const { Vec3 } = require('vec3');
+  const { goals } = require('mineflayer-pathfinder');
+
+  const stonePickaxe = bot.inventory.items().find(item => item.name === 'stone_pickaxe');
+  if (!stonePickaxe) throw new Error("Cannot find stone_pickaxe in inventory");
+  await bot.equip(stonePickaxe, "hand");
+
+  const initialTarget = bot.findBlock({
+    matching: block => block.name === "iron_ore",
+    maxDistance: 32
+  });
+  if (!initialTarget) throw new Error("Cannot find iron_ore nearby");
+
+  let minedCount = 0;
+  while (minedCount < 5) {
+    const target = bot.findBlock({
+      matching: block => block.name === "iron_ore",
+      maxDistance: 32
+    });
+    if (!target) throw new Error("Cannot find iron_ore nearby");
+    await bot.pathfinder.goto(new goals.GoalNear(target.position.x, target.position.y, target.position.z, 2));
+    await bot.dig(target);
+    await bot.pathfinder.goto(new goals.GoalNear(target.position.x, target.position.y, target.position.z, 2));
+    minedCount++;
+  }
+
+  bot.chat("5 iron ores mined.");
+}

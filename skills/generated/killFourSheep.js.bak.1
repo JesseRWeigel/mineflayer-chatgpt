@@ -1,0 +1,35 @@
+async function killFourSheep(bot) {
+  const { GoalBlock, GoalNear } = require('mineflayer-pathfinder').goals;
+  const mcData = require('minecraft-data')(bot.version);
+
+  const woodenSword = bot.inventory.items().find(item => item.name === 'wooden_sword');
+  if (!woodenSword) throw new Error("Cannot find wooden sword in inventory");
+  await bot.equip(woodenSword, "hand");
+
+  for (let i = 1; i <= 4; i++) {
+    const sheep = bot.nearestEntity(entity => {
+      return entity.name === 'sheep' && entity.position.distanceTo(bot.entity.position) < 300;
+    });
+    if (!sheep) throw new Error("Cannot find sheep nearby");
+
+    await bot.pathfinder.goto(new GoalNear(sheep.position.x, sheep.position.y, sheep.position.z, 1));
+    await bot.attack(sheep);
+    while (sheep.health > 0) {
+      await bot.attack(sheep);
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
+    bot.chat(`Killed sheep ${i}.`);
+  }
+
+  const sheepDrops = ["wool", "raw_mutton"];
+  for (const drop of sheepDrops) {
+    const droppedItem = bot.findBlock({
+      matching: block => block.name === drop,
+      maxDistance: 32
+    });
+    if (droppedItem) {
+      await bot.pathfinder.goto(new GoalNear(droppedItem.position.x, droppedItem.position.y, droppedItem.position.z, 1));
+    }
+  }
+  bot.chat("Collected dropped items from the killed sheep.");
+}

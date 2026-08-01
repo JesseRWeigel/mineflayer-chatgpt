@@ -1,0 +1,61 @@
+async function cookPorkchops(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const mcData = require('minecraft-data')(bot.version);
+  const Vec3 = require('vec3').Vec3;
+
+  const furnaceItem = bot.inventory.items().find(item => item.name === 'furnace');
+  if (!furnaceItem) {
+    const cobblestone = bot.inventory.items().find(item => item.name === 'cobblestone');
+    if (!cobblestone || cobblestone.count < 8) throw new Error("Cannot find cobblestone nearby");
+    const craftingTable = bot.findBlock({ matching: mcData.blocksByName.crafting_table.id, maxDistance: 32 });
+    const recipes = bot.recipesFor(mcData.itemsByName.furnace.id, null, 1, craftingTable);
+    if (!recipes || recipes.length === 0) throw new Error("Cannot find recipe for furnace");
+    await bot.craft(recipes[0], 1, craftingTable);
+  }
+
+  const furnacePosition = bot.entity.position.offset(1, 0, 0);
+  const referenceBlock = bot.blockAt(furnacePosition.offset(0, -1, 0));
+  if (!referenceBlock) throw new Error("Cannot find ground to place furnace");
+  await bot.placeBlock(referenceBlock, new Vec3(0, 1, 0));
+
+  const placedFurnace = bot.findBlock({ matching: mcData.blocksByName.furnace.id, maxDistance: 5 });
+  if (!placedFurnace) throw new Error("Cannot find placed furnace");
+
+  const porkchop = bot.inventory.items().find(item => item.name === 'porkchop');
+  const coal = bot.inventory.items().find(item => item.name === 'coal' || item.name === 'charcoal');
+  if (!porkchop) throw new Error("Cannot find porkchop in inventory");
+  if (!coal) throw new Error("Cannot find coal in inventory");
+
+  await bot.lookAt(placedFurnace.position);
+  await bot.activateBlock(placedFurnace);
+
+  let furnaceWindow = null;
+  const startTime = Date.now();
+  while (!furnaceWindow && Date.now() - startTime < 5000) {
+    furnaceWindow = bot.currentWindow;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  if (!furnaceWindow) throw new Error("Failed to open furnace window");
+
+  const coalItem = bot.inventory.items().find(item => item.name === 'coal' || item.name === 'charcoal');
+  const porkItem = bot.inventory.items().find(item => item.name === 'porkchop');
+  
+  // Slot 1 is fuel, Slot 2 is input
+  await furnaceWindow.clickSlot(1, 1, 0, coalItem.count);
+  await furnaceWindow.clickSlot(2, 2, 0, porkItem.count);
+
+  const smeltStartTime = Date.now();
+  while (Date.now() - smeltStartTime < 30000) {
+    const outputItem = furnaceWindow.items.find(item => item && item.name === 'cooked_porkchop');
+    if (outputItem && outputItem.count >= 2) break;
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
+
+  const outputSlot = furnaceWindow.items.find(item => item && item.name === 'cooked_porkchop');
+  if (outputSlot) {
+    await furnaceWindow.clickSlot(3, 3, 0, outputSlot.count);
+  }
+
+  bot.closeWindow(furnaceWindow);
+  bot.chat("2 porkchops cooked.");
+}

@@ -1,0 +1,6 @@
+async function craftStonePickaxe(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const mcData = require('minecraft-data')(bot.version);
+
+  const stoneBlockId = mcData.blocksByName.stone.id;
+  const log

@@ -1,0 +1,56 @@
+async function craftIronChestplate(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const mcData = require('minecraft-data')(bot.version);
+
+  const ironOre = bot.findBlock({ matching: mcData.blocksByName.iron_ore.id, distance: 64 });
+  if (!ironOre) throw new Error("Cannot find iron_ore nearby");
+
+  const coal = bot.findBlock({ matching: mcData.blocksByName.coal.id, distance: 64 });
+  if (!coal) throw new Error("Cannot find coal nearby");
+
+  const craftingTable = bot.findBlock({ matching: mcData.blocksByName.crafting_table.id, distance: 64 });
+  if (!craftingTable) throw new Error("Cannot find crafting_table nearby");
+
+  let ironIngotsCount = bot.inventory.count(mcData.itemsByName.iron_ingot.id);
+
+  if (ironIngotsCount < 8) {
+    const needed = 8 - ironIngotsCount;
+    for (let i = 0; i < needed; i++) {
+      const ore = bot.findBlock({ matching: mcData.blocksByName.iron_ore.id, distance: 64 });
+      if (!ore) throw new Error("Cannot find iron_ore nearby");
+      await bot.pathfinder.goto(new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 1));
+      await bot.dig(ore);
+      await bot.pathfinder.goto(new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 0.5));
+    }
+    bot.chat("Collected iron ores.");
+
+    const furnace = bot.findBlock({ matching: mcData.blocksByName.furnace.id, distance: 64 });
+    if (!furnace) throw new Error("Cannot find furnace nearby");
+
+    await bot.pathfinder.goto(new goals.GoalNear(furnace.position.x, furnace.position.y, furnace.position.z, 1));
+    const furnaceRef = await bot.openFurnace(furnace);
+
+    for (let i = 0; i < needed; i++) {
+      const oreItem = bot.inventory.items().find(i => i.name === 'iron_ore');
+      const fuelItem = bot.inventory.items().find(i => i.name === 'coal' || i.name === 'charcoal');
+      if (!oreItem || !fuelItem) throw new Error("Missing items for smelting");
+      
+      await furnaceRef.putFuel(fuelItem.type, null, 1);
+      await furnaceRef.putInput(oreItem.type, null, 1);
+      await furnaceRef.on('change');
+      await new Promise(r => setTimeout(r, 2000));
+      const output = furnaceRef.outputItem();
+      if (output) await furnaceRef.takeOutput(output.count);
+    }
+    await furnaceRef.close();
+    bot.chat("Smelted iron ores into iron ingots.");
+  }
+
+  await bot.pathfinder.goto(new goals.GoalNear(craftingTable.position.x, craftingTable.position.y, craftingTable.position.z, 1));
+  
+  const recipes = bot.recipesFor(mcData.itemsByName.iron_chestplate.id, null, 1, craftingTable);
+  if (!recipes || recipes.length === 0) throw new Error("No recipe found for iron_chestplate");
+  
+  await bot.craft(recipes[0], 1, craftingTable);
+  bot.chat("Crafted an iron chestplate.");
+}

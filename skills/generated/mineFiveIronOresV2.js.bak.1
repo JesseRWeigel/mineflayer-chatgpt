@@ -1,0 +1,25 @@
+async function mineFiveIronOresV2(bot) {
+  const stonePickaxe = bot.inventory.findInventoryItem(mcData.itemsByName.stone_pickaxe.id);
+  if (!stonePickaxe) throw new Error("Stone pickaxe not found in inventory!");
+  await bot.equip(stonePickaxe, "hand");
+
+  const ironOres = await exploreUntil(bot, new Vec3(1, 0, 1), 60, () => {
+    const ores = bot.findBlocks({ matching: block => block.name === "iron_ore", maxDistance: 32 });
+    return ores.length >= 5 ? ores : null;
+  });
+
+  if (!ironOres) {
+    bot.chat("Could not find enough iron ores.");
+    return;
+  }
+
+  for (let i = 0; i < 5; i++) {
+    const ore = ironOres[i];
+    if (!ore) break;
+    await bot.goto(ore);
+    await bot.dig(ore);
+    await bot.sleep(1000);
+  }
+
+  bot.chat("5 iron ores mined.");
+}

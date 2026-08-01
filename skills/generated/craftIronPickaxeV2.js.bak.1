@@ -1,0 +1,38 @@
+async function craftIronPickaxeV2(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const mcData = require('minecraft-data')(bot.version);
+
+  const ironOre = bot.findBlock({ matching: mcData.blocksByName.iron_ore.id, distance: 64 });
+  if (!ironOre) throw new Error("Cannot find iron_ore nearby");
+
+  const coal = bot.findBlock({ matching: mcData.blocksByName.coal_ore.id, distance: 64 });
+  if (!coal) throw new Error("Cannot find coal nearby");
+
+  const craftingTableBlock = bot.findBlock({ matching: mcData.blocksByName.crafting_table.id, distance: 64 });
+  if (!craftingTableBlock) throw new Error("Cannot find crafting_table nearby");
+
+  const ironIngotsCount = bot.inventory.count(mcData.itemsByName.iron_ingot.id);
+  const sticksCount = bot.inventory.count(mcData.itemsByName.stick.id);
+
+  if (ironIngotsCount < 3) {
+    await bot.pathfinder.goto(new goals.GoalNear(ironOre.position.x, ironOre.position.y, ironOre.position.z, 1));
+    await bot.dig(ironOre);
+    await bot.pathfinder.goto(new goals.GoalNear(ironOre.position.x, ironOre.position.y, ironOre.position.z, 0.5));
+    bot.chat("Collected iron ores.");
+    await bot.pathfinder.goto(new goals.GoalNear(coal.position.x, coal.position.y, coal.position.z, 1));
+    await bot.dig(coal);
+    await bot.pathfinder.goto(new goals.GoalNear(coal.position.x, coal.position.y, coal.position.z, 0.5));
+    await smeltItem(bot, "iron_ore", "coal", 3 - ironIngotsCount);
+    bot.chat("Smelted iron ores into iron ingots.");
+  }
+  if (sticksCount < 2) {
+    await craftItem(bot, "stick", 1);
+    bot.chat("Crafted sticks.");
+  }
+
+  await bot.pathfinder.goto(new goals.GoalNear(craftingTableBlock.position.x, craftingTableBlock.position.y, craftingTableBlock.position.z, 1));
+  const recipes = bot.recipesFor(mcData.itemsByName.iron_pickaxe.id, null, 1, craftingTableBlock);
+  if (!recipes || recipes.length === 0) throw new Error("No recipe found for iron_pickaxe");
+  await bot.craft(recipes[0], 1, craftingTableBlock);
+  bot.chat("Crafted an iron pickaxe.");
+}

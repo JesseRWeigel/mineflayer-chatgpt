@@ -1,0 +1,51 @@
+async function smeltFiveRawIron(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const mcData = require('minecraft-data')(bot.version);
+  const Vec3 = require('vec3').Vec3;
+
+  const rawIronBlock = bot.findBlock({ matching: mcData.blocksByName.raw_iron.id, maxDistance: 32 });
+  if (!rawIronBlock) throw new Error("Cannot find raw_iron nearby");
+
+  const coalBlock = bot.findBlock({ matching: mcData.blocksByName.coal_ore.id, maxDistance: 32 });
+  if (!coalBlock) throw new Error("Cannot find coal nearby");
+
+  let rawIronCount = bot.inventory.items().filter(i => i.name === 'raw_iron').reduce((sum, i) => sum + i.count, 0);
+  let coalCount = bot.inventory.items().filter(i => i.name === 'coal').reduce((sum, i) => sum + i.count, 0);
+
+  if (rawIronCount < 5) {
+    await bot.pathfinder.goto(new goals.GoalNear(rawIronBlock.position.x, rawIronBlock.position.y, rawIronBlock.position.z, 1));
+    await bot.dig(rawIronBlock);
+    await bot.pathfinder.goto(new goals.GoalNear(rawIronBlock.position.x, rawIronBlock.position.y, rawIronBlock.position.z, 0));
+  }
+
+  if (coalCount < 1) {
+    await bot.pathfinder.goto(new goals.GoalNear(coalBlock.position.x, coalBlock.position.y, coalBlock.position.z, 1));
+    await bot.dig(coalBlock);
+    await bot.pathfinder.goto(new goals.GoalNear(coalBlock.position.x, coalBlock.position.y, coalBlock.position.z, 0));
+  }
+
+  const furnaceItem = bot.inventory.items().find(i => i.name === 'furnace');
+  if (!furnaceItem) {
+    const cobblestone = bot.inventory.items().find(i => i.name === 'cobblestone');
+    if (!cobblestone) throw new Error("Cannot find cobblestone for furnace crafting");
+    const recipes = bot.recipesFor(mcData.itemsByName.furnace.id, null, 1, null);
+    if (!recipes || recipes.length === 0) throw new Error("No recipe for furnace");
+    await bot.craft(recipes[0], 1, null);
+  }
+
+  const furnacePosition = bot.entity.position.offset(1, 0, 0);
+  const referenceBlock = bot.blockAt(furnacePosition);
+  if (!referenceBlock) throw new Error("Cannot place furnace: no reference block");
+  await bot.placeBlock(referenceBlock, new Vec3(0, -1, 0));
+
+  const furnaceBlock = bot.blockAt(furnacePosition);
+  if (!furnaceBlock || furnaceBlock.name !== 'furnace') throw new Error("Furnace not placed correctly");
+
+  const furnace = await bot.openFurnace(furnaceBlock);
+  furnace.putFuel('coal');
+  furnace.putInput('raw_iron');
+  furnace.collectOutput();
+  await furnace.close();
+
+  bot.chat("5 raw iron smelted.");
+}

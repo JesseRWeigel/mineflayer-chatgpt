@@ -1,7 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { chestPlacementOffsets, CHEST_MIN_RING, CHEST_MAX_RING, CHEST_NEIGHBOUR_OFFSETS } from "./stash.js";
+import {
+  chestPlacementOffsets,
+  CHEST_MIN_RING,
+  CHEST_MAX_RING,
+  CHEST_NEIGHBOUR_OFFSETS,
+  summarizeDepositFailure,
+  type DepositFailure,
+} from "./stash.js";
 
 // Regression: the original scan walked dx 10..16 with dz -2..2, which is a 7x5
 // strip on the +X side of the stash only. Once that strip filled with base
@@ -88,4 +95,34 @@ test("chest neighbour offsets cover all four horizontal directions", () => {
   // Diagonals do NOT pair into a double chest, so excluding them would
   // needlessly discard valid spots.
   assert.ok(!dirs.some(([dx, dz]) => dx !== 0 && dz !== 0), "diagonals do not form double chests");
+});
+
+// The three sites that abandon a category all printed "No reachable chest", so a
+// 596-event failure mode was unattributable. These lock in that the causes stay
+// distinguishable and that the dominant one leads.
+test("summarizeDepositFailure names the dominant cause first", () => {
+  const failures = new Map<DepositFailure, number>([
+    ["chest_open_failed", 3],
+    ["no_chest_found", 9],
+  ]);
+  const msg = summarizeDepositFailure(failures);
+  assert.match(msg, /^9 no chest serves that category/);
+  assert.match(msg, /3 the chest wouldn't open/);
+});
+
+test("summarizeDepositFailure keeps the three causes distinct", () => {
+  const wordings = (["no_chest_found", "chest_unreachable", "chest_open_failed"] as DepositFailure[]).map((r) =>
+    summarizeDepositFailure(new Map([[r, 1]])),
+  );
+  assert.equal(new Set(wordings).size, 3, "each cause must read differently or the log stays ambiguous");
+});
+
+test("summarizeDepositFailure omits zero-count causes", () => {
+  const msg = summarizeDepositFailure(
+    new Map<DepositFailure, number>([
+      ["no_chest_found", 0],
+      ["chest_unreachable", 4],
+    ]),
+  );
+  assert.equal(msg, "4 couldn't walk to the chest");
 });

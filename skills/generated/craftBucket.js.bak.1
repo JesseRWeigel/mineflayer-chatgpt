@@ -1,0 +1,23 @@
+async function craftBucket(bot) {
+  const mcData = require('mineflayer-collectblock').mcData;
+  const { goals } = require('mineflayer-pathfinder');
+  const ironIngotsCount = bot.inventory.count(mcData.itemsByName.iron_ingot.id);
+  if (ironIngotsCount < 3) {
+    const ore = bot.findBlock({ matching: mcData.blocksByName.iron_ore.id, maxDistance: 64 });
+    if (!ore) throw new Error("Cannot find iron_ore nearby");
+    await bot.dig(ore);
+    await bot.pathfinder.goto(new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 1));
+    await smeltItem(bot, "iron_ore", "coal", 3 - ironIngotsCount);
+  }
+  const table = bot.findBlock({ matching: mcData.blocksByName.crafting_table.id, maxDistance: 64 });
+  if (!table) {
+    const craftingTablePosition = bot.entity.position.offset(1, 0, 0);
+    await placeItem(bot, "crafting_table", craftingTablePosition);
+  }
+  const tableBlock = bot.findBlock({ matching: mcData.blocksByName.crafting_table.id, maxDistance: 64 });
+  if (!tableBlock) throw new Error("Cannot find crafting_table nearby");
+  const recipes = bot.recipesFor(mcData.itemsByName.bucket.id, null, 1, tableBlock);
+  if (!recipes || recipes.length === 0) throw new Error("No bucket recipe found");
+  await bot.craft(recipes[0], 1, tableBlock);
+  bot.chat("Crafted a bucket.");
+}

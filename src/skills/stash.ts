@@ -118,6 +118,36 @@ const STASH_ROWS: { category: string; patterns: string[] }[] = [
   },
 ];
 
+/** Why a category's items could not be banked.
+ *
+ *  depositStash abandons a category at three unrelated points: the stash has no
+ *  chest serving that row, the bot cannot walk to a chest it did find, or the
+ *  chest GUI never opens. All three incremented one `noChest` counter and printed
+ *  one message, so "No reachable chest" meant any of them. That message fired 596
+ *  times in a 10h session — more than double the successful deposits — with no way
+ *  to tell which cause dominated, and `openContainer timeout` never appeared in the
+ *  log at all because the catch swallowed it.
+ *
+ *  This is the same silent-catch trap documented for the expansion gates below,
+ *  which cost three rounds of guesswork before the gates were labelled. Label the
+ *  cause where it happens so the fix targets the one that is actually firing. */
+export type DepositFailure = "no_chest_found" | "chest_unreachable" | "chest_open_failed";
+
+const FAILURE_WORDING: Record<DepositFailure, string> = {
+  no_chest_found: "no chest serves that category",
+  chest_unreachable: "couldn't walk to the chest",
+  chest_open_failed: "the chest wouldn't open",
+};
+
+/** Render per-cause item tallies as one clause, dominant cause first. Pure so the
+ *  wording can be tested without a live world. */
+export function summarizeDepositFailure(failures: Map<DepositFailure, number>): string {
+  const ranked = [...failures.entries()]
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return ranked.map(([reason, n]) => `${n} ${FAILURE_WORDING[reason]}`).join(", ");
+}
+
 /** Determine which stash category an item belongs to. Returns "overflow" if no match. */
 export function categorizeItem(itemName: string): string {
   for (const row of STASH_ROWS) {
@@ -329,6 +359,12 @@ export async function depositStash(
   const keptCounts = new Map<string, number>();
   let deposited = 0;
   let noChest = 0;
+  const failures = new Map<DepositFailure, number>();
+  const noteFailure = (reason: DepositFailure, count: number, detail: string) => {
+    noChest += count;
+    failures.set(reason, (failures.get(reason) ?? 0) + count);
+    console.log(`[Stash] deposit gave up: ${reason} (${count} items) — ${detail}`);
+  };
 
   // Group items by category
   const byCategory = new Map<string, typeof itemsToDeposit>();
@@ -368,7 +404,7 @@ export async function depositStash(
         maxDistance: 8,
       });
       if (!fallback) {
-        noChest += items.length;
+        noteFailure("no_chest_found", items.length, `category ${category}: none within 18 of row, none within 8 of bot`);
         continue;
       }
       // Use fallback chest
@@ -384,14 +420,27 @@ export async function depositStash(
         }
         snapshotChest(fallback.position, container.containerItems(), container.inventoryStart);
         container.close();
-      } catch {
-        noChest += items.length;
+      } catch (err) {
+        const dist = bot.entity.position.distanceTo(fallback.position);
+        noteFailure(
+          "chest_open_failed",
+          items.length,
+          `category ${category}: fallback chest at dist=${dist.toFixed(1)} — ${(err as Error).message}`,
+        );
       }
       continue;
     }
 
+    // Measured only to LABEL the failure below, never to skip the attempt — this
+    // round is pure instrumentation, so behaviour must stay byte-for-byte the same
+    // while the cause becomes visible. safeGoto returns without throwing on
+    // timeout, so distance after it is the only honest signal of whether the walk
+    // worked. Server reach is ~4.5 blocks; beyond that openContainer is doomed and
+    // the 10s timeout is what we are actually paying.
+    let distToChest = Number.NaN;
     try {
       await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
+      distToChest = bot.entity.position.distanceTo(chest.position);
       const container = await openContainerTimed(bot, chest);
       for (const item of items) {
         try {
@@ -403,8 +452,14 @@ export async function depositStash(
       }
       snapshotChest(chest.position, container.containerItems(), container.inventoryStart);
       container.close();
-    } catch {
-      noChest += items.length;
+    } catch (err) {
+      const walked = Number.isFinite(distToChest) && distToChest <= 4.5;
+      noteFailure(
+        walked ? "chest_open_failed" : "chest_unreachable",
+        items.length,
+        `category ${category}: chest at dist=${Number.isFinite(distToChest) ? distToChest.toFixed(1) : "?"} ` +
+          `rowGap=${chest.position.distanceTo(chestPos).toFixed(1)} — ${(err as Error).message}`,
+      );
     }
   }
 
@@ -566,10 +621,13 @@ export async function depositStash(
     // Say what actually happened. noChest counts items whose category had NO
     // reachable chest, not full ones, and the old wording sent several rounds of
     // work chasing chest supply when the stash had space but the lookup missed.
-    return `No reachable chest for ${noChest} carried item${noChest === 1 ? "" : "s"} — the stash may need expanding, or its chests are out of range.`;
+    return (
+      `No reachable chest for ${noChest} carried item${noChest === 1 ? "" : "s"} ` +
+      `(${summarizeDepositFailure(failures)}) — the stash may need expanding, or its chests are out of range.`
+    );
   }
   if (noChest > 0) {
-    return `Deposited ${deposited} items. ${noChest} items couldn't fit — stash needs expansion.`;
+    return `Deposited ${deposited} items. ${noChest} items couldn't fit (${summarizeDepositFailure(failures)}) — stash needs expansion.`;
   }
   return `Deposited ${deposited} items at the stash.`;
 }

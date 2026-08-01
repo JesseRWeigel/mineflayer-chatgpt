@@ -1,0 +1,61 @@
+async function craftStoneShovel(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const mcData = require('minecraft-data')(bot.version);
+
+  const cobblestoneId = mcData.itemsByName.cobblestone.id;
+  const stickId = mcData.itemsByName.stick.id;
+  const stoneShovelId = mcData.itemsByName.stone_shovel.id;
+  const craftingTableId = mcData.itemsByName.crafting_table.id;
+
+  const cobblestoneCount = bot.inventory.count(cobblestoneId);
+  const sticksCount = bot.inventory.count(stickId);
+
+  if (cobblestoneCount < 1) {
+    const stoneBlock = bot.findBlock({ matching: mcData.blocksByName.stone.id, maxDistance: 64 });
+    if (!stoneBlock) throw new Error("Cannot find stone nearby");
+    await bot.pathfinder.goto(new goals.GoalNear(stoneBlock.position.x, stoneBlock.position.y, stoneBlock.position.z, 1));
+    await bot.dig(stoneBlock);
+    await bot.pathfinder.goto(new goals.GoalNear(stoneBlock.position.x, stoneBlock.position.y, stoneBlock.position.z, 0));
+    bot.chat("Collected cobblestone.");
+  }
+
+  if (sticksCount < 2) {
+    const woodBlock = bot.findBlock({ matching: (b) => b.name.includes('log') || b.name.includes('plank'), maxDistance: 64 });
+    if (!woodBlock) throw new Error("Cannot find wood nearby");
+    await bot.pathfinder.goto(new goals.GoalNear(woodBlock.position.x, woodBlock.position.y, woodBlock.position.z, 1));
+    await bot.dig(woodBlock);
+    await bot.pathfinder.goto(new goals.GoalNear(woodBlock.position.x, woodBlock.position.y, woodBlock.position.z, 0));
+    
+    const plankRecipes = bot.recipesFor(mcData.itemsByName.oak_plank.id, null, 1, null);
+    if (plankRecipes && plankRecipes.length > 0) {
+      await bot.craft(plankRecipes[0], 1, null);
+    }
+    
+    const stickRecipes = bot.recipesFor(stickId, null, 1, null);
+    if (stickRecipes && stickRecipes.length > 0) {
+      await bot.craft(stickRecipes[0], 1, null);
+    }
+    bot.chat("Crafted sticks.");
+  }
+
+  const craftingTableBlock = bot.findBlock({ matching: craftingTableId, maxDistance: 64 });
+  let table = craftingTableBlock;
+  
+  if (!table) {
+    const tableItem = bot.inventory.items().find(i => i.type === craftingTableId);
+    if (!tableItem) throw new Error("Cannot find crafting table nearby");
+    const pos = bot.entity.position.offset(1, 0, 0);
+    const refBlock = bot.blockAt(pos);
+    if (refBlock) {
+      await bot.placeBlock(refBlock, new Vec3(0, -1, 0));
+      table = bot.blockAt(pos);
+    }
+  }
+
+  const recipes = bot.recipesFor(stoneShovelId, null, 1, table);
+  if (!recipes || recipes.length === 0) throw new Error("No recipe found for stone shovel");
+  
+  await bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 1));
+  await bot.craft(recipes[0], 1, table);
+  bot.chat("Crafted a stone shovel.");
+}

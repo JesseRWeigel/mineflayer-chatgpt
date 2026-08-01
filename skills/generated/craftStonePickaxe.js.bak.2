@@ -1,0 +1,36 @@
+async function craftStonePickaxe(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const mcData = require('minecraft-data')(bot.version);
+
+  const stoneBlockId = mcData.blocksByName.stone.id;
+  const logBlockId = mcData.blocksByName.log.id;
+  const tableBlockId = mcData.blocksByName.crafting_table.id;
+
+  const stoneItem = mcData.itemsByName.stone.id;
+  const logItem = mcData.itemsByName.log.id;
+  const stickItem = mcData.itemsByName.stick.id;
+  const pickaxeItem = mcData.itemsByName.stone_pickaxe.id;
+
+  const table = bot.findBlock({ matching: tableBlockId, maxDistance: 32 });
+  if (!table) throw new Error('Cannot find crafting table nearby');
+
+  async function gather(blockId, itemName, count) {
+    while (bot.inventory.items().filter(i => i.name === itemName).length < count) {
+      const block = bot.findBlock({ matching: blockId, maxDistance: 32 });
+      if (!block) throw new Error(`Cannot find ${itemName} nearby`);
+      await bot.dig(block);
+      await bot.pathfinder.goto(new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2));
+    }
+  }
+
+  await gather(stoneBlockId, 'stone', 3);
+  await gather(logBlockId, 'log', 2);
+
+  const stickRecipes = bot.recipesFor(stickItem, null, 1, table);
+  if (!stickRecipes.length) throw new Error('No recipe for stick');
+  await bot.craft(stickRecipes[0], 1, table);
+
+  const pickaxeRecipes = bot.recipesFor(pickaxeItem, null, 1, table);
+  if (!pickaxeRecipes.length) throw new Error('No recipe for stone pickaxe');
+  await bot.craft(pickaxeRecipes[0], 1, table);
+}

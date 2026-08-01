@@ -1,0 +1,47 @@
+async function mineFiveCoalOresV2(bot) {
+  const mcData = require('minecraft-data')(bot.version);
+  const { Vec3 } = require('vec3');
+  const { goals } = require('mineflayer-pathfinder');
+
+  // Check if coal ore exists nearby before starting
+  const initialCheck = bot.findBlock({
+    matching: block => block.name === "coal_ore",
+    maxDistance: 32
+  });
+  if (!initialCheck) {
+    throw new Error("Cannot find coal_ore nearby");
+  }
+
+  // Equip the stone pickaxe
+  const stonePickaxe = bot.inventory.items().find(item => item.name === "stone_pickaxe");
+  if (!stonePickaxe) {
+    throw new Error("Cannot find stone_pickaxe in inventory");
+  }
+  await bot.equip(stonePickaxe, "hand");
+
+  let minedCount = 0;
+  while (minedCount < 5) {
+    // Find a coal ore block
+    const coalOre = bot.findBlock({
+      matching: block => block.name === "coal_ore",
+      maxDistance: 32
+    });
+
+    if (!coalOre) {
+      throw new Error("Cannot find coal_ore nearby");
+    }
+
+    // Navigate to the block
+    await bot.pathfinder.goto(new goals.GoalNear(coalOre.position.x, coalOre.position.y, coalOre.position.z, 1));
+
+    // Dig the block
+    await bot.dig(coalOre);
+
+    // Walk to the block position to pick up the drop
+    await bot.pathfinder.goto(new goals.GoalNear(coalOre.position.x, coalOre.position.y, coalOre.position.z, 0.5));
+
+    minedCount++;
+  }
+
+  bot.chat("5 coal ores mined.");
+}

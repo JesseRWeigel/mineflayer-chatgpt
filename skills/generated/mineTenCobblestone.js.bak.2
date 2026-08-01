@@ -1,0 +1,29 @@
+async function mineTenCobblestone(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+
+  const pickaxe = bot.inventory.items().find(item => item.name.endsWith("_pickaxe"));
+  if (!pickaxe) {
+    await craftWoodenPickaxe(bot);
+  } else {
+    await bot.equip(pickaxe, "hand");
+  }
+
+  let minedCount = 0;
+  while (minedCount < 10) {
+    const currentStone = bot.findBlock({
+      matching: block => block.name === "stone",
+      maxDistance: 64
+    });
+
+    if (!currentStone) {
+      throw new Error("Cannot find stone nearby");
+    }
+
+    await bot.pathfinder.goto(new goals.GoalNear(currentStone.position.x, currentStone.position.y, currentStone.position.z, 1));
+    await bot.dig(currentStone);
+    await bot.pathfinder.goto(new goals.GoalNear(currentStone.position.x, currentStone.position.y, currentStone.position.z, 0.5));
+    minedCount++;
+  }
+
+  bot.chat("10 cobblestone mined.");
+}

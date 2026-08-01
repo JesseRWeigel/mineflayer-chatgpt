@@ -1,0 +1,13 @@
+async function mineWoodLog(bot) {
+  const { goals } = require('mineflayer-pathfinder');
+  const woodLogNames = ["oak_log","birch_log","spruce_log","jungle_log","acacia_log","dark_oak_log","mangrove_log"];
+  const woodLogBlock = bot.findBlock({
+    matching: block => woodLogNames.includes(block.name),
+    maxDistance: 32
+  });
+  if (!woodLogBlock) throw new Error("Cannot find wood log nearby");
+  await bot.pathfinder.goto(new goals.GoalBlock(woodLogBlock.x, woodLogBlock.y, woodLogBlock.z));
+  await bot.dig(woodLogBlock);
+  await bot.pathfinder.goto(new goals.GoalNear(woodLogBlock.x, woodLogBlock.y, woodLogBlock.z, 2));
+  bot.chat("Wood log mined.");
+}

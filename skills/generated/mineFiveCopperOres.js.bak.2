@@ -1,0 +1,30 @@
+async function mineFiveCopperOres(bot) {
+  const mcData = require('minecraft-data')(bot.version);
+  const { Vec3 } = require('vec3');
+  const { goals } = require('mineflayer-pathfinder');
+
+  const stonePickaxe = bot.inventory.items().find(item => item.name === 'stone_pickaxe');
+  if (!stonePickaxe) {
+    throw new Error("Cannot find stone_pickaxe in inventory");
+  }
+  await bot.equip(stonePickaxe, "hand");
+
+  let minedCount = 0;
+  while (minedCount < 5) {
+    const targetBlock = bot.findBlock({
+      matching: block => block.name === "copper_ore",
+      maxDistance: 32
+    });
+
+    if (!targetBlock) {
+      throw new Error("Cannot find copper_ore nearby");
+    }
+
+    await bot.pathfinder.goto(new goals.GoalNear(targetBlock.position.x, targetBlock.position.y, targetBlock.position.z, 1));
+    await bot.dig(targetBlock);
+    await bot.pathfinder.goto(new goals.GoalNear(targetBlock.position.x, targetBlock.position.y, targetBlock.position.z, 0.5));
+    minedCount++;
+  }
+
+  bot.chat("5 copper ores mined.");
+}
