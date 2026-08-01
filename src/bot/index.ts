@@ -306,7 +306,19 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const cause = lastDeathMessage || "unknown";
     memStore.recordDeath(pos.x, pos.y, pos.z, cause);
     recordDeath(roleConfig.name);
-    console.log(`[Bot] I died! Cause: ${cause}. Respawning...`);
+
+    // What was it WEARING when it died?
+    //
+    // Deaths ran 19-22/hr with "was shot by" dominant, and I could not tell from
+    // the log whether bots were armoured: grepping for "armor" only matched the
+    // LLM's own chatter about hunting iron, not the equipment state. equipBestArmor
+    // logs when it equips something, which says nothing about what is worn at the
+    // moment of death — an unarmoured bot that never found armour logs nothing at
+    // all. Record the slots directly so the next spike is answerable.
+    const worn = [5, 6, 7, 8]
+      .map((slot) => bot.inventory.slots[slot]?.name ?? "-")
+      .join(",");
+    console.log(`[Bot] I died! Cause: ${cause}. Armor: ${worn}. Respawning...`);
     lastDeathMessage = "";
     abortActiveSkill(bot);
 
