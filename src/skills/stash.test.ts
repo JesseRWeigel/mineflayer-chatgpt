@@ -13,6 +13,7 @@ import {
   bestToolFor,
   withinReach,
   nothingToBankMessage,
+  shouldKeep,
   type DepositFailure,
 } from "./stash.js";
 
@@ -271,4 +272,46 @@ test("nothingToBank truncates a full inventory instead of dumping 36 names", () 
 
 test("nothingToBank handles an empty keep list", () => {
   assert.match(nothingToBankMessage([]), /nothing/);
+});
+
+// minCount is a count of ITEMS. The loop used to add 1 per stack, so
+// { sapling, minCount: 16 } meant "keep 16 sapling STACKS" — over 1,000 saplings,
+// more than an inventory holds. "Banked nothing" was the dominant deposit
+// outcome at 240 against 10 successes.
+test("keep reserve is satisfied by one stack, not sixteen", () => {
+  const keep = [{ name: "sapling", minCount: 16 }];
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("oak_sapling", keep, counts, 64), true, "first stack fills the reserve");
+  assert.equal(shouldKeep("oak_sapling", keep, counts, 64), false, "second stack must be banked");
+  assert.equal(shouldKeep("oak_sapling", keep, counts, 64), false, "third stack must be banked");
+});
+
+test("a partial stack still counts toward the reserve", () => {
+  const keep = [{ name: "torch", minCount: 8 }];
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("torch", keep, counts, 5), true);
+  assert.equal(shouldKeep("torch", keep, counts, 5), true, "5+5=10 only after the second, so this is kept");
+  assert.equal(shouldKeep("torch", keep, counts, 5), false, "reserve now exceeded");
+});
+
+test("omitting the count keeps the old per-item behaviour", () => {
+  const keep = [{ name: "sapling", minCount: 2 }];
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("oak_sapling", keep, counts), true);
+  assert.equal(shouldKeep("oak_sapling", keep, counts), true);
+  assert.equal(shouldKeep("oak_sapling", keep, counts), false);
+});
+
+test("iron gear is still never deposited regardless of count", () => {
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_sword", [], counts, 1), true);
+  assert.equal(shouldKeep("iron_chestplate", [], counts, 1), true);
+});
+
+test("food buffer still counts stacks, not items", () => {
+  // Deliberately unchanged: under-keeping food starves the miner, and this
+  // reserve was tuned against real starvation, not against hoarding.
+  const counts = new Map<string, number>();
+  for (let i = 0; i < 6; i++) assert.equal(shouldKeep("bread", [], counts, 1), true);
+  assert.equal(shouldKeep("bread", [], counts, 1), false);
 });

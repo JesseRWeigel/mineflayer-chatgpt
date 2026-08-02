@@ -341,6 +341,9 @@ export function shouldKeep(
   itemName: string,
   keepItems: { name: string; minCount: number }[],
   currentCounts: Map<string, number>,
+  /** How many items are in this stack. Defaults to 1 so callers that only know
+   *  the name still behave as before. */
+  itemCount = 1,
 ): boolean {
   // ALWAYS keep valuable gear. Bots crafted iron tools (12 in one run) then
   // deposited them as "surplus" and re-ground iron forever, never advancing.
@@ -441,11 +444,25 @@ export function shouldKeep(
     return false;
   }
 
+  // minCount is a count of ITEMS, not of inventory slots. This loop used to add
+  // 1 per stack, so { sapling, minCount: 16 } meant "keep the first 16 sapling
+  // STACKS" — up to 1,024 saplings, more than an inventory holds. A bot carrying
+  // three stacks of saplings kept all three and reported "Banked nothing", which
+  // was the dominant deposit outcome at 240 against 10 successes.
+  //
+  // Counting the stack size means the reserve fills on the first stack and the
+  // surplus goes to the team. It over-keeps within a single stack (64 saplings
+  // to satisfy a reserve of 16) because a boolean cannot split one; that is a
+  // rounding error next to hoarding sixteen stacks.
+  //
+  // Only this loop changed. The food and wheat reserves above deliberately count
+  // stacks — food is a survival buffer where under-keeping starves the miner,
+  // and the wheat reserve of 2 exists so harvests pool in the stash for baking.
   for (const keep of keepItems) {
     if (itemName.includes(keep.name)) {
       const kept = currentCounts.get(keep.name) ?? 0;
       if (kept < keep.minCount) {
-        currentCounts.set(keep.name, kept + 1);
+        currentCounts.set(keep.name, kept + itemCount);
         return true;
       }
     }
@@ -542,7 +559,7 @@ export async function depositStash(
   const byCategory = new Map<string, typeof itemsToDeposit>();
   const keptNames: string[] = [];
   for (const item of itemsToDeposit) {
-    if (shouldKeep(item.name, keepItems, keptCounts)) {
+    if (shouldKeep(item.name, keepItems, keptCounts, item.count)) {
       keptNames.push(item.name);
       continue;
     }
@@ -780,7 +797,7 @@ export async function depositStash(
           const container = await openNewChest(bot, placed);
           for (const item of bot.inventory.items()) {
             if (item.name === "chest") continue; // keep spare chests for next expansion
-            if (shouldKeep(item.name, keepItems, keptCounts)) continue;
+            if (shouldKeep(item.name, keepItems, keptCounts, item.count)) continue;
             try {
               await container.deposit(item.type, null, item.count);
               deposited += item.count;
