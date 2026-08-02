@@ -21,6 +21,7 @@ import { isNeuralServerRunning } from "../neural/bridge.js";
 import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
 import { createFallTracker } from "./fall-tracker.js";
+import { respawnTarget } from "./respawn.js";
 
 // Re-export types used by src/index.ts
 export type { ChatMessage, BrainEvents as BotEvents };
@@ -117,8 +118,17 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       const lx = Math.floor(bot.entity.position.x);
       const ly = Math.floor(bot.entity.position.y);
       const lz = Math.floor(bot.entity.position.z);
-      console.log(`[Bot] Landed at ${lx},${ly},${lz} — setting spawnpoint`);
-      bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
+      // spreadplayers lands on the TOPMOST safe block, which on this terrain is
+      // a mountain peak. See respawn.ts: 49 spawnpoints set at y=114-121 while
+      // the stash sits at y=70, and Forge then died 29 times, 28 of them falls,
+      // from exactly those heights. Safe against suffocation is not safe.
+      const spawn = respawnTarget({ x: lx, y: ly, z: lz }, roleConfig.stashPos);
+      if (spawn.y !== ly) {
+        console.log(`[Bot] Landed at ${lx},${ly},${lz} — ${ly - (roleConfig.stashPos?.y ?? ly)} above the stash, spawning at base instead`);
+      } else {
+        console.log(`[Bot] Landed at ${lx},${ly},${lz} — setting spawnpoint`);
+      }
+      bot.chat(`/spawnpoint ${roleConfig.username} ${spawn.x} ${spawn.y} ${spawn.z}`);
       spawnSafetyRunning = false;
       resolveSpawnSafetyDone();
       return;
@@ -202,8 +212,14 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const lx = Math.floor(bot.entity.position.x);
     const ly = Math.floor(bot.entity.position.y);
     const lz = Math.floor(bot.entity.position.z);
-    bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
-    console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz}`);
+    // Same peak guard as the safeSpawn path above — this is the branch the
+    // respawn-loop breaker actually re-runs, so it is where the loop was fed.
+    const locked = respawnTarget({ x: lx, y: ly, z: lz }, roleConfig.stashPos);
+    bot.chat(`/spawnpoint ${roleConfig.username} ${locked.x} ${locked.y} ${locked.z}`);
+    console.log(
+      `[Bot] Spawnpoint locked at ${locked.x},${locked.y},${locked.z}` +
+        (locked.y !== ly ? ` (landing at y=${ly} was too high above the y=${roleConfig.stashPos?.y} stash)` : ""),
+    );
     spawnSafetyRunning = false;
     resolveSpawnSafetyDone();
   }
