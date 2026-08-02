@@ -21,7 +21,7 @@ import { isNeuralServerRunning } from "../neural/bridge.js";
 import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
 import { createFallTracker } from "./fall-tracker.js";
-import { respawnTarget } from "./respawn.js";
+import { respawnTarget, isAtBase } from "./respawn.js";
 
 // Re-export types used by src/index.ts
 export type { ChatMessage, BrainEvents as BotEvents };
@@ -123,12 +123,23 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       // the stash sits at y=70, and Forge then died 29 times, 28 of them falls,
       // from exactly those heights. Safe against suffocation is not safe.
       const spawn = respawnTarget({ x: lx, y: ly, z: lz }, roleConfig.stashPos);
+      bot.chat(`/spawnpoint ${roleConfig.username} ${spawn.x} ${spawn.y} ${spawn.z}`);
       if (spawn.y !== ly) {
-        console.log(`[Bot] Landed at ${lx},${ly},${lz} — ${ly - (roleConfig.stashPos?.y ?? ly)} above the stash, spawning at base instead`);
+        // ae5325a moved the SPAWNPOINT to base but left the bot standing where
+        // spreadplayers had put it. That is the peak. The guard then fired 44
+        // times in one hour while Forge died 24 more times falling from y=118
+        // to y=121 — the same altitudes spreadplayers had just chosen for him.
+        // Redirecting where a bot will respawn is useless while it is still
+        // stranded on the cliff; move the body too.
+        console.log(
+          `[Bot] Landed at ${lx},${ly},${lz} — ${ly - spawn.y} above the stash, ` +
+            `spawnpoint AND bot moved to base ${spawn.x},${spawn.y},${spawn.z}`,
+        );
+        bot.chat(`/tp ${roleConfig.username} ${spawn.x} ${spawn.y + 1} ${spawn.z}`);
+        await new Promise((r) => setTimeout(r, 1000));
       } else {
         console.log(`[Bot] Landed at ${lx},${ly},${lz} — setting spawnpoint`);
       }
-      bot.chat(`/spawnpoint ${roleConfig.username} ${spawn.x} ${spawn.y} ${spawn.z}`);
       spawnSafetyRunning = false;
       resolveSpawnSafetyDone();
       return;
@@ -185,8 +196,15 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       return;
     }
 
-    // Underground — TP to surface
-    if (pos.y < 100) {
+    // Underground — TP to surface.
+    //
+    // Skipped at base. This check is an absolute height test that assumes the
+    // base sits above y=100; ours is at y=70, so once respawns started coming
+    // home every arriving bot was judged trapped, teleported to y=200, and
+    // landed on a peak at y=118-121 — the heights it then fell 33 blocks from.
+    // The respawn guard fired 44 times in an hour and Forge still died 24 times,
+    // because this undid it seconds later.
+    if (pos.y < 100 && !isAtBase(pos, roleConfig.stashPos)) {
       let hasCeiling = false;
       for (let dy = 1; dy <= 6; dy++) {
         const b = bot.blockAt(pos.offset(0, dy, 0));

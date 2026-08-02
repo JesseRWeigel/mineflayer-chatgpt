@@ -25,6 +25,29 @@ export function isAcceptableRespawn(landedY: number, stashY: number): boolean {
   return landedY - stashY <= MAX_SPAWN_ELEVATION_ABOVE_STASH;
 }
 
+/** How close to the stash counts as "home" rather than "lost underground". */
+export const BASE_RADIUS = 24;
+export const BASE_VERTICAL_TOLERANCE = 16;
+
+/** Is the bot at the team base?
+ *
+ *  The surface-rescue check used an absolute `pos.y < 100`, which assumes the
+ *  base is above y=100. This one sits at y=70. So once ae5325a started sending
+ *  respawns home, every bot that arrived was judged trapped underground, was
+ *  teleported to y=200, and landed on a mountain peak at y=118-121 — the exact
+ *  heights it then fell 33 blocks from. The guard fired 44 times and 24 fall
+ *  deaths happened anyway, because the rescue undid it immediately.
+ *
+ *  A bot standing in its own stash is not lost, whatever its altitude. */
+export function isAtBase(
+  pos: { x: number; y: number; z: number },
+  stash: { x: number; y: number; z: number } | undefined,
+): boolean {
+  if (!stash) return false;
+  const horizontal = Math.hypot(pos.x - stash.x, pos.z - stash.z);
+  return horizontal <= BASE_RADIUS && Math.abs(pos.y - stash.y) <= BASE_VERTICAL_TOLERANCE;
+}
+
 /** Where to put the spawn point after a landing that came out too high.
  *  Falls back to the landing spot when there is no stash to aim at, since an
  *  unknown base is not a reason to leave the bot with no spawn point at all. */

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isAcceptableRespawn, respawnTarget, MAX_SPAWN_ELEVATION_ABOVE_STASH } from "./respawn.js";
+import { isAcceptableRespawn, respawnTarget, isAtBase, MAX_SPAWN_ELEVATION_ABOVE_STASH } from "./respawn.js";
 
 const STASH = { x: 286, y: 70, z: -314 };
 
@@ -39,4 +39,31 @@ test("an acceptable landing is kept as-is", () => {
 test("no known stash means keep the landing rather than have no spawn at all", () => {
   const landed = { x: 280, y: 119, z: -322 };
   assert.deepEqual(respawnTarget(landed, undefined), landed);
+});
+
+// The regression: ae5325a sent respawns home to the y=70 stash, and the
+// surface-rescue check (absolute `pos.y < 100`) then judged every arriving bot
+// trapped underground, teleported it to y=200, and dropped it on a peak at
+// y=118-121. The guard fired 44 times in one hour and Forge still died 24 times.
+test("standing at the stash is home, not lost underground", () => {
+  assert.equal(isAtBase({ x: 286, y: 70, z: -314 }, STASH), true);
+  assert.equal(isAtBase({ x: 290, y: 72, z: -310 }, STASH), true, "working a few blocks from the chests");
+  assert.equal(isAtBase({ x: 286, y: 62, z: -314 }, STASH), true, "just below the stash floor");
+});
+
+test("genuinely lost bots still qualify for rescue", () => {
+  assert.equal(isAtBase({ x: 286, y: 20, z: -314 }, STASH), false, "deep in a cave under the base");
+  assert.equal(isAtBase({ x: 500, y: 70, z: -314 }, STASH), false, "same height, far away");
+  assert.equal(isAtBase({ x: 286, y: 70, z: -600 }, STASH), false);
+});
+
+test("no known stash means the old behaviour stands", () => {
+  // Without a base there is nothing to be "at", so the height test decides.
+  assert.equal(isAtBase({ x: 286, y: 70, z: -314 }, undefined), false);
+});
+
+test("base check uses horizontal distance, not a bounding box", () => {
+  // Diagonal corner of a 24-block box is ~34 away and should not count.
+  assert.equal(isAtBase({ x: 286 + 24, y: 70, z: -314 + 24 }, STASH), false);
+  assert.equal(isAtBase({ x: 286 + 24, y: 70, z: -314 }, STASH), true, "exactly on the radius");
 });
