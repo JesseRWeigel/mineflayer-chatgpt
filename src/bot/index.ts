@@ -22,6 +22,7 @@ import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
 import { createFallTracker } from "./fall-tracker.js";
 import { respawnTarget, isAtBase } from "./respawn.js";
+import { Vec3 } from "vec3";
 
 // Re-export types used by src/index.ts
 export type { ChatMessage, BrainEvents as BotEvents };
@@ -88,6 +89,37 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     if (spawnSafetyRunning) return;
     spawnSafetyRunning = true;
     await new Promise((r) => setTimeout(r, 800));
+
+    // Go straight home when there is a base to go to.
+    //
+    // safeSpawn resolves to terrain at y=117-121 — a mountain. spreadplayers put
+    // the bot there on EVERY call, and c3c7808 then teleported it back down, so
+    // the bot spent a live window standing on a peak 50 blocks above its base.
+    // Across 33 relocations that window produced 13 fall deaths, all from y=119
+    // and y=121, the exact altitudes in the "Landed at" lines.
+    //
+    // Correcting a hazard after deliberately creating it cannot beat not
+    // creating it. The stash is proven standable — bots path to it and stand
+    // there to deposit all day — so it is a better spawn than the topmost block
+    // of whatever terrain safeSpawn happens to name.
+    if (roleConfig.stashPos) {
+      const s = roleConfig.stashPos;
+      bot.chat(`/spawnpoint ${roleConfig.username} ${s.x} ${s.y} ${s.z}`);
+      await new Promise((r) => setTimeout(r, 400));
+      bot.chat(`/tp ${roleConfig.username} ${s.x} ${s.y + 1} ${s.z}`);
+      await new Promise((r) => setTimeout(r, 1500));
+      // Verify rather than assume. c3c7808 logged "bot moved to base" 33 times
+      // while bots kept dying on the peak, and I read those lines as proof the
+      // move had happened. A command that was sent is not a bot that arrived.
+      const arrived = bot.entity.position.distanceTo(new Vec3(s.x, s.y, s.z));
+      console.log(
+        `[Bot] Spawn at base ${s.x},${s.y},${s.z} — bot is ${arrived.toFixed(1)} blocks away ` +
+          `(y=${bot.entity.position.y.toFixed(0)}) ${arrived <= 8 ? "OK" : "TELEPORT DID NOT LAND"}`,
+      );
+      spawnSafetyRunning = false;
+      resolveSpawnSafetyDone();
+      return;
+    }
 
     if (roleConfig.safeSpawn) {
       const { x, z } = roleConfig.safeSpawn;
@@ -230,14 +262,11 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const lx = Math.floor(bot.entity.position.x);
     const ly = Math.floor(bot.entity.position.y);
     const lz = Math.floor(bot.entity.position.z);
-    // Same peak guard as the safeSpawn path above — this is the branch the
-    // respawn-loop breaker actually re-runs, so it is where the loop was fed.
-    const locked = respawnTarget({ x: lx, y: ly, z: lz }, roleConfig.stashPos);
-    bot.chat(`/spawnpoint ${roleConfig.username} ${locked.x} ${locked.y} ${locked.z}`);
-    console.log(
-      `[Bot] Spawnpoint locked at ${locked.x},${locked.y},${locked.z}` +
-        (locked.y !== ly ? ` (landing at y=${ly} was too high above the y=${roleConfig.stashPos?.y} stash)` : ""),
-    );
+    // No stash to aim at — the branch above returns whenever one is known — so
+    // there is no base to compare this landing against and nothing to redirect
+    // to. Lock in wherever the bot legitimately ended up.
+    bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
+    console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz} (no stash configured)`);
     spawnSafetyRunning = false;
     resolveSpawnSafetyDone();
   }
