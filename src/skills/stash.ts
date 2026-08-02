@@ -272,6 +272,28 @@ export function canClearObstruction(blockName: string | undefined | null): boole
   return obstructsChest(blockName) && !isPreciousBlock(blockName!);
 }
 
+/** What to say when a bot walked to the stash and banked nothing, with no
+ *  failure to report.
+ *
+ *  "Deposited 0 items at the stash." fired 132 times in under two hours and reads
+ *  as success, so the brain banked nothing, believed it had, and chose
+ *  deposit_stash again — 83 invocations to move 20 items. It happens when
+ *  everything carried passes shouldKeep: the category map comes out empty, the
+ *  deposit loop never runs, and the function falls through to its success string.
+ *
+ *  The explore action already carries this exact lesson (actions.ts): a false
+ *  success the LLM believes is worse than a blunt failure, because it re-plans
+ *  straight back into the same dead end. Say what is actually being held and
+ *  point somewhere else. */
+export function nothingToBankMessage(keptNames: string[]): string {
+  const unique = [...new Set(keptNames)];
+  const held = unique.length ? unique.slice(0, 4).join(", ") + (unique.length > 4 ? ", ..." : "") : "nothing";
+  return (
+    `Banked nothing — everything I'm carrying (${held}) is gear or food I'm keeping. ` +
+    `Don't return to the stash until I've gathered something worth banking: mine, chop wood, or explore.`
+  );
+}
+
 /** Should a bounced deposit try to place another chest?
  *
  *  Only when a category had NO chest at all. Measured over 38 attributed failures:
@@ -518,8 +540,12 @@ export async function depositStash(
 
   // Group items by category
   const byCategory = new Map<string, typeof itemsToDeposit>();
+  const keptNames: string[] = [];
   for (const item of itemsToDeposit) {
-    if (shouldKeep(item.name, keepItems, keptCounts)) continue;
+    if (shouldKeep(item.name, keepItems, keptCounts)) {
+      keptNames.push(item.name);
+      continue;
+    }
     const cat = categorizeItem(item.name);
     if (!byCategory.has(cat)) byCategory.set(cat, []);
     byCategory.get(cat)!.push(item);
@@ -814,6 +840,7 @@ export async function depositStash(
   if (noChest > 0) {
     return `Deposited ${deposited} items. ${noChest} items couldn't fit (${summarizeDepositFailure(failures)}) — stash needs expansion.`;
   }
+  if (deposited === 0) return nothingToBankMessage(keptNames);
   return `Deposited ${deposited} items at the stash.`;
 }
 

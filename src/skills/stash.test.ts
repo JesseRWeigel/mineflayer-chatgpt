@@ -12,6 +12,7 @@ import {
   canClearObstruction,
   bestToolFor,
   withinReach,
+  nothingToBankMessage,
   type DepositFailure,
 } from "./stash.js";
 
@@ -237,4 +238,37 @@ test("withinReach rejects out-of-range and unmeasured distances", () => {
   assert.equal(withinReach(4.6), false);
   assert.equal(withinReach(12), false);
   assert.equal(withinReach(Number.NaN), false, "unmeasured must not count as in reach");
+});
+
+// "Deposited 0 items at the stash." fired 132 times in under two hours and reads
+// as success, so the brain re-planned straight back into it: 83 deposit_stash
+// invocations to move 20 items.
+test("banking nothing never reports success", () => {
+  const msg = nothingToBankMessage(["iron_pickaxe", "bread"]);
+  assert.doesNotMatch(msg, /^Deposited/, "must not open with a success phrase");
+  assert.match(msg, /Banked nothing/);
+});
+
+test("nothingToBank names what is being held so the brain can reason", () => {
+  const msg = nothingToBankMessage(["iron_pickaxe", "bread", "iron_pickaxe"]);
+  assert.match(msg, /iron_pickaxe/);
+  assert.match(msg, /bread/);
+  assert.equal(msg.match(/iron_pickaxe/g)?.length, 1, "duplicates should collapse");
+});
+
+test("nothingToBank redirects away from the stash", () => {
+  // The livelock was deposit -> success -> deposit. The message must point
+  // somewhere else or the brain has no reason to change action.
+  assert.match(nothingToBankMessage(["bread"]), /mine|chop|explore/);
+});
+
+test("nothingToBank truncates a full inventory instead of dumping 36 names", () => {
+  const many = ["a_pickaxe", "b_axe", "c_sword", "d_shovel", "e_bread", "f_torch"];
+  const msg = nothingToBankMessage(many);
+  assert.match(msg, /\.\.\./);
+  assert.equal(msg.includes("f_torch"), false);
+});
+
+test("nothingToBank handles an empty keep list", () => {
+  assert.match(nothingToBankMessage([]), /nothing/);
 });
