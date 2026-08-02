@@ -203,6 +203,26 @@ PY
     (( DEATHS_PER_HR > 12 )) && ALERTS+=("death_rate_${DEATHS_PER_HR}_per_hr")
   fi
 
+  # ONE BOT dying is invisible to the swarm-wide rate. Forge died 29 times in a
+  # single session -- a respawn loop that took two deploys to fix -- while
+  # MOST_DEATHS=Forge:29 sat in this very output and ALERTS said none, because 43
+  # deaths across 3h46m averages out to a survivable-looking number.
+  #
+  # Rate, not total, for the same reason the swarm-wide check uses one: a long
+  # healthy session accumulates deaths honestly. Healthy is ~1/hr per bot (2-6/hr
+  # across five). Replayed against history: Forge 29-in-3h46m = 7.7/hr and
+  # Forge 24-in-1h48m = 13/hr both fire; Atlas 11-in-1h54m = 5.8/hr fires and was
+  # a real fall loop; Atlas 13-in-6h32m = 2/hr and Flora 3-in-1h46m = 1.7/hr stay
+  # quiet, and both were healthy.
+  MOST=$(sed -n 's/^MOST_DEATHS=//p' <<<"$STATS")
+  if [[ -n "${MOST:-}" && -n "${UPTIME_RAW:-}" ]] && (( UPTIME_RAW > 1800 )); then
+    WORST_BOT="${MOST%%:*}"
+    WORST_N="${MOST##*:}"
+    WORST_PER_HR=$(( WORST_N * 3600 / UPTIME_RAW ))
+    echo "WORST_BOT_DEATHS_PER_HR=${WORST_BOT}:${WORST_PER_HR}"
+    (( WORST_PER_HR > 4 )) && ALERTS+=("one_bot_dying_${WORST_BOT}_${WORST_PER_HR}_per_hr")
+  fi
+
   # RATE, not total. Cumulative counters cannot see a stall: deposits sat at 9
   # for a full hour while the stash filled and expansion silently broke, and the
   # zero-deposits alert stayed quiet because 9 is not 0. Compare against the
