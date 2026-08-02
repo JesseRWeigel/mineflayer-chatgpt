@@ -14,6 +14,7 @@ import {
   withinReach,
   nothingToBankMessage,
   shouldKeep,
+  KEEP_MATERIAL_RESERVE,
   type DepositFailure,
 } from "./stash.js";
 
@@ -314,4 +315,38 @@ test("food buffer still counts stacks, not items", () => {
   const counts = new Map<string, number>();
   for (let i = 0; i < 6; i++) assert.equal(shouldKeep("bread", [], counts, 1), true);
   assert.equal(shouldKeep("bread", [], counts, 1), false);
+});
+
+// KEEP_MATERIALS returned true unconditionally — the only unbounded reserve in
+// shouldKeep. Iron never reached the stash, so withdraw_stash logged "No
+// iron_ingot in the stash" 245 times while bots walked around carrying it.
+test("iron pools to the team once a bot can craft for itself", () => {
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_ingot", [], counts, KEEP_MATERIAL_RESERVE), true, "first 8 stay with the bot");
+  assert.equal(shouldKeep("iron_ingot", [], counts, 20), false, "the surplus must reach the stash");
+  assert.equal(shouldKeep("raw_iron", [], counts, 30), false);
+});
+
+test("a bot below the reserve still keeps enough to craft", () => {
+  const counts = new Map<string, number>();
+  // 8 ingots is an iron chestplate; a bot must be able to reach that alone.
+  assert.equal(shouldKeep("iron_ingot", [], counts, 3), true);
+  assert.equal(shouldKeep("raw_iron", [], counts, 4), true);
+  assert.equal(shouldKeep("iron_ingot", [], counts, 1), true, "still under 8 total");
+  assert.equal(shouldKeep("iron_ingot", [], counts, 5), false, "now over the reserve");
+});
+
+test("the materials reserve is shared across metal types, not per item", () => {
+  // Otherwise a bot keeps 8 of each and pools nothing.
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("raw_iron", [], counts, 8), true);
+  assert.equal(shouldKeep("diamond", [], counts, 8), false, "reserve already spent on iron");
+});
+
+test("iron TOOLS are still never deposited", () => {
+  // Separate rule, above the materials cap — bots re-ground iron forever when
+  // they deposited their own gear as surplus.
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_pickaxe", [], counts, 1), true);
+  assert.equal(shouldKeep("iron_chestplate", [], counts, 1), true);
 });

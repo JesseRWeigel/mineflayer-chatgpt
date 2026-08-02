@@ -337,6 +337,10 @@ export function getRowOffset(category: string): number {
 }
 
 /** Check if an item should be kept based on the bot's keepItems config. */
+/** Iron/gold/diamond a bot holds back for its own crafting before pooling the
+ *  rest. 8 = one iron chestplate, the most expensive single piece. */
+export const KEEP_MATERIAL_RESERVE = 8;
+
 export function shouldKeep(
   itemName: string,
   keepItems: { name: string; minCount: number }[],
@@ -382,8 +386,27 @@ export function shouldKeep(
   // they never accumulated the 3+ ingots needed in-hand to craft an iron tool.
   // Hold onto these so the smelter can actually craft — surplus is fine, the
   // bots' inventories are nearly empty anyway.
+  // ...but CAP it. This returned true unconditionally, the only unbounded
+  // reserve in the function — food is capped at 6, wheat at 2, tools at one
+  // each, role items at minCount. Iron therefore never reached the stash at all,
+  // which is why withdraw_stash logged "No iron_ingot in the stash" 245 times in
+  // one session while bots walked around carrying raw_iron and iron_ingot, why
+  // craft_gear attempted only tools and never armour across 26 runs, and why
+  // 22 of 33 deaths were unarmoured. The supply was never missing; it was
+  // stranded in five separate pockets.
+  //
+  // KEEP_MATERIAL_RESERVE is 8 because that is an iron chestplate, the most
+  // expensive single piece. A bot holding that much can still craft anything on
+  // its own; beyond it, the team is better served by pooling.
   const KEEP_MATERIALS = ["raw_iron", "iron_ingot", "raw_gold", "gold_ingot", "diamond"];
-  if (KEEP_MATERIALS.includes(itemName)) return true;
+  if (KEEP_MATERIALS.includes(itemName)) {
+    const kept = currentCounts.get("__materials") ?? 0;
+    if (kept < KEEP_MATERIAL_RESERVE) {
+      currentCounts.set("__materials", kept + itemCount);
+      return true;
+    }
+    return false;
+  }
 
   // Seeds: always keep (needed to replant).
   if (itemName === "wheat_seeds") return true;
