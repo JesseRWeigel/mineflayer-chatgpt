@@ -12,13 +12,18 @@
 // landing tick and is still readable when the death event arrives.
 
 export interface FallTracker {
-  update(y: number, onGround: boolean, now: number): void;
+  /** `context` describes what was moving the bot at this instant. It is only
+   *  retained if this tick is the moment the bot leaves the ground, which is the
+   *  one sample that says what walked it off the edge. */
+  update(y: number, onGround: boolean, now: number, context?: string): void;
   /** Blocks fallen from the last ground the bot left, given where it ended up. */
   dropFrom(currentY: number): number;
   /** Height the fall started from — the ground the bot walked off. */
   originY(): number;
   /** How long it has been airborne, or since it landed. */
   airborneMs(now: number): number;
+  /** What was moving the bot when it left the ground. */
+  originContext(): string;
 }
 
 export function createFallTracker(initialY: number): FallTracker {
@@ -26,9 +31,10 @@ export function createFallTracker(initialY: number): FallTracker {
   let lastGroundY = initialY;
   let fallStartY = initialY;
   let leftGroundAt = 0;
+  let departureContext = "";
 
   return {
-    update(y, onGround, now) {
+    update(y, onGround, now, context = "") {
       if (onGround) {
         if (onGroundPrev) {
           // Continuous ground contact — no fall is pending, so the origin tracks
@@ -44,6 +50,7 @@ export function createFallTracker(initialY: number): FallTracker {
         // Ground -> airborne: the only moment the fall origin is knowable.
         fallStartY = lastGroundY;
         leftGroundAt = now;
+        departureContext = context;
       }
       onGroundPrev = onGround;
     },
@@ -55,6 +62,9 @@ export function createFallTracker(initialY: number): FallTracker {
     },
     airborneMs(now) {
       return leftGroundAt === 0 ? 0 : now - leftGroundAt;
+    },
+    originContext() {
+      return departureContext;
     },
   };
 }

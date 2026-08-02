@@ -52,3 +52,30 @@ test("airborne time measures from leaving the ground", () => {
   t.update(63, false, 1000);
   assert.equal(t.airborneMs(3500), 2500);
 });
+
+// Three mechanism hypotheses died against the source before this instrument
+// existed. What holds the controls at the ground->airborne tick is the evidence.
+test("captures what was moving the bot at the moment it left the ground", () => {
+  const t = createFallTracker(116);
+  t.update(116, true, 0, "controls=forward pathing=true");
+  t.update(115, false, 10, "controls=sprint+forward pathing=false");
+  t.update(80, false, 500, "controls=none pathing=false");
+  t.update(71, true, 900, "controls=none pathing=false");
+  assert.equal(t.originContext(), "controls=sprint+forward pathing=false");
+  assert.equal(t.dropFrom(71), 45);
+});
+
+test("grounded ticks do not overwrite the departure context", () => {
+  const t = createFallTracker(90);
+  t.update(90, true, 0, "controls=forward");
+  t.update(89, false, 10, "controls=left+sprint");
+  t.update(72, true, 400, "controls=none"); // landing must not clobber it
+  assert.equal(t.originContext(), "controls=left+sprint");
+});
+
+test("context defaults to empty when not supplied", () => {
+  const t = createFallTracker(64);
+  t.update(64, true, 0);
+  t.update(63, false, 10);
+  assert.equal(t.originContext(), "");
+});

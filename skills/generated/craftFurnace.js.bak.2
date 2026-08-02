@@ -8,11 +8,13 @@ async function craftFurnace(bot) {
   const recipes = await bot.recipesFor(furnaceId, null, 1, craftingTable);
   if (!recipes || recipes.length === 0) throw new Error('Cannot find furnace recipe nearby');
   await bot.craft(recipes[0], 1, craftingTable);
-  if (!bot.inventory.items().some(item => item.type === furnaceId)) {
+  if (bot.inventory.items().some(item => item.type === furnaceId)) {
+    await bot.placeBlock(craftingTable, {x:0,y:1,z:0});
+  } else {
     const drop = bot.findBlock({ matching: b => b.name === 'furnace', maxDistance: 32 });
-    if (drop) {
-      await bot.pathfinder.goto(new goals.GoalNear(drop.position.x, drop.position.y, drop.position.z, 2));
-      await bot.dig(drop);
-    }
+    if (!drop) throw new Error('Cannot find furnace drop nearby');
+    await bot.pathfinder.goto(new goals.GoalNear(drop.position.x, drop.position.y, drop.position.z, 2));
+    await bot.dig(drop);
+    await bot.pathfinder.goto(new goals.GoalNear(drop.position.x, drop.position.y, drop.position.z, 0.5));
   }
 }

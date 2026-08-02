@@ -319,7 +319,19 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // transition so it survives the landing tick.
   const fallTracker = createFallTracker(bot.entity?.position.y ?? 0);
   bot.on("move", () => {
-    if (bot.entity) fallTracker.update(bot.entity.position.y, bot.entity.onGround, Date.now());
+    if (!bot.entity) return;
+    // Three mechanism hypotheses died against the source before this, each
+    // plausible and each never actually firing: allowFreeMotion (only read for
+    // entity goals), the teleport unstick (gated off), and neural combat's raw
+    // sprint+strafe (0 runs all session). Atlas is 7-for-7 on fall deaths, three
+    // from y=116. Stop guessing what moves him and record it: whatever holds the
+    // controls at the instant he leaves the ground is the answer.
+    const held = Object.entries(bot.controlState)
+      .filter(([, on]) => on)
+      .map(([k]) => k)
+      .join("+");
+    const ctx = `controls=${held || "none"} pathing=${bot.pathfinder?.isMoving?.() ?? "?"} vel=${bot.entity.velocity.y.toFixed(2)}`;
+    fallTracker.update(bot.entity.position.y, bot.entity.onGround, Date.now(), ctx);
   });
 
   bot.on("death", () => {
@@ -343,7 +355,7 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const fallInfo =
       drop > 1
         ? ` Fell ${drop.toFixed(1)} blocks from y=${fallTracker.originY().toFixed(0)} ` +
-          `(airborne ${(fallTracker.airborneMs(Date.now()) / 1000).toFixed(1)}s)`
+          `(airborne ${(fallTracker.airborneMs(Date.now()) / 1000).toFixed(1)}s, ${fallTracker.originContext()})`
         : "";
     console.log(`[Bot] I died! Cause: ${cause}. Armor: ${worn}.${fallInfo} Respawning...`);
     lastDeathMessage = "";
