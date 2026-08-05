@@ -362,7 +362,15 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // repetition and clear the spawnpoint back to a safe landing.
   let recentDeaths: number[] = [];
   let respawnFixing = false;
-  const LOOP_WINDOW_MS = 180_000;
+  // Sized against a measured loop, not a guess. Atlas died 460 times in three
+  // days at a median of 235s between deaths — so a 4-in-180s window could never
+  // close, and the breaker sat silent through the worst death loop the project
+  // has had. 12 of 49 gaps were under 60s, so the old window caught only the
+  // bursts and missed the steady bleed entirely.
+  //
+  // 4 deaths in 15 minutes is still far outside healthy (the whole swarm runs
+  // 2-6/hr), and it catches a 235s cadence with room to spare.
+  const LOOP_WINDOW_MS = 900_000;
   const LOOP_THRESHOLD = 4;
 
   // Highest ground the bot last stood on, and when. Falls are the top killer
@@ -393,7 +401,21 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       .filter(([, on]) => on)
       .map(([k]) => k)
       .join("+");
-    const ctx = `controls=${held || "none"} pathing=${bot.pathfinder?.isMoving?.() ?? "?"} vel=${bot.entity.velocity.y.toFixed(2)}`;
+    // What the bot was standing on, and where.
+    //
+    // Atlas has died 460 times in three days, every ~4 minutes, clustered 2-10
+    // blocks from the stash between y=71 and y=95, alternating "fell from a high
+    // place" and "fell off a ladder". Every sample says controls=none
+    // pathing=false, so he is not climbing when he comes off — but nothing
+    // records WHAT he leaves or WHERE, so the mechanism is still guesswork after
+    // three dead hypotheses. Position plus footing is the missing fact.
+    const p = bot.entity.position;
+    const at = bot.blockAt(p)?.name ?? "?";
+    const below = bot.blockAt(p.offset(0, -1, 0))?.name ?? "?";
+    const ctx =
+      `controls=${held || "none"} pathing=${bot.pathfinder?.isMoving?.() ?? "?"} ` +
+      `vel=${bot.entity.velocity.y.toFixed(2)} at=${p.x.toFixed(0)},${p.y.toFixed(0)},${p.z.toFixed(0)} ` +
+      `in=${at} on=${below}`;
     fallTracker.update(bot.entity.position.y, bot.entity.onGround, Date.now(), ctx);
   });
 
