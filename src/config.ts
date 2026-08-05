@@ -16,12 +16,20 @@ const ollamaConfig = {
 };
 
 /** Any OpenAI-compatible endpoint: OpenAI itself, OpenRouter, Groq, Together,
- *  vLLM, LiteLLM, LM Studio. Only the base URL and key change. */
+ *  vLLM, LiteLLM, LM Studio. Only the base URL and key change.
+ *
+ *  No default model, deliberately. A pinned name goes stale — this shipped with
+ *  `gpt-4o-mini`, which OpenAI had already deprecated in favour of the GPT-5.x
+ *  family — and a stale default fails as a confusing model_not_found on the
+ *  first decision rather than as a configuration error at startup. Model choice
+ *  also can't have a sane cross-provider default when the same setting has to
+ *  serve OpenAI, OpenRouter, Groq and a self-hosted vLLM. Make the user name it.
+ */
 const openaiConfig = {
   baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
   apiKey: process.env.OPENAI_API_KEY || "",
-  model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-  fastModel: process.env.OPENAI_FAST_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
+  model: process.env.OPENAI_MODEL || "",
+  fastModel: process.env.OPENAI_FAST_MODEL || process.env.OPENAI_MODEL || "",
 };
 
 export const config = {

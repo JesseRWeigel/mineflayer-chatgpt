@@ -160,26 +160,38 @@ The swarm runs on local Ollama by default. To use a hosted API instead, set
 LLM_PROVIDER=openai
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_API_KEY=sk-your-key-here
-OPENAI_MODEL=gpt-4o-mini        # strategic decisions
-OPENAI_FAST_MODEL=gpt-4o-mini   # reactive decisions + critic (defaults to OPENAI_MODEL)
+OPENAI_MODEL=gpt-5.6-terra      # strategic decisions
+OPENAI_FAST_MODEL=gpt-5.6-luna  # reactive decisions + critic (defaults to OPENAI_MODEL)
 ```
 
 Nothing else changes — `npm start` as usual. On boot the banner reports which
 backend is live:
 
 ```
-LLM: gpt-4o-mini @ https://api.openai.com/v1 [openai]
+LLM: gpt-5.6-terra @ https://api.openai.com/v1 [openai]
 ```
+
+**`OPENAI_MODEL` has no default and startup fails without it.** Model IDs go
+stale quickly, so rather than bake in a name that will quietly 404 next quarter,
+list what your key can actually reach:
+
+```bash
+curl https://api.openai.com/v1/models -H "Authorization: Bearer $OPENAI_API_KEY"
+```
+
+The IDs above were current in August 2026 (`gpt-5.6` is an alias for
+`gpt-5.6-sol`; `terra` is the balanced tier, `luna` the cheap high-volume one).
+Check the list before copying them.
 
 Any OpenAI-compatible gateway works; only the base URL and model name change:
 
-| Provider | `OPENAI_BASE_URL` | Example `OPENAI_MODEL` |
-|---|---|---|
-| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
-| OpenRouter | `https://openrouter.ai/api/v1` | `anthropic/claude-3.5-sonnet` |
-| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
-| Together | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` |
-| vLLM / LiteLLM / LM Studio | your own host, ending in `/v1` | whatever you serve |
+| Provider | `OPENAI_BASE_URL` |
+|---|---|
+| OpenAI | `https://api.openai.com/v1` |
+| OpenRouter | `https://openrouter.ai/api/v1` |
+| Groq | `https://api.groq.com/openai/v1` |
+| Together | `https://api.together.xyz/v1` |
+| vLLM / LiteLLM / LM Studio | your own host, ending in `/v1` |
 
 Self-hosted gateways still need `OPENAI_API_KEY` set to something non-empty, even
 if they ignore it.
@@ -196,10 +208,20 @@ if they ignore it.
   `LLM_PROVIDER=ollama` returns valid JSON. For local models, use
   `LLM_PROVIDER=ollama`.
 
-Cost note: each bot makes a strategic call plus a critic call per action, and
-five bots generate roughly 900–1,000 actions per hour. On a metered API that adds
-up quickly — start with `BOT_COUNT=1`, or set `BOT_CRITIC_ENABLED=false` to halve
-the call volume.
+**Cost.** This workload is chattier than most. Measured on a five-bot swarm:
+roughly **900–1,000 actions per hour**, and each action costs a strategic call
+plus a critic call — so ~2,000 API calls/hour, every hour, indefinitely. Prompts
+carry world state and skill lists, so they are not small.
+
+Three levers, in order of effect:
+
+1. Put the cheap model in `OPENAI_FAST_MODEL` — it serves the reactive and critic
+   paths, about two thirds of all calls.
+2. `BOT_CRITIC_ENABLED=false` removes one call per action outright.
+3. `BOT_COUNT=1` runs Atlas alone instead of five bots.
+
+Run it metered for an hour and check your usage dashboard before leaving it
+unattended overnight.
 
 ### Run
 

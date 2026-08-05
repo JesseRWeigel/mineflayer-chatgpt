@@ -115,4 +115,14 @@ export function assertProviderConfigured(): void {
         "Add it to .env, or unset LLM_PROVIDER to use local Ollama.",
     );
   }
+  // No default model on purpose — see config.ts. Naming one here would rot the
+  // same way, so say what to do instead of guessing on the user's behalf.
+  if (!config.openai.model) {
+    throw new Error(
+      "LLM_PROVIDER=openai but OPENAI_MODEL is not set. " +
+        "Model IDs change often, so pick a current one from your provider " +
+        `(OpenAI: curl ${config.openai.baseUrl}/models -H "Authorization: Bearer $OPENAI_API_KEY"). ` +
+        "See the OpenAI section of the README for examples.",
+    );
+  }
 }
