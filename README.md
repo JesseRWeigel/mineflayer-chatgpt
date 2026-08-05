@@ -125,7 +125,8 @@ MC_USERNAME_5=Blade
 MC_VERSION=1.21.4
 MC_AUTH=offline
 
-# LLM (Ollama)
+# LLM backend — "ollama" (default, local) or "openai" (any OpenAI-compatible API)
+LLM_PROVIDER=ollama
 OLLAMA_HOST=http://localhost:11434
 OLLAMA_MODEL=gpt-oss:20b       # MoE: ~3.6B active params, ~200 tok/s on a 32GB GPU
 OLLAMA_FAST_MODEL=gpt-oss:20b  # Same model — avoids VRAM eviction thrash between two residents
@@ -149,6 +150,56 @@ TWITCH_CHANNEL=your_channel
 TWITCH_BOT_USERNAME=your_bot
 TWITCH_OAUTH_TOKEN=oauth:...
 ```
+
+### Using OpenAI (or any OpenAI-compatible API)
+
+The swarm runs on local Ollama by default. To use a hosted API instead, set
+`LLM_PROVIDER=openai` and supply a base URL and key:
+
+```bash
+LLM_PROVIDER=openai
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_API_KEY=sk-your-key-here
+OPENAI_MODEL=gpt-4o-mini        # strategic decisions
+OPENAI_FAST_MODEL=gpt-4o-mini   # reactive decisions + critic (defaults to OPENAI_MODEL)
+```
+
+Nothing else changes — `npm start` as usual. On boot the banner reports which
+backend is live:
+
+```
+LLM: gpt-4o-mini @ https://api.openai.com/v1 [openai]
+```
+
+Any OpenAI-compatible gateway works; only the base URL and model name change:
+
+| Provider | `OPENAI_BASE_URL` | Example `OPENAI_MODEL` |
+|---|---|---|
+| OpenAI | `https://api.openai.com/v1` | `gpt-4o-mini` |
+| OpenRouter | `https://openrouter.ai/api/v1` | `anthropic/claude-3.5-sonnet` |
+| Groq | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| Together | `https://api.together.xyz/v1` | `meta-llama/Llama-3.3-70B-Instruct-Turbo` |
+| vLLM / LiteLLM / LM Studio | your own host, ending in `/v1` | whatever you serve |
+
+Self-hosted gateways still need `OPENAI_API_KEY` set to something non-empty, even
+if they ignore it.
+
+**Two things worth knowing before you switch:**
+
+- **The model must support JSON mode.** Every decision is requested with
+  `response_format: {"type": "json_object"}` and parsed as JSON. A model or
+  gateway that rejects that field will not work.
+- **Don't point `OPENAI_BASE_URL` at a local Ollama's `/v1` to run a qwen3-family
+  model.** The `think` control has no OpenAI equivalent, so the model reasons
+  until it hits the token cap and returns empty content. Measured on this repo:
+  `qwen3.6:35b-a3b` over `/v1` returns `""`, while the same model via
+  `LLM_PROVIDER=ollama` returns valid JSON. For local models, use
+  `LLM_PROVIDER=ollama`.
+
+Cost note: each bot makes a strategic call plus a critic call per action, and
+five bots generate roughly 900–1,000 actions per hour. On a metered API that adds
+up quickly — start with `BOT_COUNT=1`, or set `BOT_CRITIC_ENABLED=false` to halve
+the call volume.
 
 ### Run
 

@@ -7,6 +7,7 @@ import { BOT_ROSTER, BotRoleConfig } from "./bot/role.js";
 import { startUnifiedViewer } from "./stream/unified-viewer.js";
 import { abortActiveSkill, getActiveSkillName } from "./skills/executor.js";
 import type { Bot } from "mineflayer";
+import { assertProviderConfigured } from "./llm/provider.js";
 
 /** Live bot handles, so the heap guard can abort a runaway skill. */
 const LIVE_BOTS = new Map<string, Bot>();
@@ -54,9 +55,9 @@ async function startBot(
   overlayStarted: { value: boolean },
 ): Promise<string> {
   console.log(`\n=== ${roleConfig.name} (${roleConfig.role}) (restart #${restartCount}) ===`);
-  const fastLabel =
-    config.ollama.fastModel !== config.ollama.model ? ` (fast decisions: ${config.ollama.fastModel})` : "";
-  console.log(`LLM: ${config.ollama.model}${fastLabel} @ ${config.ollama.host}`);
+  const fastLabel = config.llm.fastModel !== config.llm.model ? ` (fast decisions: ${config.llm.fastModel})` : "";
+  const endpoint = config.llm.provider === "openai" ? config.openai.baseUrl : config.ollama.host;
+  console.log(`LLM: ${config.llm.model}${fastLabel} @ ${endpoint} [${config.llm.provider}]`);
   console.log(`Server: ${config.mc.host}:${config.mc.port} (MC ${config.mc.version})`);
   console.log(`Idle re-plan interval: ${config.bot.idleIntervalMs}ms`);
   console.log("");
@@ -158,6 +159,12 @@ async function runBotLoop(roleConfig: BotRoleConfig): Promise<void> {
 }
 
 async function main() {
+  // Check the LLM backend is usable before spawning anything. A missing API key
+  // otherwise surfaces as a 401 inside the first strategic query, where the
+  // ordinary LLM-failure handler catches it and the bots fall back silently —
+  // looking like a dumb swarm rather than a misconfigured one.
+  assertProviderConfigured();
+
   // Start the unified viewer server before any bots — it needs to be ready
   // to accept registerBot() calls when bots spawn. This serves the viewer
   // HTML, static assets, and handles socket.io relay for bot switching.

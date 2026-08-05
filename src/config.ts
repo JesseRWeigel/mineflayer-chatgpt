@@ -1,5 +1,29 @@
 import "dotenv/config";
 
+export type LLMProvider = "ollama" | "openai";
+
+/** Which LLM backend to talk to. Defaults to ollama so existing setups are
+ *  unaffected by the addition of the OpenAI path. */
+const llmProvider = (process.env.LLM_PROVIDER || "ollama").toLowerCase() as LLMProvider;
+
+const ollamaConfig = {
+  host: process.env.OLLAMA_HOST || "http://localhost:11434",
+  // qwen3.6:35b-a3b is an MoE (~3B active params): 35B-class quality at ~150 tok/s
+  // on a single 32GB GPU. One model for both strategic and fast paths avoids
+  // VRAM eviction thrash between two resident models.
+  model: process.env.OLLAMA_MODEL || "qwen3.6:35b-a3b",
+  fastModel: process.env.OLLAMA_FAST_MODEL || process.env.OLLAMA_MODEL || "qwen3.6:35b-a3b",
+};
+
+/** Any OpenAI-compatible endpoint: OpenAI itself, OpenRouter, Groq, Together,
+ *  vLLM, LiteLLM, LM Studio. Only the base URL and key change. */
+const openaiConfig = {
+  baseUrl: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+  apiKey: process.env.OPENAI_API_KEY || "",
+  model: process.env.OPENAI_MODEL || "gpt-4o-mini",
+  fastModel: process.env.OPENAI_FAST_MODEL || process.env.OPENAI_MODEL || "gpt-4o-mini",
+};
+
 export const config = {
   mc: {
     host: process.env.MC_HOST || "localhost",
@@ -8,13 +32,13 @@ export const config = {
     version: process.env.MC_VERSION || "1.21.4",
     auth: (process.env.MC_AUTH || "offline") as "offline" | "microsoft",
   },
-  ollama: {
-    host: process.env.OLLAMA_HOST || "http://localhost:11434",
-    // qwen3.6:35b-a3b is an MoE (~3B active params): 35B-class quality at ~150 tok/s
-    // on a single 32GB GPU. One model for both strategic and fast paths avoids
-    // VRAM eviction thrash between two resident models.
-    model: process.env.OLLAMA_MODEL || "qwen3.6:35b-a3b",
-    fastModel: process.env.OLLAMA_FAST_MODEL || process.env.OLLAMA_MODEL || "qwen3.6:35b-a3b",
+  ollama: ollamaConfig,
+  openai: openaiConfig,
+  /** Resolved per provider, so call sites never branch on which backend is live. */
+  llm: {
+    provider: llmProvider,
+    model: llmProvider === "openai" ? openaiConfig.model : ollamaConfig.model,
+    fastModel: llmProvider === "openai" ? openaiConfig.fastModel : ollamaConfig.fastModel,
   },
   twitch: {
     channel: process.env.TWITCH_CHANNEL || "",

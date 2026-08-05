@@ -1,4 +1,4 @@
-import { Ollama } from "ollama";
+import { chat } from "./provider.js";
 import { config } from "../config.js";
 import { getSkillPromptLines } from "../skills/registry.js";
 import { getDynamicSkillNames } from "../skills/dynamic-loader.js";
@@ -21,7 +21,6 @@ function thinkFor(model: string): boolean | "low" | "medium" | "high" {
   return model.includes("gpt-oss") ? "low" : false;
 }
 
-const ollama = new Ollama({ host: config.ollama.host });
 const llmLog = createLogger();
 
 export interface LLMTool {
@@ -236,10 +235,10 @@ export async function queryStrategic(
   ];
 
   try {
-    const response = await ollama.chat({
-      model: config.ollama.model, // Strong model for strategic decisions
+    const response = await chat({
+      model: config.llm.model, // Strong model for strategic decisions
       messages,
-      think: thinkFor(config.ollama.model),
+      think: thinkFor(config.llm.model),
       format: "json", // syntactically valid JSON guaranteed (schema mode is ignored by qwen3.6 on ollama 0.20)
       options: {
         temperature: 0.8,
@@ -277,10 +276,10 @@ export async function queryReactive(
   ];
 
   try {
-    const response = await ollama.chat({
-      model: config.ollama.fastModel,
+    const response = await chat({
+      model: config.llm.fastModel,
       messages,
-      think: thinkFor(config.ollama.fastModel),
+      think: thinkFor(config.llm.fastModel),
       format: "json", // syntactically valid JSON guaranteed (schema mode is ignored by qwen3.6 on ollama 0.20)
       options: {
         temperature: 0.5, // Lower temp for urgent decisions — be reliable, not creative
@@ -323,10 +322,10 @@ export async function queryCritic(
   ];
 
   try {
-    const response = await ollama.chat({
-      model: config.ollama.fastModel,
+    const response = await chat({
+      model: config.llm.fastModel,
       messages,
-      think: thinkFor(config.ollama.fastModel),
+      think: thinkFor(config.llm.fastModel),
       format: "json", // syntactically valid JSON guaranteed (schema mode is ignored by qwen3.6 on ollama 0.20)
       options: {
         temperature: 0.4, // Low temp — critic should be analytical
@@ -484,10 +483,10 @@ export async function queryLLM(
   ];
 
   try {
-    let response = await ollama.chat({
-      model: config.ollama.fastModel,
+    let response = await chat({
+      model: config.llm.fastModel,
       messages,
-      think: thinkFor(config.ollama.fastModel),
+      think: thinkFor(config.llm.fastModel),
       format: "json", // syntactically valid JSON guaranteed (schema mode is ignored by qwen3.6 on ollama 0.20)
       options: {
         temperature: 0.85,
@@ -499,9 +498,9 @@ export async function queryLLM(
     // Retry once on short/empty response
     if (response.message.content.trim().length < 20) {
       llmLog.warn("LLM", "Short/empty response — retrying with fallback prompt...");
-      response = await ollama.chat({
-        model: config.ollama.fastModel,
-        think: thinkFor(config.ollama.fastModel),
+      response = await chat({
+        model: config.llm.fastModel,
+        think: thinkFor(config.llm.fastModel),
         messages: [
           {
             role: "system",
@@ -531,11 +530,11 @@ export async function queryLLM(
 
 export async function chatWithLLM(prompt: string, context: string, roleConfig?: { name: string }): Promise<string> {
   try {
-    const response = await ollama.chat({
-      model: config.ollama.fastModel,
+    const response = await chat({
+      model: config.llm.fastModel,
       // think:false is load-bearing: without it qwen3.6 spends the entire
       // token budget inside <think> and returns empty content ("Hmm...").
-      think: thinkFor(config.ollama.fastModel),
+      think: thinkFor(config.llm.fastModel),
       messages: [
         {
           role: "system",
