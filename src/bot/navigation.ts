@@ -105,6 +105,30 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
           clearInterval(stallCheck);
           if (stallDelayTimer) clearTimeout(stallDelayTimer);
           bot.pathfinder.stop();
+          // Where, and wedged in what.
+          //
+          // One bot produced 154 of 156 stuck events in a single hour while the
+          // other four produced two between them, and mining went to zero ore.
+          // He could still `explore` (82 blocks in one hop) but every targeted
+          // navigation stalled, so the unstick rescue never fired: it keys on
+          // real immobility and he was moving. Nothing recorded WHERE he was or
+          // what surrounded him, which is the same gap that made the fall and
+          // deposit investigations take days longer than they needed to.
+          const sp = bot.entity.position;
+          const around = [
+            [1, 0, 0],
+            [-1, 0, 0],
+            [0, 0, 1],
+            [0, 0, -1],
+            [0, 1, 0],
+            [0, -1, 0],
+          ]
+            .map(([dx, dy, dz]) => bot.blockAt(sp.offset(dx, dy, dz))?.name ?? "?")
+            .join("/");
+          console.log(
+            `[Stuck] ${bot.username} at ${sp.x.toFixed(0)},${sp.y.toFixed(0)},${sp.z.toFixed(0)} ` +
+              `sides=${around} onGround=${bot.entity.onGround}`,
+          );
           reject(new Error("Stuck — not making progress toward goal."));
         }
       } else {
