@@ -25,6 +25,7 @@ import type { RoleContext } from "../llm/prompts.js";
 import { getWorldContext, isHostile } from "./perception.js";
 import { executeAction } from "./actions.js";
 import { digOutIfStuck, escapeWaterIfDrowning } from "./navigation.js";
+import { isStallResult, shouldForceDigOut } from "./stall-rescue.js";
 import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
@@ -105,6 +106,7 @@ export class BotBrain {
   // world changes. Structural blocks (wrong-role action, retired skill,
   // hallucinated name) persist long.
   private failureExpiry = new Map<string, number>();
+  private consecutiveStalls = 0;
   private static readonly FAILURE_TTL_TRANSIENT_MS = 120_000;
   private static readonly FAILURE_TTL_STRUCTURAL_MS = 3_600_000;
 
@@ -1148,6 +1150,33 @@ export class BotBrain {
     this.lastResult = result;
     this.events.onAction(decision.action, result);
     this.log.info("Brain", `Result: ${result}`);
+
+    // A bot wedged in a pit is not immobile, so nothing rescued it.
+    //
+    // The dig-out already exists and the pit already qualifies for it, but it
+    // only runs when the bot is idle or has not moved in 90 seconds. A bot
+    // thrashing in a hole is neither: it is processing continuously, and each
+    // failed path shuffles it enough to reset the movement clock.
+    //
+    // Measured in one 52 minute session: 204 navigation stalls, 111 of them at
+    // a single spot four blocks from the stash and three blocks below it, walls
+    // of cobblestone on three sides. maxDropDown=3 lets a bot walk INTO that,
+    // and safeMoves forbids both digging and towers, so it cannot climb out.
+    // Ore mined that hour: zero.
+    //
+    // Count consecutive stalls instead of watching the position. Repeated
+    // failure to reach anything is the symptom that matters, whether or not the
+    // bot is shuffling while it fails.
+    if (isStallResult(result)) {
+      this.consecutiveStalls++;
+      if (shouldForceDigOut(this.consecutiveStalls)) {
+        this.log.info("Brain", `${this.roleConfig.name} stalled ${this.consecutiveStalls}x in a row — forcing dig-out`);
+        this.consecutiveStalls = 0;
+        await digOutIfStuck(this.bot).catch(() => {});
+      }
+    } else {
+      this.consecutiveStalls = 0;
+    }
 
     // Update team bulletin
     updateBulletin({
