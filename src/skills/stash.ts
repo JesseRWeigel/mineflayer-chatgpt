@@ -24,6 +24,15 @@ export function withinReach(dist: number): boolean {
 /** How far away a chest may be and still be worth tunnelling to. */
 export const DIG_APPROACH_MAX = 16;
 
+/** How many chests to try per category before giving up on the load.
+ *
+ *  findBlock returns only the nearest, and when that one is walled in the whole
+ *  category was abandoned. Measured over one session: three distinct chests were
+ *  ever targeted, one absorbed 64 consecutive failures, and the stash holds
+ *  hundreds. Four keeps the walk bounded while making a single buried chest stop
+ *  being fatal. */
+export const CHEST_CANDIDATES = 4;
+
 /** Should a failed walk to a chest be retried with a digging movement config?
  *
  *  The bots walled in their own stash. Measured over 340 attributed deposit
@@ -638,11 +647,24 @@ export async function depositStash(
     //
     // 18 covers the whole placement ring, so a scattered chest still serves its
     // category. Nearest-first keeps the row grouping when the tidy chests exist.
-    const chest = bot.findBlock({
-      matching: (b) => b.name === "chest" || b.name === "trapped_chest",
-      maxDistance: 18,
-      point: chestPos,
-    });
+    //
+    // CANDIDATES, not one chest. findBlock returns the single nearest, and when
+    // that one is walled in the deposit gave up on the whole category. Measured
+    // over one session: only THREE distinct chests were ever targeted and one of
+    // them absorbed 64 attempts, every one failing, while the stash holds
+    // hundreds. All 30 post-dig "still short" attempts ended in
+    // chest_unreachable and not one ever succeeded. Trying the next chest costs
+    // a walk; not trying it costs the entire load.
+    const candidates = bot
+      .findBlocks({
+        matching: (b) => b.name === "chest" || b.name === "trapped_chest",
+        maxDistance: 18,
+        point: chestPos,
+        count: CHEST_CANDIDATES,
+      })
+      .map((pos) => bot.blockAt(pos))
+      .filter((b): b is NonNullable<typeof b> => b !== null);
+    const chest = candidates[0] ?? null;
 
     if (!chest) {
       // No chest at this row — try any nearby chest as fallback
@@ -651,7 +673,11 @@ export async function depositStash(
         maxDistance: 8,
       });
       if (!fallback) {
-        noteFailure("no_chest_found", items.length, `category ${category}: none within 18 of row, none within 8 of bot`);
+        noteFailure(
+          "no_chest_found",
+          items.length,
+          `category ${category}: none within 18 of row, none within 8 of bot`,
+        );
         continue;
       }
       // Use fallback chest
@@ -685,92 +711,106 @@ export async function depositStash(
     // timeout, so distance after it is the only honest signal of whether the walk
     // worked. Server reach is ~4.5 blocks; beyond that openContainer is doomed and
     // the 10s timeout is what we are actually paying.
-    let distToChest = Number.NaN;
-    try {
-      // Navigation failure must NOT skip the roof clear. First deploy of the
-      // unsealing put clearChestRoof after safeGoto inside one try, so a thrown
-      // "No path to the goal!" jumped straight to the catch and the roof stayed
-      // on — circular, because a sealed chest is exactly what has no standable
-      // neighbour to path to. That was 20 of 38 failures, and the first two
-      // failures after deploy were both this case with zero roofs cleared.
-      let navErr: Error | null = null;
-      try {
-        await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
-      } catch (e) {
-        navErr = e as Error;
-      }
-      distToChest = bot.entity.position.distanceTo(chest.position);
+    let banked = false;
+    let lastFail: { reason: DepositFailure; detail: string } | null = null;
 
-      // Walled in. The bots stack chests on chests and ring them with their own
-      // planks, stairs and cobblestone, and safeMoves cannot dig, so A* returns
-      // "No path to the goal!" while the bot stands six blocks away. See
-      // shouldDigToChest: 340 attributed failures, all chest_unreachable,
-      // against 16 successful deposits. Tunnel the last few blocks instead of
-      // abandoning the load. Chests are in the pathfinder's blocksCantBreak set,
-      // so this routes around storage rather than through it.
-      if (shouldDigToChest(distToChest, navErr !== null)) {
-        const digApproach = baseMoves(bot);
-        digApproach.canDig = true;
-        digApproach.allow1by1towers = false; // no pillaring: that is the fall risk
-        bot.pathfinder.setMovements(digApproach);
+    for (const chest of candidates) {
+      if (banked) break;
+      let distToChest = Number.NaN;
+      try {
+        // Navigation failure must NOT skip the roof clear. First deploy of the
+        // unsealing put clearChestRoof after safeGoto inside one try, so a thrown
+        // "No path to the goal!" jumped straight to the catch and the roof stayed
+        // on — circular, because a sealed chest is exactly what has no standable
+        // neighbour to path to. That was 20 of 38 failures, and the first two
+        // failures after deploy were both this case with zero roofs cleared.
+        let navErr: Error | null = null;
         try {
-          await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 12000);
-          navErr = null;
+          await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
         } catch (e) {
           navErr = e as Error;
-        } finally {
-          bot.pathfinder.setMovements(safeMoves(bot));
         }
-        const after = bot.entity.position.distanceTo(chest.position);
-        console.log(
-          `[Stash] dug toward chest at ${chest.position}: ${distToChest.toFixed(1)} -> ${after.toFixed(1)} blocks` +
-            `${withinReach(after) ? " (in reach)" : " (still short)"}`,
-        );
-        distToChest = after;
-      }
+        distToChest = bot.entity.position.distanceTo(chest.position);
 
-      // Standing close enough to touch it is what matters, not whether the
-      // pathfinder said so. Digging and opening both work from here.
-      if (withinReach(distToChest)) {
-        await clearChestRoof(bot, chest.position);
-      } else if (navErr) {
-        throw navErr; // genuinely could not get there — keep the old attribution
-      }
-      const container = await openContainerTimed(bot, chest);
-      for (const item of items) {
-        try {
-          await container.deposit(item.type, null, item.count);
-          deposited += item.count;
-        } catch {
-          // Chest full — this will trigger expansion request
+        // Walled in. The bots stack chests on chests and ring them with their own
+        // planks, stairs and cobblestone, and safeMoves cannot dig, so A* returns
+        // "No path to the goal!" while the bot stands six blocks away. See
+        // shouldDigToChest: 340 attributed failures, all chest_unreachable,
+        // against 16 successful deposits. Tunnel the last few blocks instead of
+        // abandoning the load. Chests are in the pathfinder's blocksCantBreak set,
+        // so this routes around storage rather than through it.
+        if (shouldDigToChest(distToChest, navErr !== null)) {
+          const digApproach = baseMoves(bot);
+          digApproach.canDig = true;
+          digApproach.allow1by1towers = false; // no pillaring: that is the fall risk
+          bot.pathfinder.setMovements(digApproach);
+          try {
+            await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 12000);
+            navErr = null;
+          } catch (e) {
+            navErr = e as Error;
+          } finally {
+            bot.pathfinder.setMovements(safeMoves(bot));
+          }
+          const after = bot.entity.position.distanceTo(chest.position);
+          console.log(
+            `[Stash] dug toward chest at ${chest.position}: ${distToChest.toFixed(1)} -> ${after.toFixed(1)} blocks` +
+              `${withinReach(after) ? " (in reach)" : " (still short)"}`,
+          );
+          distToChest = after;
         }
+
+        // Standing close enough to touch it is what matters, not whether the
+        // pathfinder said so. Digging and opening both work from here.
+        if (withinReach(distToChest)) {
+          await clearChestRoof(bot, chest.position);
+        } else if (navErr) {
+          throw navErr; // genuinely could not get there — keep the old attribution
+        }
+        const container = await openContainerTimed(bot, chest);
+        for (const item of items) {
+          try {
+            await container.deposit(item.type, null, item.count);
+            deposited += item.count;
+          } catch {
+            // Chest full — this will trigger expansion request
+          }
+        }
+        snapshotChest(chest.position, container.containerItems(), container.inventoryStart);
+        container.close();
+        banked = true;
+      } catch (err) {
+        const walked = withinReach(distToChest);
+        // A chest one block away that will neither open nor be pathed to points at
+        // the space around it, not at the chest lookup. Minecraft refuses to open a
+        // chest with an opaque block directly above, and a buried chest also has no
+        // standable neighbour to path to — one obstruction would explain BOTH
+        // attributed causes at once. Log what is actually there before assuming it.
+        const above = bot.blockAt(chest.position.offset(0, 1, 0));
+        const sides = [
+          [1, 0, 0],
+          [-1, 0, 0],
+          [0, 0, 1],
+          [0, 0, -1],
+        ]
+          .map(([dx, dy, dz]) => bot.blockAt(chest.position.offset(dx, dy, dz))?.name ?? "?")
+          .join("/");
+        // Remember, do not report. Reporting here counted one unreachable chest
+        // as a failed category while three untried chests were still standing, so
+        // the log showed 64 failures against a single buried chest and no attempt
+        // at any other. Only the last failure, after every candidate is spent, is
+        // the category's real outcome.
+        lastFail = {
+          reason: walked ? "chest_open_failed" : "chest_unreachable",
+          detail:
+            `category ${category}: chest at ${chest.position} dist=${Number.isFinite(distToChest) ? distToChest.toFixed(1) : "?"} ` +
+            `rowGap=${chest.position.distanceTo(chestPos).toFixed(1)} above=${above?.name ?? "?"} ` +
+            `sides=${sides} tried=${candidates.length} — ${(err as Error).message}`,
+        };
       }
-      snapshotChest(chest.position, container.containerItems(), container.inventoryStart);
-      container.close();
-    } catch (err) {
-      const walked = withinReach(distToChest);
-      // A chest one block away that will neither open nor be pathed to points at
-      // the space around it, not at the chest lookup. Minecraft refuses to open a
-      // chest with an opaque block directly above, and a buried chest also has no
-      // standable neighbour to path to — one obstruction would explain BOTH
-      // attributed causes at once. Log what is actually there before assuming it.
-      const above = bot.blockAt(chest.position.offset(0, 1, 0));
-      const sides = [
-        [1, 0, 0],
-        [-1, 0, 0],
-        [0, 0, 1],
-        [0, 0, -1],
-      ]
-        .map(([dx, dy, dz]) => bot.blockAt(chest.position.offset(dx, dy, dz))?.name ?? "?")
-        .join("/");
-      noteFailure(
-        walked ? "chest_open_failed" : "chest_unreachable",
-        items.length,
-        `category ${category}: chest at ${chest.position} dist=${Number.isFinite(distToChest) ? distToChest.toFixed(1) : "?"} ` +
-          `rowGap=${chest.position.distanceTo(chestPos).toFixed(1)} above=${above?.name ?? "?"} ` +
-          `sides=${sides} — ${(err as Error).message}`,
-      );
     }
+
+    if (!banked && lastFail) noteFailure(lastFail.reason, items.length, lastFail.detail);
   }
 
   // AUTO-EXPANSION: the stash filled up with weeks of accumulated blocks and
@@ -1261,8 +1301,9 @@ async function placeChestNearStash(
             // cannot tell them apart. Record reach and footing: placeBlock needs
             // the reference block within ~4.5 blocks.
             const d = bot.entity.position.distanceTo(ground.position);
-            const standingOn =
-              bot.entity.position.floored().equals(ground.position.offset(0, 1, 0)) ? " standingOnGround" : "";
+            const standingOn = bot.entity.position.floored().equals(ground.position.offset(0, 1, 0))
+              ? " standingOnGround"
+              : "";
             // Reach and footing are already ruled out: every failure landed at
             // 1.7-3.1 blocks, well inside the ~4.5 limit, with no standingOn.
             // Two hypotheses remain. The chest ring is now dense enough that

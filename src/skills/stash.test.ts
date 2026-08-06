@@ -17,6 +17,7 @@ import {
   KEEP_MATERIAL_RESERVE,
   shouldDigToChest,
   DIG_APPROACH_MAX,
+  CHEST_CANDIDATES,
   type DepositFailure,
 } from "./stash.js";
 
@@ -382,4 +383,18 @@ test("a failed path never becomes a cross-map tunnel", () => {
 
 test("an unmeasured distance is never dug toward", () => {
   assert.equal(shouldDigToChest(Number.NaN, true), false);
+});
+
+// findBlock returns only the NEAREST chest. When that one was walled in, the
+// whole category was abandoned. Measured over one session: three distinct
+// chests were ever targeted, one absorbed 64 consecutive failures, all 30
+// post-dig attempts on it ended chest_unreachable, and none ever succeeded --
+// while the stash holds hundreds of chests.
+test("more than one chest is tried before a category is abandoned", () => {
+  assert.ok(CHEST_CANDIDATES > 1, "a single candidate is what caused 64 failures on one chest");
+});
+
+test("candidate count stays bounded so a deposit cannot wander the stash", () => {
+  // Each candidate costs a walk plus a possible dig, inside the action watchdog.
+  assert.ok(CHEST_CANDIDATES <= 6, `${CHEST_CANDIDATES} candidates would blow the action budget`);
 });
