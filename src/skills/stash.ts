@@ -21,6 +21,37 @@ export function withinReach(dist: number): boolean {
   return Number.isFinite(dist) && dist <= INTERACT_REACH;
 }
 
+/** How far away a chest may be and still be worth tunnelling to. */
+export const DIG_APPROACH_MAX = 16;
+
+/** Should a failed walk to a chest be retried with a digging movement config?
+ *
+ *  The bots walled in their own stash. Measured over 340 attributed deposit
+ *  failures, every one of them chest_unreachable:
+ *
+ *    above=chest   168   chests stacked directly on other chests
+ *    "No path to the goal!"  203   A* found no route at all, not a timeout
+ *    give-up distance  5.5 to 7.6 blocks
+ *
+ *  The surrounding blocks are oak_planks, oak_stairs and cobblestone, which are
+ *  the bots' own placements. safeMoves sets canDig=false, so a bot standing six
+ *  blocks from its chest with a plank wall between them has no route and no way
+ *  to make one. Only 16 deposits succeeded against those 340 failures.
+ *
+ *  Digging the last few blocks is already precedent in this file (the stash
+ *  approach dig-retry) and is safe for storage: mineflayer-pathfinder's
+ *  blocksCantBreak includes chests by default, so a digging config routes
+ *  around them rather than through them.
+ *
+ *  Bounded by distance so a failed path never becomes a cross-map tunnel. */
+export function shouldDigToChest(distToChest: number, navFailed: boolean): boolean {
+  if (!navFailed) return false;
+  if (!Number.isFinite(distToChest)) return false;
+  // Already close enough to open it — digging would be pointless and destructive.
+  if (withinReach(distToChest)) return false;
+  return distToChest <= DIG_APPROACH_MAX;
+}
+
 /** Which held tool breaks this block fastest, if the bot has one.
  *
  *  Deliberately tiny: the only blocks this has to handle are what bots stack on
@@ -669,6 +700,34 @@ export async function depositStash(
         navErr = e as Error;
       }
       distToChest = bot.entity.position.distanceTo(chest.position);
+
+      // Walled in. The bots stack chests on chests and ring them with their own
+      // planks, stairs and cobblestone, and safeMoves cannot dig, so A* returns
+      // "No path to the goal!" while the bot stands six blocks away. See
+      // shouldDigToChest: 340 attributed failures, all chest_unreachable,
+      // against 16 successful deposits. Tunnel the last few blocks instead of
+      // abandoning the load. Chests are in the pathfinder's blocksCantBreak set,
+      // so this routes around storage rather than through it.
+      if (shouldDigToChest(distToChest, navErr !== null)) {
+        const digApproach = baseMoves(bot);
+        digApproach.canDig = true;
+        digApproach.allow1by1towers = false; // no pillaring: that is the fall risk
+        bot.pathfinder.setMovements(digApproach);
+        try {
+          await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 12000);
+          navErr = null;
+        } catch (e) {
+          navErr = e as Error;
+        } finally {
+          bot.pathfinder.setMovements(safeMoves(bot));
+        }
+        const after = bot.entity.position.distanceTo(chest.position);
+        console.log(
+          `[Stash] dug toward chest at ${chest.position}: ${distToChest.toFixed(1)} -> ${after.toFixed(1)} blocks` +
+            `${withinReach(after) ? " (in reach)" : " (still short)"}`,
+        );
+        distToChest = after;
+      }
 
       // Standing close enough to touch it is what matters, not whether the
       // pathfinder said so. Digging and opening both work from here.

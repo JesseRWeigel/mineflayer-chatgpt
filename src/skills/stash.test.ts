@@ -15,6 +15,8 @@ import {
   nothingToBankMessage,
   shouldKeep,
   KEEP_MATERIAL_RESERVE,
+  shouldDigToChest,
+  DIG_APPROACH_MAX,
   type DepositFailure,
 } from "./stash.js";
 
@@ -349,4 +351,35 @@ test("iron TOOLS are still never deposited", () => {
   const counts = new Map<string, number>();
   assert.equal(shouldKeep("iron_pickaxe", [], counts, 1), true);
   assert.equal(shouldKeep("iron_chestplate", [], counts, 1), true);
+});
+
+// The bots walled in their own stash. 340 attributed deposit failures, every
+// one chest_unreachable, against 16 successful deposits: 168 chests had another
+// chest stacked directly on top, and A* returned "No path to the goal!" 203
+// times while the bot stood 5.5 to 7.6 blocks away. safeMoves cannot dig, so
+// there was no route and no way to make one.
+test("digs to a chest the pathfinder could not route to", () => {
+  for (const d of [5.5, 6.6, 7.4, 7.6]) {
+    assert.equal(shouldDigToChest(d, true), true, `observed give-up distance ${d} must be recoverable`);
+  }
+});
+
+test("does not dig when the walk actually succeeded", () => {
+  assert.equal(shouldDigToChest(7.0, false), false);
+});
+
+test("does not dig when already in reach", () => {
+  // Opening works from here; breaking blocks would be pointless and destructive.
+  assert.equal(shouldDigToChest(4.5, true), false);
+  assert.equal(shouldDigToChest(1.1, true), false);
+});
+
+test("a failed path never becomes a cross-map tunnel", () => {
+  assert.equal(shouldDigToChest(DIG_APPROACH_MAX, true), true, "boundary is inclusive");
+  assert.equal(shouldDigToChest(DIG_APPROACH_MAX + 0.1, true), false);
+  assert.equal(shouldDigToChest(64, true), false);
+});
+
+test("an unmeasured distance is never dug toward", () => {
+  assert.equal(shouldDigToChest(Number.NaN, true), false);
 });
