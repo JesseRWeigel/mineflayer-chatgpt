@@ -228,7 +228,7 @@ PY
   # zero-deposits alert stayed quiet because 9 is not 0. Compare against the
   # previous run so a swarm that STOPS banking is caught even after a good start.
   STATE_FILE="${TMPDIR:-/tmp}/swarm-health-prev.txt"
-  PREV_SESSION=""; PREV_DEPOSITS=""; PREV_DEATHS=""; PREV_ACTIONS=""; PREV_ITEMS="0"
+  PREV_SESSION=""; PREV_DEPOSITS=""; PREV_DEATHS=""; PREV_ACTIONS=""; PREV_ITEMS="0"; PREV_TS=""
   [[ -r "$STATE_FILE" ]] && source "$STATE_FILE"
 
   SESSION_ID=$(basename "$SESSION" .json)
@@ -237,6 +237,32 @@ PY
     DEPOSIT_DELTA=$(( DEPOSITS - PREV_DEPOSITS ))
     DEATH_DELTA=$(( DEATHS - PREV_DEATHS ))
     echo "DELTA_ACTIONS=$ACTION_DELTA DELTA_DEPOSITS=$DEPOSIT_DELTA DELTA_DEATHS=$DEATH_DELTA"
+
+    # How long since the last check. The delta thresholds below were written
+    # assuming this script runs hourly, and compared raw counts. When the checks
+    # were queued and 5h24m elapsed instead of 1h, a healthy 5.7 deaths/hr
+    # accumulated 31 deaths and tripped a threshold meaning "10 in an hour".
+    #
+    # This is the same bug a7fc8d5 fixed for the cumulative fields ("make every
+    # accumulating threshold a rate, not a total"). That fix was applied to the
+    # session totals and never to the deltas, which have the identical flaw: a
+    # count is only meaningful next to the time it took to accumulate.
+    #
+    # Thresholds below are unchanged in intent, just expressed per hour, so
+    # behaviour at the designed hourly cadence is identical. They are now also
+    # correct at any other cadence, which matters because the checks queue up
+    # whenever the session is busy.
+    NOW_TS=$(date +%s)
+    ELAPSED_S=$(( NOW_TS - ${PREV_TS:-0} ))
+    # A gap shorter than 10 minutes carries too little signal to rate-scale
+    # without wild swings (2 deaths in 90s reads as 80/hr), and a missing or
+    # corrupt PREV_TS must not silently disable every delta alert.
+    if [[ -n "${PREV_TS:-}" ]] && (( ELAPSED_S >= 600 )); then
+      DELTA_RATES_VALID=1
+      echo "SINCE_LAST_MIN=$(( ELAPSED_S / 60 ))"
+    else
+      DELTA_RATES_VALID=0
+    fi
 
     # Real work happened but nothing was banked: the economy is stalled.
     (( ACTION_DELTA > 400 && DEPOSIT_DELTA == 0 )) && ALERTS+=("deposits_stalled_0_in_${ACTION_DELTA}_actions")
@@ -247,7 +273,15 @@ PY
     # 6 deposits x 3. Requiring a spike to be BOTH large and lopsided means a
     # large-but-not-lopsided spike reports healthy. Either signal alone is worth
     # a look, so they are now independent.
-    (( DEATH_DELTA > 10 )) && ALERTS+=("death_spike_${DEATH_DELTA}_since_last")
+    if (( DELTA_RATES_VALID )); then
+      # Tenths, because bash integer division truncates and always rounds DOWN.
+      # At a 6h gap that turned 10.3 deaths/hr into 10 and silently withheld an
+      # alert that should have fired. Compare on tenths, display whole numbers.
+      DEATH_RATE_T=$(( DEATH_DELTA * 36000 / ELAPSED_S ))
+      DEATH_RATE=$(( DEATH_RATE_T / 10 ))
+      echo "DEATHS_PER_HR_SINCE_LAST=$DEATH_RATE"
+      (( DEATH_RATE_T > 100 )) && ALERTS+=("death_spike_${DEATH_RATE}_per_hr_since_last")
+    fi
     # Compare deaths against ITEMS banked, not deposit EVENTS.
     #
     # This fired deaths_outpacing_deposits_9v2 on an hour that banked 407 items.
@@ -256,8 +290,12 @@ PY
     # a proxy; items are the outcome.
     ITEM_DELTA=$(( ITEMS_NOW - PREV_ITEMS ))
     echo "DELTA_ITEMS=$ITEM_DELTA"
-    (( DEATH_DELTA > 4 && ITEM_DELTA < 50 )) &&
-      ALERTS+=("dying_without_banking_${DEATH_DELTA}deaths_${ITEM_DELTA}items")
+    if (( DELTA_RATES_VALID )); then
+      ITEM_RATE=$(( ITEM_DELTA * 3600 / ELAPSED_S ))
+      echo "ITEMS_PER_HR_SINCE_LAST=$ITEM_RATE"
+      (( DEATH_RATE_T > 40 && ITEM_RATE < 50 )) &&
+        ALERTS+=("dying_without_banking_${DEATH_RATE}deaths_${ITEM_RATE}items_per_hr")
+    fi
   fi
 
   cat > "$STATE_FILE" <<STATE
@@ -266,6 +304,7 @@ PREV_DEPOSITS="$DEPOSITS"
 PREV_DEATHS="$DEATHS"
 PREV_ACTIONS="$SESSION_ACTIONS"
 PREV_ITEMS="$ITEMS_NOW"
+PREV_TS="$(date +%s)"
 STATE
 fi
 
