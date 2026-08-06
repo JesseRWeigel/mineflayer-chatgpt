@@ -20,6 +20,38 @@ const TOOL_TYPES = ["pickaxe", "axe", "sword", "shovel"];
 // 12 of 21 deaths/run). craft_gear made tools but never armor, so the brain's
 // auto-equip-armor timer had nothing to wear. Iron armor ~halves damage.
 const ARMOR_TYPES = ["helmet", "chestplate", "leggings", "boots"];
+
+/** Iron cost and protection of each armour piece. */
+export const ARMOUR_COST: Record<string, { ingots: number; points: number }> = {
+  iron_chestplate: { ingots: 8, points: 6 },
+  iron_leggings: { ingots: 7, points: 5 },
+  iron_helmet: { ingots: 5, points: 2 },
+  iron_boots: { ingots: 4, points: 2 },
+};
+
+/** Which armour piece to craft with the iron a bot actually holds.
+ *
+ *  craft_gear tried the chestplate first and nothing else, on the reasoning that
+ *  it is the single biggest protection. That is true and it does not survive
+ *  contact with the economy: a chestplate costs 8 ingots, the swarm mines about
+ *  4 an hour, and bots were dying 13 times an hour and dropping everything they
+ *  carried. Measured in one session: 15 of 21 deaths with NO armour at all, 14
+ *  of them to zombies, and "No iron_ingot in the stash" 56 times.
+ *
+ *  A bot holding 4 ingots and waiting for 8 dies wearing nothing. Boots at 4
+ *  give 2 armour points today, which beats 6 points it will never reach. So
+ *  take the best piece that is affordable NOW, preferring protection per ingot
+ *  when several fit, and skip anything already worn or carried.
+ *
+ *  Returns null when nothing is affordable, which is the caller's cue to spend
+ *  its iron on tools instead. */
+export function affordableArmourPiece(ingots: number, owned: string[] = []): string | null {
+  const candidates = Object.entries(ARMOUR_COST)
+    .filter(([name, c]) => !owned.includes(name) && c.ingots <= ingots)
+    .sort((a, b) => b[1].points - a[1].points || a[1].ingots - b[1].ingots);
+  return candidates.length ? candidates[0][0] : null;
+}
+
 const ARMOR_TIERS = ["diamond", "iron"]; // only metal armor is worth crafting
 
 export const craftGearSkill: Skill = {
@@ -151,8 +183,19 @@ export const craftGearSkill: Skill = {
     // Crafting the chestplate before tools routes the bot's handful of iron to
     // survival gear first; tools still get crafted after (and stone fallbacks
     // cover most tasks). The brain's auto-equip timer then wears it.
-    if (!signal.aborted && !bot.inventory.items().some((i) => i.name === "iron_chestplate")) {
-      await craftPiece(bot, mcData, "iron_chestplate", crafted);
+    if (!signal.aborted) {
+      const ingots = bot.inventory
+        .items()
+        .filter((i) => i.name === "iron_ingot")
+        .reduce((sum, i) => sum + i.count, 0);
+      const owned = bot.inventory.items().map((i) => i.name);
+      const piece = affordableArmourPiece(ingots, owned);
+      if (piece) {
+        console.log(`[GearDebug] armour: ${ingots} ingots -> attempting ${piece}`);
+        await craftPiece(bot, mcData, piece, crafted);
+      } else {
+        console.log(`[GearDebug] armour: ${ingots} ingots, nothing affordable (cheapest piece costs 4)`);
+      }
     }
 
     // Ensure we have sticks (need at least 8 for a full set)
