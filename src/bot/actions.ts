@@ -68,7 +68,7 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
       case "gather_wood":
         return await gatherWood(bot, params.count || 5);
       case "mine_block":
-        return await mineBlock(bot, params.blockType || "stone", params.protectPos);
+        return await mineBlock(bot, params.blockType || DEFAULT_MINE_TARGET, params.protectPos);
       case "go_to":
       case "navigate":
       case "navigate_to":
@@ -682,7 +682,26 @@ async function scatterSaplings(bot: Bot, max: number): Promise<number> {
  * the generic "ore"/"ores" (any *_ore block). Ore is the whole point of
  * mining, so when an ore is requested we prefer it over plain stone.
  */
-function blockMatcher(blockType: string): { match: (name: string) => boolean; isOre: boolean } {
+/** What to mine when the caller names no block.
+ *
+ *  This was "stone", and it quietly answered a question nobody asked. The critic
+ *  returns nextParams:{} for most follow-ups, so 39 of 116 mine_block calls in
+ *  one session arrived with no blockType and mined stone while the bot's own
+ *  thought said "Time to dig for iron!". Meanwhile the strategic path asked for
+ *  iron_ore 44 times out of 52 explicit requests, and exactly one call asked for
+ *  stone.
+ *
+ *  The swarm was starving for iron the whole time: bots held 0-2 ingots against
+ *  a 4-ingot boot, "No iron_ingot in the stash" appeared 56 times, and 15 of 21
+ *  deaths were unarmoured. A third of all mining was being spent on cobblestone
+ *  nobody had asked for.
+ *
+ *  "ore" matches any *_ore through the branch below, so an unspecified dig now
+ *  follows the intent the logs actually show. A bot that wants stone still says
+ *  so, and one did. */
+export const DEFAULT_MINE_TARGET = "ore";
+
+export function blockMatcher(blockType: string): { match: (name: string) => boolean; isOre: boolean } {
   const bt = blockType.toLowerCase();
   if (bt === "ore" || bt === "ores") {
     return { match: (n) => n.endsWith("_ore"), isOre: true };
