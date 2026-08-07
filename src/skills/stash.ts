@@ -461,7 +461,18 @@ export function shouldKeep(
   // KEEP_MATERIAL_RESERVE is 8 because that is an iron chestplate, the most
   // expensive single piece. A bot holding that much can still craft anything on
   // its own; beyond it, the team is better served by pooling.
-  const KEEP_MATERIALS = ["raw_iron", "iron_ingot", "raw_gold", "gold_ingot", "diamond"];
+  // SMELTED forms only. Raw ore is deliberately absent.
+  //
+  // raw_iron cannot be crafted into anything: it has to be smelted first, and
+  // the smelter is usually a different bot, so the stash is the hand-off. A
+  // miner holding raw ore under this reserve blocks the whole chain.
+  //
+  // Measured in one 2h42m session: 20 iron ore mined, ZERO raw_iron reaching
+  // the stash, smelt_ores reporting "Nothing to smelt! Mine some ore first" 27
+  // times, craft_gear seeing 0-2 ingots on every run, zero armour crafted, and
+  // 13 of 18 deaths with no armour at all. Every link was working except this
+  // one, which quietly held the input in the wrong bot's pocket.
+  const KEEP_MATERIALS = ["iron_ingot", "gold_ingot", "diamond"];
   if (KEEP_MATERIALS.includes(itemName)) {
     const kept = currentCounts.get("__materials") ?? 0;
     if (kept < KEEP_MATERIAL_RESERVE) {

@@ -80,9 +80,14 @@ export const smeltOresSkill: Skill = {
         for (const ore of ["raw_iron", "iron_ore", "raw_copper", "copper_ore", "raw_gold", "gold_ore"]) {
           if (!budgetLeft()) break;
           try {
-            await withdrawStash(bot, stashPos, ore, 16);
-          } catch {
-            /* none in stash — try next */
+            // withdrawStash RETURNS a message, it does not throw, so this catch
+            // never fired and the result was discarded. Neither "Withdrew Nx
+            // raw_iron" nor "No raw_iron in the stash" appeared even once in a
+            // 2h42m session, leaving the skill blind to its own supply line.
+            const wd = await withdrawStash(bot, stashPos, ore, 16);
+            console.log(`[Smelt] ${bot.username} withdraw ${ore}: ${wd}`);
+          } catch (err) {
+            console.log(`[Smelt] ${bot.username} withdraw ${ore} threw: ${(err as Error).message}`);
           }
           if (Object.keys(SMELT_RECIPES).some((n) => countInv(n) > 0)) break;
         }

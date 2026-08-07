@@ -333,8 +333,9 @@ test("iron pools to the team once a bot can craft for itself", () => {
 test("a bot below the reserve still keeps enough to craft", () => {
   const counts = new Map<string, number>();
   // 8 ingots is an iron chestplate; a bot must be able to reach that alone.
+  // Raw ore is excluded from the reserve entirely — it must reach the smelter.
   assert.equal(shouldKeep("iron_ingot", [], counts, 3), true);
-  assert.equal(shouldKeep("raw_iron", [], counts, 4), true);
+  assert.equal(shouldKeep("gold_ingot", [], counts, 4), true);
   assert.equal(shouldKeep("iron_ingot", [], counts, 1), true, "still under 8 total");
   assert.equal(shouldKeep("iron_ingot", [], counts, 5), false, "now over the reserve");
 });
@@ -342,7 +343,7 @@ test("a bot below the reserve still keeps enough to craft", () => {
 test("the materials reserve is shared across metal types, not per item", () => {
   // Otherwise a bot keeps 8 of each and pools nothing.
   const counts = new Map<string, number>();
-  assert.equal(shouldKeep("raw_iron", [], counts, 8), true);
+  assert.equal(shouldKeep("iron_ingot", [], counts, 8), true);
   assert.equal(shouldKeep("diamond", [], counts, 8), false, "reserve already spent on iron");
 });
 
@@ -435,4 +436,30 @@ test("better-tier armour is still kept even after a spare of another tier", () =
   const counts = new Map<string, number>();
   assert.equal(shouldKeep("iron_chestplate", [], counts, 1), true);
   assert.equal(shouldKeep("diamond_chestplate", [], counts, 1), false, "same slot, already covered");
+});
+
+// Raw ore cannot be crafted into anything. It has to be smelted first, usually
+// by a different bot, so the stash is the hand-off. Measured over one 2h42m
+// session: 20 iron ore mined, ZERO raw_iron reaching the stash, smelt_ores
+// reporting "Nothing to smelt" 27 times, craft_gear seeing 0-2 ingots every
+// run, zero armour crafted, 13 of 18 deaths with no armour.
+test("raw ore is banked so the smelter can reach it", () => {
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("raw_iron", [], counts, 8), false, "raw ore belongs in the stash");
+  assert.equal(shouldKeep("raw_gold", [], counts, 8), false);
+  assert.equal(shouldKeep("raw_copper", [], counts, 8), false);
+});
+
+test("smelted materials are still reserved for crafting", () => {
+  // The reserve exists so a bot can craft without a stash trip. Ingots can be
+  // crafted; ore cannot, which is the whole distinction.
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_ingot", [], counts, 4), true);
+  assert.equal(shouldKeep("diamond", [], counts, 2), true);
+});
+
+test("the ingot reserve still caps and pools the surplus", () => {
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_ingot", [], counts, KEEP_MATERIAL_RESERVE), true);
+  assert.equal(shouldKeep("iron_ingot", [], counts, 20), false, "surplus ingots still pool");
 });
