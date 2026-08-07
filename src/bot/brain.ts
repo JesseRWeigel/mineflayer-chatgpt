@@ -25,7 +25,7 @@ import type { RoleContext } from "../llm/prompts.js";
 import { getWorldContext, isHostile } from "./perception.js";
 import { executeAction } from "./actions.js";
 import { digOutIfStuck, escapeWaterIfDrowning } from "./navigation.js";
-import { isStallResult, shouldForceDigOut } from "./stall-rescue.js";
+import { isStallResult, shouldForceDigOut, pruneStalls } from "./stall-rescue.js";
 import { isDeathTrap } from "./death-trap.js";
 import { isAtBase } from "./respawn.js";
 import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
@@ -108,7 +108,7 @@ export class BotBrain {
   // world changes. Structural blocks (wrong-role action, retired skill,
   // hallucinated name) persist long.
   private failureExpiry = new Map<string, number>();
-  private consecutiveStalls = 0;
+  private recentStalls: number[] = [];
   private static readonly FAILURE_TTL_TRANSIENT_MS = 120_000;
   private static readonly FAILURE_TTL_STRUCTURAL_MS = 3_600_000;
 
@@ -1202,14 +1202,16 @@ export class BotBrain {
     // failure to reach anything is the symptom that matters, whether or not the
     // bot is shuffling while it fails.
     if (isStallResult(result)) {
-      this.consecutiveStalls++;
-      if (shouldForceDigOut(this.consecutiveStalls)) {
-        this.log.info("Brain", `${this.roleConfig.name} stalled ${this.consecutiveStalls}x in a row — forcing dig-out`);
-        this.consecutiveStalls = 0;
+      const now = Date.now();
+      this.recentStalls = pruneStalls([...this.recentStalls, now], now);
+      if (shouldForceDigOut(this.recentStalls, now)) {
+        this.log.info(
+          "Brain",
+          `${this.roleConfig.name} stalled ${this.recentStalls.length}x in 3min — forcing dig-out`,
+        );
+        this.recentStalls = [];
         await digOutIfStuck(this.bot).catch(() => {});
       }
-    } else {
-      this.consecutiveStalls = 0;
     }
 
     // Update team bulletin

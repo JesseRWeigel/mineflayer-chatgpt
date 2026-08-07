@@ -1,7 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isStallResult, shouldForceDigOut, STALL_RESCUE_THRESHOLD } from "./stall-rescue.js";
+import {
+  isStallResult,
+  shouldForceDigOut,
+  pruneStalls,
+  STALL_RESCUE_THRESHOLD,
+  STALL_WINDOW_MS,
+} from "./stall-rescue.js";
 
 // 204 stalls in 52 minutes, 111 at one spot four blocks from the stash and
 // three below it, cobblestone on three sides. maxDropDown=3 lets a bot walk
@@ -30,16 +36,41 @@ test("success is never a stall", () => {
   assert.equal(isStallResult(""), false);
 });
 
-test("rescues only after a run of stalls, not on the first", () => {
-  // One stall is ordinary. Three in a row means the bot cannot reach anything.
-  assert.equal(shouldForceDigOut(1), false);
-  assert.equal(shouldForceDigOut(STALL_RESCUE_THRESHOLD - 1), false);
-  assert.equal(shouldForceDigOut(STALL_RESCUE_THRESHOLD), true);
-  assert.equal(shouldForceDigOut(STALL_RESCUE_THRESHOLD + 5), true);
+const NOW = 1_800_000_000_000;
+const agoMs = (ms: number) => NOW - ms;
+
+test("rescues on a rate, not on a run", () => {
+  // One stall is ordinary. Five inside three minutes means the bot cannot reach
+  // anything, whether or not it managed an eat or an idle in between.
+  assert.equal(shouldForceDigOut([NOW], NOW), false);
+  const nearMiss = Array.from({ length: STALL_RESCUE_THRESHOLD - 1 }, (_, i) => agoMs(i * 1000));
+  assert.equal(shouldForceDigOut(nearMiss, NOW), false);
+  const enough = Array.from({ length: STALL_RESCUE_THRESHOLD }, (_, i) => agoMs(i * 1000));
+  assert.equal(shouldForceDigOut(enough, NOW), true);
 });
 
-test("threshold is low enough to matter at the observed rate", () => {
-  // 204 stalls in 52 minutes is roughly four a minute. A threshold in the tens
-  // would leave a bot trapped for most of an hour.
-  assert.ok(STALL_RESCUE_THRESHOLD <= 5, `${STALL_RESCUE_THRESHOLD} is too slow to rescue anything`);
+// The old rule wanted CONSECUTIVE stalls, so any success in between reset it.
+// Across one 2h38m session it fired 23 times against 749 stalls: 3%.
+test("interleaved successes no longer disarm the rescue", () => {
+  // These five stalls are spread over two minutes with other actions between
+  // them. Consecutive counting saw a run of one, over and over.
+  const spread = [agoMs(110_000), agoMs(90_000), agoMs(60_000), agoMs(30_000), agoMs(5_000)];
+  assert.equal(shouldForceDigOut(spread, NOW), true);
+});
+
+test("old stalls fall out of the window", () => {
+  // A bot that stalled five times an hour ago and is now fine must not dig.
+  const stale = Array.from({ length: 8 }, (_, i) => agoMs(STALL_WINDOW_MS + 60_000 + i * 1000));
+  assert.equal(shouldForceDigOut(stale, NOW), false);
+  assert.equal(pruneStalls(stale, NOW).length, 0);
+});
+
+test("pruning keeps only what is still inside the window", () => {
+  const mixed = [agoMs(STALL_WINDOW_MS + 10_000), agoMs(20_000), agoMs(1_000)];
+  assert.equal(pruneStalls(mixed, NOW).length, 2);
+});
+
+test("threshold stays low enough to matter at the observed rate", () => {
+  // 749 stalls in 2h38m is roughly five a minute for the worst bot.
+  assert.ok(STALL_RESCUE_THRESHOLD <= 6, `${STALL_RESCUE_THRESHOLD} is too slow to rescue anything`);
 });

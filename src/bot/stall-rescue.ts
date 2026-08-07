@@ -13,8 +13,18 @@
 // safeMoves forbids both digging and 1x1 towers, so it cannot climb back out.
 // Ore mined that hour: zero.
 
-/** Consecutive stalls before the bot digs itself out. */
-export const STALL_RESCUE_THRESHOLD = 3;
+/** Stalls inside STALL_WINDOW_MS before the bot digs itself out.
+ *
+ *  This was THREE CONSECUTIVE stalls, and consecutive is the wrong shape. Any
+ *  interleaved success resets the run, so across one 2h38m session the rescue
+ *  fired 23 times against 749 stalls — 3%. Meanwhile one bot, Forge, produced
+ *  499 of those stalls, including 56 at a spot walled in stone on all four
+ *  sides with only the sky open, which is exactly what digOutIfStuck is for.
+ *
+ *  A bot that stalls five times in three minutes is stuck whether or not it
+ *  managed something else in between. */
+export const STALL_RESCUE_THRESHOLD = 5;
+export const STALL_WINDOW_MS = 3 * 60 * 1000;
 
 /** Does this action result mean the bot failed to get somewhere?
  *
@@ -27,7 +37,15 @@ export function isStallResult(result: string): boolean {
   return /Stuck — not making progress|Navigation timed out|No path to the goal|Path was stopped/i.test(result);
 }
 
-/** Fire once per run of stalls, not on every one past the threshold. */
-export function shouldForceDigOut(consecutiveStalls: number): boolean {
-  return consecutiveStalls >= STALL_RESCUE_THRESHOLD;
+/** Keep only the stalls still inside the window, newest last. */
+export function pruneStalls(stallTimes: number[], now: number, windowMs: number = STALL_WINDOW_MS): number[] {
+  return stallTimes.filter((t) => now - t <= windowMs);
+}
+
+/** Enough stalls in a short window to mean the bot cannot reach anything.
+ *
+ *  Rate, not a run. A bot wedged in a hole still succeeds at eat, idle and chat
+ *  between failed navigations, and every one of those used to reset the count. */
+export function shouldForceDigOut(recentStalls: number[], now: number): boolean {
+  return pruneStalls(recentStalls, now).length >= STALL_RESCUE_THRESHOLD;
 }
