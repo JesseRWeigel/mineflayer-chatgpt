@@ -10,4 +10,14 @@ async function craftStonePickaxe(bot) {
   if (!stoneBlock) throw new Error("Cannot find stone nearby");
   const hasStone = bot.inventory.items().some(item => item.id === stoneId);
   if (!hasStone) {
-    await
+    await bot.dig(stoneBlock);
+    await bot.pathfinder.goto(new goals.GoalNear(stoneBlock.position.x, stoneBlock.position.y, stoneBlock.position.z, 2));
+    while (!bot.inventory.items().some(item => item.id === stoneId)) await new Promise(r => setTimeout(r, 100));
+  }
+  const hasStick = bot.inventory.items().some(item => item.id === stickId);
+  if (!hasStick) throw new Error("Cannot find stick nearby");
+  const recipes = bot.recipesFor(pickaxeId, null, 1, tableBlock);
+  if (!recipes || recipes.length === 0) throw new Error("No recipe for stone pickaxe");
+  await bot.pathfinder.goto(new goals.GoalNear(tableBlock.position.x, tableBlock.position.y, tableBlock.position.z, 2));
+  await bot.craft(recipes[0], 1, tableBlock);
+}

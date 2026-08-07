@@ -433,19 +433,38 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // Fleeing works when picked (119 successful flees in the same session). The
   // gap was that nothing looked for danger at the instant a bot is most exposed:
   // freshly respawned, unarmoured, unarmed.
-  bot.on("respawn", () => {
+  //
+  // Hooked to "spawn", not "respawn". mineflayer emits `respawn` when the server
+  // sends the respawn PACKET, at which point isAlive is false and the entity is
+  // not yet placed; `spawn` fires once health is restored and the bot is really
+  // in the world (see mineflayer/lib/plugins/health.js). The first version
+  // listened on `respawn` and fired zero times across 29 deaths.
+  //
+  // Both branches log. The first version only logged when it decided to flee,
+  // so a zero count could not distinguish "never ran" from "ran and found
+  // nothing", which is the same observability gap that cost days on the fall
+  // and deposit investigations.
+  bot.on("spawn", () => {
     setTimeout(() => {
       try {
         if (!bot.entity) return;
         const hostile = bot.nearestEntity((e) => e !== bot.entity && isHostile(e));
         const dist = hostile ? hostile.position.distanceTo(bot.entity.position) : null;
-        if (!shouldFleeOnRespawn(dist)) return;
-        console.log(
-          `[Respawn] ${roleConfig.name} woke up ${dist!.toFixed(1)} blocks from ${hostile!.name ?? "a hostile"} — fleeing before resuming`,
-        );
-        executeAction(bot, "flee", {}).catch(() => {});
-      } catch {
-        /* best effort — never let the safety check itself break a respawn */
+        if (shouldFleeOnRespawn(dist)) {
+          console.log(
+            `[Respawn] ${roleConfig.name} woke up ${dist!.toFixed(1)} blocks from ${hostile!.name ?? "a hostile"} — fleeing before resuming`,
+          );
+          executeAction(bot, "flee", {}).catch(() => {});
+        } else {
+          console.log(
+            `[Respawn] ${roleConfig.name} spawn check: nearest hostile ${dist === null ? "none" : dist.toFixed(1) + " blocks"} — resuming`,
+          );
+        }
+      } catch (err) {
+        // Never let the safety check itself break a spawn, but do not swallow
+        // it silently either: a thrown check is indistinguishable from a quiet
+        // one in the log, and that is how the first version hid.
+        console.log(`[Respawn] ${roleConfig.name} spawn check failed: ${(err as Error).message}`);
       }
     }, 1200); // let the spawn settle so position and entities are current
   });
