@@ -393,10 +393,33 @@ export function shouldKeep(
   // deposited them as "surplus" and re-ground iron forever, never advancing.
   // A bot should never give up its iron/diamond/netherite tools or armor.
   const GEAR = ["_pickaxe", "_axe", "_sword", "_shovel", "_hoe", "_helmet", "_chestplate", "_leggings", "_boots"];
+  const ARMOUR_SLOTS = ["_helmet", "_chestplate", "_leggings", "_boots"];
   if (
     (itemName.startsWith("iron_") || itemName.startsWith("diamond_") || itemName.startsWith("netherite_")) &&
     GEAR.some((g) => itemName.includes(g))
   ) {
+    // Keep ONE per armour slot, bank the rest.
+    //
+    // This kept every piece unconditionally, duplicates included. Now that the
+    // crafters actually produce full sets, the spares pile up in their packs and
+    // the stash holds no armour at all: measured 0 armour withdrawals in a
+    // session where Blade tried withdraw_stash 31 times.
+    //
+    // Blade is the swarm's fighter. His role has attack but NOT craft and NOT
+    // mine_block, so he cannot make armour and cannot mine the iron for it. The
+    // stash is his only route to a chestplate, and the crafters were hoarding
+    // the spares. He died 15 times in one hour, every single one "slain by"
+    // with Armor: -,-,-,- and all of it within four blocks of the stash.
+    //
+    // One per slot is the same rule this function already applies to pickaxes
+    // and axes below, for the same reason: a bot needs one, not a collection.
+    const slot = ARMOUR_SLOTS.find((a) => itemName.includes(a));
+    if (slot) {
+      const kept = currentCounts.get(`__armour${slot}`) ?? 0;
+      if (kept >= 1) return false; // spare — let the fighter have it
+      currentCounts.set(`__armour${slot}`, 1);
+      return true;
+    }
     return true;
   }
   if (itemName === "shield") return true;

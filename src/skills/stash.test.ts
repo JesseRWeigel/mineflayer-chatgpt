@@ -398,3 +398,41 @@ test("candidate count stays bounded so a deposit cannot wander the stash", () =>
   // Each candidate costs a walk plus a possible dig, inside the action watchdog.
   assert.ok(CHEST_CANDIDATES <= 6, `${CHEST_CANDIDATES} candidates would blow the action budget`);
 });
+
+// Blade is the swarm's fighter: his role has attack but NOT craft and NOT
+// mine_block, so the stash is his only route to armour. He tried withdraw_stash
+// 31 times in one session and withdrew nothing, because shouldKeep protected
+// every iron piece unconditionally and the crafters hoarded their spares. He
+// died 15 times that hour, all "slain by", all with Armor: -,-,-,-.
+test("a bot keeps one of each armour piece and banks the spares", () => {
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_chestplate", [], counts, 1), true, "the one it wears");
+  assert.equal(shouldKeep("iron_chestplate", [], counts, 1), false, "the spare goes to the fighter");
+  assert.equal(shouldKeep("iron_chestplate", [], counts, 1), false);
+});
+
+test("each armour slot is tracked separately", () => {
+  const counts = new Map<string, number>();
+  for (const piece of ["iron_helmet", "iron_chestplate", "iron_leggings", "iron_boots"]) {
+    assert.equal(shouldKeep(piece, [], counts, 1), true, `first ${piece} is kept`);
+  }
+  for (const piece of ["iron_helmet", "iron_chestplate", "iron_leggings", "iron_boots"]) {
+    assert.equal(shouldKeep(piece, [], counts, 1), false, `second ${piece} is banked`);
+  }
+});
+
+test("tools are still never deposited, at any count", () => {
+  // The pickaxe rule below already handles quantity; this path must not start
+  // banking the tool a bot is actively using.
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_pickaxe", [], counts, 1), true);
+  assert.equal(shouldKeep("iron_sword", [], counts, 1), true);
+  assert.equal(shouldKeep("diamond_sword", [], counts, 1), true);
+});
+
+test("better-tier armour is still kept even after a spare of another tier", () => {
+  // Diamond and iron are different item names, so each gets its own slot budget.
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_chestplate", [], counts, 1), true);
+  assert.equal(shouldKeep("diamond_chestplate", [], counts, 1), false, "same slot, already covered");
+});
