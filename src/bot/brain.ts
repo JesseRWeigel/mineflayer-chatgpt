@@ -26,6 +26,8 @@ import { getWorldContext, isHostile } from "./perception.js";
 import { executeAction } from "./actions.js";
 import { digOutIfStuck, escapeWaterIfDrowning } from "./navigation.js";
 import { isStallResult, shouldForceDigOut } from "./stall-rescue.js";
+import { isDeathTrap } from "./death-trap.js";
+import { isAtBase } from "./respawn.js";
 import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
@@ -1145,6 +1147,38 @@ export class BotBrain {
     }
 
     // ── Execute ──
+    // Do not walk back into the place that keeps killing you.
+    //
+    // Forge died 31 times in under two hours, median gap 53 seconds, five inside
+    // 94 seconds, wearing an iron chestplate for 16 of them. 13 of those deaths
+    // are within 8 blocks of one tunnel. He respawns at base, walks back, dies.
+    //
+    // The respawn-loop breaker fired 7 times and did not help, because it resets
+    // the SPAWN point and the danger is where he walks to. memory's
+    // shouldAvoidLocation has existed all along with zero callers, and the
+    // prompt already says "RECENT DEATHS at (x,y,z)" — the model read that and
+    // went back thirteen times. Advice the model can ignore is not a guard.
+    //
+    // The base is exempt: deaths cluster at the stash too, and refusing to go
+    // there would stop the swarm depositing, which is worse than the deaths.
+    if (typeof normalizedParams.x === "number" && typeof normalizedParams.z === "number") {
+      const target = { x: normalizedParams.x as number, z: normalizedParams.z as number };
+      const atBase = isAtBase(
+        { x: target.x, y: (normalizedParams.y as number) ?? this.roleConfig.stashPos?.y ?? 0, z: target.z },
+        this.roleConfig.stashPos,
+      );
+      if (isDeathTrap(target, this.memStore.getDeaths(), Date.now(), atBase)) {
+        const msg =
+          `Refusing to go to ${target.x},${target.z} — you have died there repeatedly in the last 20 minutes. ` +
+          `Pick somewhere else, or clear the threat first.`;
+        this.log.info("Brain", `DEATH TRAP: ${this.roleConfig.name} blocked from ${target.x},${target.z}`);
+        this.events.onAction(decision.action, msg);
+        this.lastResult = msg;
+        this.blockAction(decision.action, msg, BotBrain.FAILURE_TTL_TRANSIENT_MS);
+        return;
+      }
+    }
+
     const result = await executeAction(this.bot, decision.action, normalizedParams);
     this.lastAction = decision.action;
     this.lastResult = result;

@@ -477,6 +477,13 @@ export class BotMemoryStore {
     return result;
   }
 
+  /** Recent death records, for the death-trap guard in brain.ts.
+   *  shouldAvoidLocation below has existed with zero callers the whole time,
+   *  which is why Forge walked back into the same tunnel thirteen times. */
+  getDeaths(): { x: number; y: number; z: number; timestamp?: string }[] {
+    return this.memory.deaths;
+  }
+
   shouldAvoidLocation(x: number, y: number, z: number, radius = 10): boolean {
     return this.memory.deaths.some((d) => Math.abs(d.x - x) < radius && Math.abs(d.z - z) < radius);
   }
