@@ -3,6 +3,7 @@ import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import { Vec3 } from "vec3";
 import { isHostile } from "./perception.js";
+import { travelBudgetMs } from "./mine-budget.js";
 import { skillRegistry } from "../skills/registry.js";
 import { runSkill } from "../skills/executor.js";
 import { checkRetiredWithParole, getSkillStats } from "../skills/reliability.js";
@@ -765,7 +766,14 @@ async function mineBlock(
   const digMoves = baseMoves(bot);
   digMoves.canDig = true;
   bot.pathfinder.setMovements(digMoves);
-  await safeGoto(bot, new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2));
+  // Budget the walk against the distance, not a flat 15s default.
+  //
+  // The ore search reaches 64 blocks and this goto took safeGoto's 15 second
+  // default while digging through stone. Those two numbers disagreed by about
+  // an order of magnitude, and the result was 39 navigation timeouts and 28 dig
+  // timeouts against 8 iron mined in one session. See mine-budget.ts.
+  const travelMs = travelBudgetMs(bot.entity.position.distanceTo(block.position));
+  await safeGoto(bot, new goals.GoalNear(block.position.x, block.position.y, block.position.z, 2), travelMs);
   await equipPickaxe(bot);
   await digSafe(bot, block);
   let mined = 1;
