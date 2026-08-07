@@ -22,6 +22,9 @@ import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
 import { createFallTracker } from "./fall-tracker.js";
 import { respawnTarget, isAtBase } from "./respawn.js";
+import { shouldFleeOnRespawn } from "./respawn-safety.js";
+import { isHostile } from "./perception.js";
+import { executeAction } from "./actions.js";
 import { Vec3 } from "vec3";
 
 // Re-export types used by src/index.ts
@@ -419,6 +422,34 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     fallTracker.update(bot.entity.position.y, bot.entity.onGround, Date.now(), ctx);
   });
 
+  // Run before resuming, if something lethal is standing where you woke up.
+  //
+  // The first action after a death was explore 23 times, go_to 13, mine_block 5
+  // and flee ZERO times across one 9h session. Bots respawn at the base and walk
+  // straight back into whatever killed them. Flora died three times in 76
+  // seconds that way at y=69, two blocks from the stash, and her role has flee
+  // but no attack, so running is her only defence and nothing ever chose it.
+  //
+  // Fleeing works when picked (119 successful flees in the same session). The
+  // gap was that nothing looked for danger at the instant a bot is most exposed:
+  // freshly respawned, unarmoured, unarmed.
+  bot.on("respawn", () => {
+    setTimeout(() => {
+      try {
+        if (!bot.entity) return;
+        const hostile = bot.nearestEntity((e) => e !== bot.entity && isHostile(e));
+        const dist = hostile ? hostile.position.distanceTo(bot.entity.position) : null;
+        if (!shouldFleeOnRespawn(dist)) return;
+        console.log(
+          `[Respawn] ${roleConfig.name} woke up ${dist!.toFixed(1)} blocks from ${hostile!.name ?? "a hostile"} — fleeing before resuming`,
+        );
+        executeAction(bot, "flee", {}).catch(() => {});
+      } catch {
+        /* best effort — never let the safety check itself break a respawn */
+      }
+    }, 1200); // let the spawn settle so position and entities are current
+  });
+
   bot.on("death", () => {
     const pos = bot.entity.position;
     const cause = lastDeathMessage || "unknown";
@@ -433,9 +464,7 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     // logs when it equips something, which says nothing about what is worn at the
     // moment of death — an unarmoured bot that never found armour logs nothing at
     // all. Record the slots directly so the next spike is answerable.
-    const worn = [5, 6, 7, 8]
-      .map((slot) => bot.inventory.slots[slot]?.name ?? "-")
-      .join(",");
+    const worn = [5, 6, 7, 8].map((slot) => bot.inventory.slots[slot]?.name ?? "-").join(",");
     const drop = fallTracker.dropFrom(pos.y);
     const fallInfo =
       drop > 1
@@ -544,9 +573,7 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     // Cast: the bundled @types/mineflayer-pathfinder predates searchRadius, but
     // the runtime reads it (index.js:41 sets the -1 default, :75 consumes it).
     (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 96;
-    console.log(
-      `[Pathfinder] ${roleConfig.name}: searchRadius=96 thinkTimeout=${bot.pathfinder.thinkTimeout}ms`,
-    );
+    console.log(`[Pathfinder] ${roleConfig.name}: searchRadius=96 thinkTimeout=${bot.pathfinder.thinkTimeout}ms`);
 
     // Auto-eat config
     bot.autoEat.opts = {

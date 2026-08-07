@@ -1,6 +1,13 @@
 async function craftStonePickaxe(bot) {
   const { goals } = require('mineflayer-pathfinder');
   const mcData = require('minecraft-data')(bot.version);
-
-  const stoneBlockId = mcData.blocksByName.stone.id;
-  const log
+  const stoneId = mcData.blocksByName.stone.id;
+  const stickId = mcData.itemsByName.stick.id;
+  const pickaxeId = mcData.itemsByName.stone_pickaxe.id;
+  const tableBlock = bot.findBlock({ matching: mcData.blocksByName.crafting_table.id, maxDistance: 32 });
+  if (!tableBlock) throw new Error("Cannot find crafting table nearby");
+  const stoneBlock = bot.findBlock({ matching: stoneId, maxDistance: 32 });
+  if (!stoneBlock) throw new Error("Cannot find stone nearby");
+  const hasStone = bot.inventory.items().some(item => item.id === stoneId);
+  if (!hasStone) {
+    await
