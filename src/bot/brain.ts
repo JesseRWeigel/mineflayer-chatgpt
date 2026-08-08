@@ -1210,7 +1210,16 @@ export class BotBrain {
           `${this.roleConfig.name} stalled ${this.recentStalls.length}x in 3min — forcing dig-out`,
         );
         this.recentStalls = [];
-        await digOutIfStuck(this.bot).catch(() => {});
+        // Log the OUTCOME, not just the call. digOutIfStuck returns false
+        // immediately when fewer than three walls surround the bot, so 21
+        // "forcing dig-out" lines could be 21 escapes or 21 no-ops and the log
+        // reads the same. That ambiguity is why I could not explain why Forge
+        // kept stalling at 4.5/min while the rescue appeared to be running.
+        const dug = await digOutIfStuck(this.bot).catch(() => false);
+        this.log.info(
+          "Brain",
+          `${this.roleConfig.name} dig-out ${dug ? "ATTEMPTED an escape" : "declined (not boxed in)"}`,
+        );
       }
     }
 
