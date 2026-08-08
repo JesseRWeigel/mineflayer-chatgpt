@@ -167,6 +167,11 @@ print(f"SESSION_ACTIONS={acts}")
 worst = max(bots.items(), key=lambda kv: kv[1].get("deaths", 0), default=None)
 if worst and worst[1].get("deaths", 0):
     print(f"MOST_DEATHS={worst[0]}:{worst[1]['deaths']}")
+# EVERY bot, so the per-hour check below can rate them all. Picking the
+# session leader here is what hid Flora dying three times in an hour.
+by_bot = ",".join(f"{n}:{b.get('deaths', 0)}" for n, b in sorted(bots.items()))
+if by_bot:
+    print(f"DEATHS_BY_BOT={by_bot}")
 print(f"MILESTONES={len(d.get('milestones', []))}")
 PY
 )
@@ -210,18 +215,20 @@ PY
   #
   # Rate, not total, for the same reason the swarm-wide check uses one: a long
   # healthy session accumulates deaths honestly. Healthy is ~1/hr per bot (2-6/hr
-  # across five). Replayed against history: Forge 29-in-3h46m = 7.7/hr and
-  # Forge 24-in-1h48m = 13/hr both fire; Atlas 11-in-1h54m = 5.8/hr fires and was
-  # a real fall loop; Atlas 13-in-6h32m = 2/hr and Flora 3-in-1h46m = 1.7/hr stay
-  # quiet, and both were healthy.
-  MOST=$(sed -n 's/^MOST_DEATHS=//p' <<<"$STATS")
-  if [[ -n "${MOST:-}" && -n "${UPTIME_RAW:-}" ]] && (( UPTIME_RAW > 1800 )); then
-    WORST_BOT="${MOST%%:*}"
-    WORST_N="${MOST##*:}"
-    WORST_PER_HR=$(( WORST_N * 3600 / UPTIME_RAW ))
-    echo "WORST_BOT_DEATHS_PER_HR=${WORST_BOT}:${WORST_PER_HR}"
-    (( WORST_PER_HR > 4 )) && ALERTS+=("one_bot_dying_${WORST_BOT}_${WORST_PER_HR}_per_hr")
-  fi
+  # across five).
+  #
+  # That rate was a SESSION average over the SESSION-worst bot, and both halves
+  # of that hid a loop. In a 6h25m session Flora died 6 times, three inside the
+  # last hour, and Mason 5, three in the same hour; this line printed "Atlas:1"
+  # and ALERTS said none. Deaths in the newest hour were divided by every quiet
+  # hour before them, and only the session leader was ever rated at all.
+  #
+  # The same lesson as the swarm-wide check, one level down: an average over a
+  # long window cannot see a spike inside it. WORST_BOT_DEATHS_PER_HR now comes
+  # from the window BETWEEN checks, for every bot, and moved below to where the
+  # elapsed time is known. Logic and thresholds live in src/monitor/death-rate.ts
+  # under test, because a copy in bash would be the untested copy.
+  DEATHS_BY_BOT=$(sed -n 's/^DEATHS_BY_BOT=//p' <<<"$STATS")
 
   # RATE, not total. Cumulative counters cannot see a stall: deposits sat at 9
   # for a full hour while the stash filled and expansion silently broke, and the
@@ -229,6 +236,7 @@ PY
   # previous run so a swarm that STOPS banking is caught even after a good start.
   STATE_FILE="${TMPDIR:-/tmp}/swarm-health-prev.txt"
   PREV_SESSION=""; PREV_DEPOSITS=""; PREV_DEATHS=""; PREV_ACTIONS=""; PREV_ITEMS="0"; PREV_TS=""
+  PREV_DEATHS_BY_BOT=""
   [[ -r "$STATE_FILE" ]] && source "$STATE_FILE"
 
   SESSION_ID=$(basename "$SESSION" .json)
@@ -281,6 +289,17 @@ PY
       DEATH_RATE=$(( DEATH_RATE_T / 10 ))
       echo "DEATHS_PER_HR_SINCE_LAST=$DEATH_RATE"
       (( DEATH_RATE_T > 100 )) && ALERTS+=("death_spike_${DEATH_RATE}_per_hr_since_last")
+
+      # ONE bot dying is invisible to the swarm-wide rate above: 8 deaths in an
+      # hour reads as 8/hr against a 10/hr bar whether that is every bot once or
+      # one bot eight times. Rate each bot over this same window.
+      if [[ -n "${DEATHS_BY_BOT:-}" && -n "${PREV_DEATHS_BY_BOT:-}" ]]; then
+        PER_BOT=$(node --import tsx src/monitor/death-rate-cli.ts \
+          "$PREV_DEATHS_BY_BOT" "$DEATHS_BY_BOT" "$ELAPSED_S" 2>/dev/null || true)
+        sed -n 's/^WORST_BOT_DEATHS_PER_HR=/WORST_BOT_DEATHS_PER_HR=/p' <<<"$PER_BOT"
+        BOT_ALERT=$(sed -n 's/^ALERT=//p' <<<"$PER_BOT")
+        [[ -n "$BOT_ALERT" ]] && ALERTS+=("$BOT_ALERT")
+      fi
     fi
     # Compare deaths against ITEMS banked, not deposit EVENTS.
     #
@@ -304,6 +323,7 @@ PREV_DEPOSITS="$DEPOSITS"
 PREV_DEATHS="$DEATHS"
 PREV_ACTIONS="$SESSION_ACTIONS"
 PREV_ITEMS="$ITEMS_NOW"
+PREV_DEATHS_BY_BOT="${DEATHS_BY_BOT:-}"
 PREV_TS="$(date +%s)"
 STATE
 fi
