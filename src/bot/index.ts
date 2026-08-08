@@ -517,7 +517,11 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const fallInfo =
       drop > 1
         ? ` Fell ${drop.toFixed(1)} blocks from y=${fallTracker.originY().toFixed(0)} ` +
-          `(airborne ${(fallTracker.airborneMs(Date.now()) / 1000).toFixed(1)}s, ${fallTracker.originContext()})`
+          `(airborne ${(fallTracker.airborneMs(Date.now()) / 1000).toFixed(1)}s, ${fallTracker.originContext()})` +
+          // Sampled one tick earlier, while still standing. The departure sample
+          // above reads the block below a bot that is already over the gap, so
+          // its on= is air for any fall at all and answers nothing.
+          ` [stood ${fallTracker.originFooting()}]`
         : "";
     console.log(`[Bot] I died! Cause: ${cause}. Armor: ${worn}.${fallInfo} Respawning...`);
     lastDeathMessage = "";

@@ -24,6 +24,15 @@ export interface FallTracker {
   airborneMs(now: number): number;
   /** What was moving the bot when it left the ground. */
   originContext(): string;
+  /**
+   * The last sample taken while the bot was still standing — what it was ON.
+   *
+   * Distinct from originContext() on purpose. By the ground -> airborne tick the
+   * bot is already over the gap, so anything read about the world BELOW it then
+   * describes where it is falling to, not where it left. Controls and velocity
+   * are only meaningful at departure; footing is only meaningful one tick earlier.
+   */
+  originFooting(): string;
 }
 
 export function createFallTracker(initialY: number): FallTracker {
@@ -32,10 +41,17 @@ export function createFallTracker(initialY: number): FallTracker {
   let fallStartY = initialY;
   let leftGroundAt = 0;
   let departureContext = "";
+  // The two halves of a fall origin, sampled one tick apart. lastGroundContext
+  // trails the feet exactly as lastGroundY does, and freezes at the same moment.
+  let lastGroundContext = "";
+  let footingContext = "";
 
   return {
     update(y, onGround, now, context = "") {
       if (onGround) {
+        // Whatever is true while standing is the last honest description of the
+        // ground. Held here, frozen below, for the same reason as lastGroundY.
+        lastGroundContext = context;
         if (onGroundPrev) {
           // Continuous ground contact — no fall is pending, so the origin tracks
           // the feet. Without this a bot walking down a 10-block slope reported a
@@ -51,6 +67,7 @@ export function createFallTracker(initialY: number): FallTracker {
         fallStartY = lastGroundY;
         leftGroundAt = now;
         departureContext = context;
+        footingContext = lastGroundContext;
       }
       onGroundPrev = onGround;
     },
@@ -65,6 +82,9 @@ export function createFallTracker(initialY: number): FallTracker {
     },
     originContext() {
       return departureContext;
+    },
+    originFooting() {
+      return footingContext;
     },
   };
 }
