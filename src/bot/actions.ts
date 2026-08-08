@@ -4,6 +4,7 @@ const { goals, Movements } = pkg;
 import { Vec3 } from "vec3";
 import { isHostile } from "./perception.js";
 import { travelBudgetMs } from "./mine-budget.js";
+import { canHarvest, harvestAdvice } from "./tool-tier.js";
 import { skillRegistry } from "../skills/registry.js";
 import { runSkill } from "../skills/executor.js";
 import { checkRetiredWithParole, getSkillStats } from "../skills/reliability.js";
@@ -761,6 +762,21 @@ async function mineBlock(
       ? `No ${blockType} found nearby (the ${PROTECT_RADIUS}-block zone around The Stash is protected — mine elsewhere).`
       : `No ${blockType} found nearby.`;
 
+  // Refuse a dig the tool cannot finish, BEFORE walking up to 64 blocks to it.
+  //
+  // 251 of one session's mine_block calls asked for iron_ore while 281 of the
+  // pickaxes in play were wooden. Iron ore needs stone+; with wood it takes 15s
+  // and drops nothing, and digSafe gives up at 12s. Every one of those attempts
+  // was arithmetically incapable of succeeding, and "dig timeout" told the brain
+  // nothing, so it asked again -- 120 timeouts, an 8% mine success rate, and a
+  // swarm banking 1 item an hour.
+  //
+  // The advice matters more than the refusal: stone IS minable with wood, so
+  // saying which pickaxe is missing and how to get it turns a permanent deadlock
+  // into a two-step plan the brain can actually follow.
+  const held = bestPickaxe(bot)?.name ?? null;
+  if (!canHarvest(block.name, held)) return harvestAdvice(block.name, held);
+
   // Allow digging so pathfinder can reach underground ores through stone
   const { Movements } = (await import("mineflayer-pathfinder")).default;
   const digMoves = baseMoves(bot);
@@ -792,12 +808,16 @@ async function mineBlock(
   return isOre ? `Mined ${mined}x ${block.name} (vein).` : `Mined ${blockType}.`;
 }
 
-async function equipPickaxe(bot: Bot): Promise<void> {
+function bestPickaxe(bot: Bot) {
   // Prefer the best pickaxe so harder ores (iron needs stone+) actually drop.
   const ranks = ["netherite", "diamond", "iron", "stone", "golden", "wooden"];
   const picks = bot.inventory.items().filter((i) => i.name.endsWith("_pickaxe"));
   picks.sort((a, b) => ranks.findIndex((r) => a.name.startsWith(r)) - ranks.findIndex((r) => b.name.startsWith(r)));
-  const best = picks.find((p) => ranks.some((r) => p.name.startsWith(r)));
+  return picks.find((p) => ranks.some((r) => p.name.startsWith(r)));
+}
+
+async function equipPickaxe(bot: Bot): Promise<void> {
+  const best = bestPickaxe(bot);
   if (best) {
     try {
       await bot.equip(best, "hand");
