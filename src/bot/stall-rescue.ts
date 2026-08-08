@@ -24,7 +24,18 @@
  *  A bot that stalls five times in three minutes is stuck whether or not it
  *  managed something else in between. */
 export const STALL_RESCUE_THRESHOLD = 5;
-export const STALL_WINDOW_MS = 3 * 60 * 1000;
+// Five minutes, not three.
+//
+// Three minutes demanded 1.67 stalls/min from a single bot. Measured over a
+// 5h40m session, Forge produced 406 of the swarm's 802 stalls at a sustained
+// 1.19/min, including 51 at one spot walled in cobblestone on all four sides
+// with only the sky open — a 1x1 shaft, precisely what digOutIfStuck escapes.
+// He never reached the threshold, and the rescue fired 22 times against 802.
+//
+// I sized the original window against a burst. The real pattern is a grind. At
+// five minutes the bar is 1.0/min, which catches Forge and still leaves the
+// other four (0.19 to 0.39/min) alone.
+export const STALL_WINDOW_MS = 5 * 60 * 1000;
 
 /** Does this action result mean the bot failed to get somewhere?
  *

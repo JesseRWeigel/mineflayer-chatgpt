@@ -74,3 +74,22 @@ test("threshold stays low enough to matter at the observed rate", () => {
   // 749 stalls in 2h38m is roughly five a minute for the worst bot.
   assert.ok(STALL_RESCUE_THRESHOLD <= 6, `${STALL_RESCUE_THRESHOLD} is too slow to rescue anything`);
 });
+
+// Measured per-bot stall rates over a 5h40m session. Forge was demonstrably
+// wedged (51 stalls at one 1x1 cobblestone shaft) yet sat below the old
+// 1.67/min bar, so the rescue fired 22 times against 802 stalls.
+test("catches a bot grinding at the observed stuck rate", () => {
+  // Forge: 1.19 stalls/min sustained.
+  const forge = Array.from({ length: 6 }, (_, i) => NOW - i * 50_000); // ~1.2/min
+  assert.equal(shouldForceDigOut(forge, NOW), true, "a sustained grind must trigger the rescue");
+});
+
+test("leaves the healthy bots alone", () => {
+  // Mason 0.39/min, Blade 0.33, Atlas 0.26, Flora 0.19 — none were looping.
+  const mason = Array.from({ length: 2 }, (_, i) => NOW - i * 150_000); // ~0.4/min
+  assert.equal(shouldForceDigOut(mason, NOW), false);
+});
+
+test("the window is wide enough for a grind, not just a burst", () => {
+  assert.ok(STALL_WINDOW_MS >= 5 * 60 * 1000, "3 minutes demanded 1.67/min and missed a 1.19/min grind");
+});
