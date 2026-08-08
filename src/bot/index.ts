@@ -392,8 +392,37 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // fall. See fall-tracker.ts — the origin is captured on the ground->airborne
   // transition so it survives the landing tick.
   const fallTracker = createFallTracker(bot.entity?.position.y ?? 0);
+
+  // How does a bot get 48 blocks above its own base?
+  //
+  // 13 of 26 falls this session came from one small volume at x=284-286,
+  // y=118-120, z=-320 to -322. That is the stash's x, 48 blocks up: the
+  // cobblestone tower the pathfinder built while escaping being stuck. Every
+  // sample reads controls=none pathing=false, so the bot is stationary at the
+  // top when it comes off.
+  //
+  // Four hypotheses have died here — allowFreeMotion (entity goals only), the
+  // teleport unstick (gated off), neural combat (never runs), and the
+  // underground rescue (0 fires this session). The missing fact is not why he
+  // falls, it is how he ASCENDS, and nothing records that. Log the crossing.
+  const ASCENT_TRIGGER_ABOVE_BASE = 30;
+  let wasHigh = false;
   bot.on("move", () => {
     if (!bot.entity) return;
+    const baseY = roleConfig.stashPos?.y;
+    if (baseY !== undefined) {
+      const p = bot.entity.position;
+      const high = p.y > baseY + ASCENT_TRIGGER_ABOVE_BASE;
+      if (high && !wasHigh) {
+        console.log(
+          `[Ascent] ${roleConfig.name} rose to y=${p.y.toFixed(0)} at ${p.x.toFixed(0)},${p.z.toFixed(0)} ` +
+            `(${(p.y - baseY).toFixed(0)} above base) onGround=${bot.entity.onGround}`,
+        );
+      } else if (!high && wasHigh) {
+        console.log(`[Ascent] ${roleConfig.name} back down to y=${p.y.toFixed(0)}`);
+      }
+      wasHigh = high;
+    }
     // Three mechanism hypotheses died against the source before this, each
     // plausible and each never actually firing: allowFreeMotion (only read for
     // entity goals), the teleport unstick (gated off), and neural combat's raw
