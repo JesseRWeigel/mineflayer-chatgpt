@@ -52,6 +52,19 @@ const NO_TOOL_NEEDED = new Set([
 const cheapestFor = (tier: number): string =>
   Object.entries(PICKAXE_TIERS).find(([, t]) => t === tier)?.[0] ?? "stone";
 
+/**
+ * What each pickaxe is actually crafted from. A wooden pickaxe is 3 planks and
+ * 2 sticks and has never been craftable from cobblestone -- the first version of
+ * this advice routed every tier through stone, which was wrong for tier 0 and
+ * impossible for a bot holding no pickaxe at all.
+ */
+const MATERIAL_FOR: Record<string, string> = {
+  wooden: "chop wood for oak planks and sticks",
+  stone: "mine stone for cobblestone",
+  iron: "smelt iron ore into iron ingots",
+  diamond: "mine diamond ore for diamonds",
+};
+
 /** Tier of a pickaxe item, or null if it is not a pickaxe. */
 export function pickaxeTier(itemName: string | null | undefined): number | null {
   if (!itemName || !itemName.endsWith("_pickaxe")) return null;
@@ -92,8 +105,20 @@ export function canHarvest(blockName: string, pickaxeName: string | null | undef
 export function harvestAdvice(blockName: string, pickaxeName: string | null | undefined): string {
   const needed = `${cheapestFor(requiredTier(blockName))}_pickaxe`;
   const held = pickaxeName ?? "nothing";
-  return (
-    `Can't harvest ${blockName} with ${held} — it needs a ${needed}. ` +
-    `Mine stone for cobblestone and craft a ${needed} first, then come back for ${blockName}.`
-  );
+  const opening = `Can't harvest ${blockName} with ${held} — it needs a ${needed}.`;
+
+  // A bot holding no pickaxe cannot mine ANY stone, so every route through
+  // cobblestone is closed to it. Wood is the only material it can still gather
+  // by hand, which makes a wooden pickaxe the one and only first step no matter
+  // what the target needs. Sending it to stone told it to mine stone in order to
+  // be able to mine stone -- 126 of 176 refusals in one session said exactly that.
+  if (pickaxeTier(pickaxeName) === null) {
+    const then = needed === "wooden_pickaxe" ? "" : ` Then work up to a ${needed} for ${blockName}.`;
+    return `${opening} You have no pickaxe at all, so ${MATERIAL_FOR.wooden} and craft a wooden_pickaxe first.${then}`;
+  }
+
+  const route = MATERIAL_FOR[cheapestFor(requiredTier(blockName))] ?? MATERIAL_FOR.stone;
+  return `${opening} ${capitalise(route)} and craft a ${needed} first, then come back for ${blockName}.`;
 }
+
+const capitalise = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);

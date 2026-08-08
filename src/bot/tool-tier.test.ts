@@ -96,3 +96,52 @@ test("advice names the tool needed and the way to get there", () => {
   assert.match(advice, /iron_ore/, "must name what it failed on");
   assert.match(advice, /cobblestone|stone/, "must point at the unblocking material");
 });
+
+// THE CIRCULAR ADVICE BUG.
+//
+// The first version assumed the bot already held a pickaxe and only needed an
+// upgrade, so every message routed through cobblestone. A bot holding nothing
+// was told, verbatim:
+//
+//   "Can't harvest stone with nothing — it needs a wooden_pickaxe.
+//    Mine stone for cobblestone and craft a wooden_pickaxe first..."
+//
+// Mine stone, in order to be able to mine stone. 126 of 176 refusals in one
+// 56-minute session went to bots holding no pickaxe at all, every one of them
+// carrying an instruction that could not be followed.
+//
+// Failing fast only helps if the way out is real. Wrong advice delivered
+// instantly is worse than the 12s timeout it replaced, because the bot now
+// burns a decision on it every cycle instead of every twelve seconds.
+test("a bot with no pickaxe is sent to wood, never to stone", () => {
+  for (const target of ["stone", "coal_ore", "iron_ore", "copper_ore"]) {
+    const advice = harvestAdvice(target, null);
+    assert.match(advice, /wood/i, `${target}: must point at wood, the only thing it can gather`);
+    assert.match(advice, /wooden_pickaxe/, `${target}: the first tool is always wooden`);
+    assert.doesNotMatch(
+      advice,
+      /Mine stone|mine stone/,
+      `${target}: cannot tell a pickaxe-less bot to mine stone`,
+    );
+  }
+});
+
+// A wooden pickaxe is 3 planks + 2 sticks. It has never been craftable from
+// cobblestone, so routing tier-0 advice through stone was wrong twice over.
+//
+// Assert on the message with every "<material>_pickaxe" removed. Without that,
+// /wood/i matches "wooden_pickaxe" and /iron/i matches "iron_pickaxe", so these
+// assertions pass against the broken message that always said cobblestone.
+const materialsIn = (advice: string) => advice.replace(/[a-z]+_pickaxe/g, "");
+test("each tier names the material it is actually crafted from", () => {
+  assert.match(materialsIn(harvestAdvice("stone", null)), /plank|wood/i);
+  assert.match(materialsIn(harvestAdvice("iron_ore", "wooden_pickaxe")), /cobblestone/);
+  assert.match(materialsIn(harvestAdvice("diamond_ore", "stone_pickaxe")), /iron ingot/i);
+  assert.match(materialsIn(harvestAdvice("obsidian", "iron_pickaxe")), /diamond/i);
+});
+
+test("advice still names the block that failed and the tool that would work", () => {
+  const advice = harvestAdvice("copper_ore", null);
+  assert.match(advice, /copper_ore/, "must name what it failed on");
+  assert.match(advice, /stone_pickaxe/, "must still name the tool the target needs");
+});
