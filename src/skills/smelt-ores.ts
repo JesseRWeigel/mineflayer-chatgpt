@@ -5,6 +5,7 @@ import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import mcDataLoader from "minecraft-data";
 import { withdrawStash } from "./stash.js";
+import { classifyWithdraw, nothingToSmeltMessage, type WithdrawOutcome } from "./smelt-advice.js";
 import { baseMoves } from "../bot/navigation.js";
 
 /** Items that can be smelted: input → output name. */
@@ -60,6 +61,10 @@ export const smeltOresSkill: Skill = {
         .filter((i) => i.name === name)
         .reduce((s, i) => s + i.count, 0);
 
+    // What each stash withdrawal established, so the failure message below can
+    // tell "no ore anywhere" apart from "ore pooled but the stash is unreachable".
+    const withdrawOutcomes: WithdrawOutcome[] = [];
+
     // --- Step 0: Pull ore + fuel from the shared stash if we lack them. ---
     // Bots kept invoking smelt empty-handed ("Nothing to smelt" / "No fuel")
     // because the miner deposits raw_iron + coal and a DIFFERENT bot tries to
@@ -85,8 +90,14 @@ export const smeltOresSkill: Skill = {
             // raw_iron" nor "No raw_iron in the stash" appeared even once in a
             // 2h42m session, leaving the skill blind to its own supply line.
             const wd = await withdrawStash(bot, stashPos, ore, 16);
+            withdrawOutcomes.push(classifyWithdraw(wd, false));
             console.log(`[Smelt] ${bot.username} withdraw ${ore}: ${wd}`);
           } catch (err) {
+            // A throw here is a failure to REACH the stash, not proof the stash
+            // is empty. Recording only the returned half is what let 18 "mine
+            // some ore first" messages fire while the ore sat pooled and
+            // unreachable, sending bots to produce more for the same dead drop.
+            withdrawOutcomes.push(classifyWithdraw((err as Error).message, true));
             console.log(`[Smelt] ${bot.username} withdraw ${ore} threw: ${(err as Error).message}`);
           }
           if (Object.keys(SMELT_RECIPES).some((n) => countInv(n) > 0)) break;
@@ -119,7 +130,7 @@ export const smeltOresSkill: Skill = {
     }
 
     if (toSmelt.length === 0) {
-      return { success: false, message: "Nothing to smelt! Mine some ore first (strip_mine for iron, gold, copper)." };
+      return { success: false, message: nothingToSmeltMessage(withdrawOutcomes) };
     }
 
     // --- Step 2: Check fuel ---
