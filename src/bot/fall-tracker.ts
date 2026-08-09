@@ -15,7 +15,7 @@ export interface FallTracker {
   /** `context` describes what was moving the bot at this instant. It is only
    *  retained if this tick is the moment the bot leaves the ground, which is the
    *  one sample that says what walked it off the edge. */
-  update(y: number, onGround: boolean, now: number, context?: string): void;
+  update(y: number, onGround: boolean, now: number, context?: string, onSolid?: boolean): void;
   /** Blocks fallen from the last ground the bot left, given where it ended up. */
   dropFrom(currentY: number): number;
   /** Height the fall started from — the ground the bot walked off. */
@@ -33,6 +33,13 @@ export interface FallTracker {
    * are only meaningful at departure; footing is only meaningful one tick earlier.
    */
   originFooting(): string;
+  /**
+   * How long before leaving the ground the footing sample was taken.
+   *
+   * Non-zero means onGround was still claiming true after the bot was already
+   * over air, which is the lag this exists to expose. 0 means they agreed.
+   */
+  footingAgeMs(now: number): number;
 }
 
 export function createFallTracker(initialY: number): FallTracker {
@@ -45,9 +52,30 @@ export function createFallTracker(initialY: number): FallTracker {
   // trails the feet exactly as lastGroundY does, and freezes at the same moment.
   let lastGroundContext = "";
   let footingContext = "";
+  // onGround LAGS. Three fall records all showed vel=-0.08 -- one tick of
+  // gravity -- at the last tick the flag claimed true, so both the departure
+  // and the grounded sample were taken after the bot was already falling and
+  // both read air. Track the last tick the block below was genuinely SOLID,
+  // whatever the flag said, and how stale that sample is.
+  let lastSolidContext = "";
+  let lastSolidAt = 0;
+  let footingAt = 0;
+  let sawSolid = false;
+  // Whether the caller reports footing at all. Passing false is a statement
+  // that the ground was NOT solid; omitting the argument is no statement, and
+  // must keep the old behaviour rather than silently reporting nothing.
+  let footingReported = false;
 
   return {
-    update(y, onGround, now, context = "") {
+    update(y, onGround, now, context = "", onSolid) {
+      // Solid ground beneath is a fact about the world; onGround is a claim
+      // about the client's last server sync. Prefer the fact when given one.
+      if (onSolid !== undefined) footingReported = true;
+      if (onSolid) {
+        lastSolidContext = context;
+        lastSolidAt = now;
+        sawSolid = true;
+      }
       if (onGround) {
         // Whatever is true while standing is the last honest description of the
         // ground. Held here, frozen below, for the same reason as lastGroundY.
@@ -67,7 +95,11 @@ export function createFallTracker(initialY: number): FallTracker {
         fallStartY = lastGroundY;
         leftGroundAt = now;
         departureContext = context;
-        footingContext = lastGroundContext;
+              // A caller that reports footing and never saw solid ground means the bot
+        // was never on any: say so, rather than handing back the lagging sample.
+        footingContext = footingReported ? (sawSolid ? lastSolidContext : "") : lastGroundContext;
+        footingAt = sawSolid ? lastSolidAt : now;
+        leftGroundAt = now;
       }
       onGroundPrev = onGround;
     },
@@ -85,6 +117,9 @@ export function createFallTracker(initialY: number): FallTracker {
     },
     originFooting() {
       return footingContext;
+    },
+    footingAgeMs() {
+      return footingAt === 0 || leftGroundAt === 0 ? 0 : leftGroundAt - footingAt;
     },
   };
 }

@@ -448,7 +448,13 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       `controls=${held || "none"} pathing=${bot.pathfinder?.isMoving?.() ?? "?"} ` +
       `vel=${bot.entity.velocity.y.toFixed(2)} at=${p.x.toFixed(0)},${p.y.toFixed(0)},${p.z.toFixed(0)} ` +
       `in=${at} on=${below}`;
-    fallTracker.update(bot.entity.position.y, bot.entity.onGround, Date.now(), ctx);
+    // Report whether the block below is genuinely solid, separately from what
+    // bot.entity.onGround claims. Three fall records showed vel=-0.08 (one tick
+    // of gravity) at the last tick the flag said true, so the flag lags and the
+    // world is the more reliable witness.
+    const belowBlock = bot.blockAt(p.offset(0, -1, 0));
+    const onSolid = belowBlock?.boundingBox === "block";
+    fallTracker.update(bot.entity.position.y, bot.entity.onGround, Date.now(), ctx, onSolid);
   });
 
   // Run before resuming, if something lethal is standing where you woke up.
@@ -521,7 +527,8 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
           // Sampled one tick earlier, while still standing. The departure sample
           // above reads the block below a bot that is already over the gap, so
           // its on= is air for any fall at all and answers nothing.
-          ` [stood ${fallTracker.originFooting()}]`
+          ` [stood ${fallTracker.originFooting() || "NEVER ON SOLID GROUND"}` +
+          ` ${fallTracker.footingAgeMs(Date.now())}ms before leaving]`
         : "";
     console.log(`[Bot] I died! Cause: ${cause}. Armor: ${worn}.${fallInfo} Respawning...`);
     lastDeathMessage = "";

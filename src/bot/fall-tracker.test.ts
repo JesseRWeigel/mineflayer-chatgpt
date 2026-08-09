@@ -131,3 +131,55 @@ test("footing is empty before the bot has ever left the ground", () => {
   t.update(64, true, 0, "on=stone");
   assert.equal(t.originFooting(), "");
 });
+
+// onGround LAGS, so "the last grounded tick" is not the departure point.
+//
+// Three independent fall records, after the footing was already moved one tick
+// earlier by the previous fix, all read identically:
+//
+//   Forge  [stood vel=-0.08 at=282,119,-323 in=air on=air]
+//   Blade  [stood vel=-0.08 at=282,120,-322 in=air on=air]
+//   Blade  [stood vel=-0.08 at=277,107,-305 in=air on=air]
+//
+// vel=-0.08 is one tick of gravity. At every tick where mineflayer reported
+// onGround=true, the entity had ALREADY started falling — the flag reflects the
+// last server-confirmed state, not the current one. So both samples are taken
+// after departure and both read air, which is why two rounds of fixing WHEN to
+// sample produced the same useless answer.
+//
+// Stop trusting the flag. Track the last tick the block below was actually
+// solid, whatever onGround claimed, and report how stale it is.
+test("footing comes from the last SOLID ground, not the last onGround tick", () => {
+  const t = createFallTracker(120);
+  t.update(120, true, 0, "on=cobblestone", true);
+  // onGround still true here, but the bot is over air and already descending.
+  t.update(120, true, 50, "on=air", false);
+  t.update(119, false, 100, "on=air", false);
+  assert.equal(t.originFooting(), "on=cobblestone", "must report the cobblestone, not the lagging tick");
+});
+
+test("reports how stale the footing sample is", () => {
+  const t = createFallTracker(120);
+  t.update(120, true, 1000, "on=stone", true);
+  t.update(120, true, 1050, "on=air", false);
+  t.update(119, false, 1100, "on=air", false);
+  assert.equal(t.footingAgeMs(1100), 100, "100ms between the last solid ground and leaving");
+});
+
+// If the ground never was solid in the samples we hold, say so rather than
+// inventing one. That is itself the finding: a bot that was never on ground.
+test("no solid footing ever seen reports empty, not a guess", () => {
+  const t = createFallTracker(120);
+  t.update(120, true, 0, "on=air", false);
+  t.update(119, false, 50, "on=air", false);
+  assert.equal(t.originFooting(), "");
+});
+
+// Backwards compatible: callers that do not pass the flag keep the old
+// behaviour rather than silently recording nothing.
+test("omitting the solid flag falls back to the grounded sample", () => {
+  const t = createFallTracker(90);
+  t.update(90, true, 0, "on=dirt");
+  t.update(89, false, 10, "on=air");
+  assert.equal(t.originFooting(), "on=dirt");
+});
