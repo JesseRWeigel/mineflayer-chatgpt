@@ -73,6 +73,13 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
 
   registerBotMemory(bot, memStore);
 
+  // Base height, for the furniture placement guard. Bots were placing chests and
+  // crafting tables at y=119-123 -- 50 blocks above the stash -- and then falling
+  // off them. See place-guard.ts.
+  if (roleConfig.stashPos) {
+    (bot as unknown as { swarmBaseY?: number }).swarmBaseY = roleConfig.stashPos.y;
+  }
+
   // Load plugins
   bot.loadPlugin(pathfinder);
   bot.loadPlugin(customPvp);

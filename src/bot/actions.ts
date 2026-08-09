@@ -5,6 +5,7 @@ import { Vec3 } from "vec3";
 import { isHostile } from "./perception.js";
 import { travelBudgetMs } from "./mine-budget.js";
 import { canHarvest, harvestAdvice } from "./tool-tier.js";
+import { tooHighForFurniture, furnitureRefusal } from "./place-guard.js";
 import { skillRegistry } from "../skills/registry.js";
 import { runSkill } from "../skills/executor.js";
 import { checkRetiredWithParole, getSkillStats } from "../skills/reliability.js";
@@ -1818,6 +1819,18 @@ async function placeBlock(bot: Bot, blockType: string): Promise<string> {
 
   const item = bot.inventory.items().find((i) => i.name.includes(blockType));
   if (!item) return `No ${blockType} in inventory.`;
+
+  // Do not build storage or workstations into the sky. Two fall records name
+  // the footing directly -- on=chest at y=123 and on=crafting_table at y=119,
+  // about 50 blocks above the base -- and the same session placed 10 chests and
+  // 6 crafting tables while ascending to y=121-126 thirty-six times. A chest up
+  // there is also the chest_unreachable that keeps bouncing deposits: storage
+  // 50 blocks above the stash was never storage.
+  const baseY = (bot as unknown as { swarmBaseY?: number }).swarmBaseY;
+  const placeY = Math.floor(bot.entity.position.y);
+  if (tooHighForFurniture(blockType, placeY, baseY)) {
+    return furnitureRefusal(blockType, placeY, baseY!);
+  }
 
   // Beds need special handling — use sleep action which auto-places
   if (item.name.includes("bed")) {
