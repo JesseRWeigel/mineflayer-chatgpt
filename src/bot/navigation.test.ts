@@ -78,8 +78,15 @@ test("drowning escape refuses to dig through valuable blocks", () => {
     assert.match(source, new RegExp(`"${name}"`), `PRECIOUS_BLOCKS is missing "${name}"`);
   }
 
-  // The dig call must be gated on that check, not on a bare boundingBox test.
-  const digBlock = source.slice(source.indexOf("if (air < 10)"), source.indexOf("if (air < 10)") + 600);
-  assert.match(digBlock, /isPreciousBlock\(/, "dig-out must consult isPreciousBlock before digging");
-  assert.match(digBlock, /bot\.dig\(/, "dig-out should still dig when the ceiling is ordinary");
+  // The choice of what to dig now lives in drown-escape.ts, because the
+  // up-only version drowned Mason 5 times under a chest while stone sat beside
+  // him. The invariant is unchanged and still has to hold at its new address:
+  // every dig goes through chooseDrownEscape, and that consults isPreciousBlock.
+  const digBlock = source.slice(source.indexOf("if (air < 10)"), source.indexOf("if (air < 10)") + 900);
+  assert.match(digBlock, /chooseDrownEscape\(/, "dig-out must choose its target, not assume the ceiling");
+  assert.match(digBlock, /bot\.dig\(/, "dig-out should still dig when a route is ordinary");
+  assert.doesNotMatch(digBlock, /bot\.dig\(ceiling\)/, "must not go back to digging whatever is overhead");
+
+  const escapeSource = fs.readFileSync(path.join(SRC, "bot", "drown-escape.ts"), "utf8");
+  assert.match(escapeSource, /isPreciousBlock\(/, "the escape chooser must consult isPreciousBlock");
 });

@@ -1,5 +1,6 @@
 import type { Bot } from "mineflayer";
 import pkg from "mineflayer-pathfinder";
+import { chooseDrownEscape } from "./drown-escape.js";
 const { goals, Movements } = pkg;
 
 /**
@@ -359,17 +360,38 @@ export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
   //
   // A player in that spot digs up. The bots carry pickaxes, so give them the
   // same move once air is genuinely short.
+  //
+  // It only ever looked UP. When that block was precious it logged "will not dig
+  // it" and gave up, and the bot drowned against the ceiling with three
+  // untouched stone walls beside it — Mason 5 times and Atlas 4 times in one
+  // hour, all a few blocks from the stash, all under a chest. Refusing to dig
+  // the chest is still right; refusing to look anywhere else is what killed them.
   if (air < 10) {
-    const ceiling = bot.blockAt(bot.entity.position.offset(0, 2, 0));
-    if (ceiling && ceiling.boundingBox === "block" && !isPreciousBlock(ceiling.name)) {
+    const p = bot.entity.position;
+    const neighbours = {
+      up: bot.blockAt(p.offset(0, 2, 0)),
+      north: bot.blockAt(p.offset(0, 1, -1)),
+      south: bot.blockAt(p.offset(0, 1, 1)),
+      east: bot.blockAt(p.offset(1, 1, 0)),
+      west: bot.blockAt(p.offset(-1, 1, 0)),
+    };
+    const escape = chooseDrownEscape(neighbours);
+    if (escape) {
       try {
-        console.log(`[Drown] ${bot.username} enclosed at air=${air} — digging up through ${ceiling.name}`);
-        await bot.dig(ceiling);
+        console.log(
+          `[Drown] ${bot.username} enclosed at air=${air} — digging ${escape.direction} through ${escape.block.name}`,
+        );
+        await bot.dig(neighbours[escape.direction]!);
       } catch {
         /* couldn't dig (no tool, or interrupted) — fall through to swimming */
       }
-    } else if (ceiling && isPreciousBlock(ceiling.name)) {
-      console.log(`[Drown] ${bot.username} enclosed at air=${air} but ceiling is ${ceiling.name} — will not dig it`);
+    } else {
+      // Every route water, unloaded, or too valuable to break. Name them, so
+      // the next look at this knows which of those three it was.
+      const seen = Object.entries(neighbours)
+        .map(([d, b]) => `${d}=${b?.name ?? "?"}`)
+        .join(" ");
+      console.log(`[Drown] ${bot.username} enclosed at air=${air}, no diggable route — ${seen}`);
     }
   }
 
