@@ -20,7 +20,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { isNeuralServerRunning } from "../neural/bridge.js";
 import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
-import { createFallTracker } from "./fall-tracker.js";
+import { createFallTracker, isFallDeath } from "./fall-tracker.js";
 import { respawnTarget, isAtBase } from "./respawn.js";
 import { shouldFleeOnRespawn } from "./respawn-safety.js";
 import { isHostile } from "./perception.js";
@@ -520,8 +520,13 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     // all. Record the slots directly so the next spike is answerable.
     const worn = [5, 6, 7, 8].map((slot) => bot.inventory.slots[slot]?.name ?? "-").join(",");
     const drop = fallTracker.dropFrom(pos.y);
+    // A fall death ALWAYS prints its record, however small the computed drop.
+    // Gating on drop > 1 meant Blade's "fell from a high place" produced nothing
+    // while a 1.1 block drop on Forge's zombie death produced a full record --
+    // the instrument silent on the one case the investigation is waiting for.
+    // When the tracker is confused, its own number cannot be the gate.
     const fallInfo =
-      drop > 1
+      drop > 1 || isFallDeath(cause)
         ? ` Fell ${drop.toFixed(1)} blocks from y=${fallTracker.originY().toFixed(0)} ` +
           `(airborne ${(fallTracker.airborneMs(Date.now()) / 1000).toFixed(1)}s, ${fallTracker.originContext()})` +
           // Sampled one tick earlier, while still standing. The departure sample

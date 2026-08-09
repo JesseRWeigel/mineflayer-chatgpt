@@ -123,3 +123,31 @@ export function createFallTracker(initialY: number): FallTracker {
     },
   };
 }
+
+/**
+ * Does this death message name a fall?
+ *
+ * The death log gated its fall record on `drop > 1`, which is backwards for the
+ * only case that matters. In one 2h45m session Blade "fell from a high place"
+ * and produced NO record, while Forge "was slain by Zombie" produced a full one
+ * for a 1.1 block drop. When the tracker is confused about a fall, the drop it
+ * computes is precisely the number that cannot decide whether to print.
+ *
+ * "hit the ground too hard" is here because every fall count I ran today grepped
+ * only "fell from" and silently missed it. The spellings are part of the
+ * interface, not trivia.
+ */
+const FALL_DEATH_PHRASES = [
+  "fell from a high place",
+  "hit the ground too hard",
+  "fell off a ladder",
+  "fell off some vines",
+  "fell off scaffolding",
+  "fell out of the world",
+  "fell while climbing",
+];
+
+export function isFallDeath(cause: string): boolean {
+  const c = cause.toLowerCase();
+  return FALL_DEATH_PHRASES.some((p) => c.includes(p));
+}

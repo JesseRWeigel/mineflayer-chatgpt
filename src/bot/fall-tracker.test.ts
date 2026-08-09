@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { createFallTracker } from "./fall-tracker.js";
+import { createFallTracker, isFallDeath } from "./fall-tracker.js";
 
 // The bug this file exists for: a falling bot lands before it dies, and the
 // landing tick used to overwrite the recorded ground height, so the drop
@@ -182,4 +182,49 @@ test("omitting the solid flag falls back to the grounded sample", () => {
   t.update(90, true, 0, "on=dirt");
   t.update(89, false, 10, "on=air");
   assert.equal(t.originFooting(), "on=dirt");
+});
+
+// THE SUPPRESSION BUG.
+//
+// The death log emits the fall record only when the computed drop exceeds 1.
+// That gate is backwards for the case that matters. In one 2h45m session:
+//
+//   Blade "fell from a high place"  -> NO record at all
+//   Forge "was slain by Zombie"     -> a full record, for a 1.1 block drop
+//
+// The instrument fired on a trivial drop attached to an unrelated death and
+// stayed silent on the only death whose cause was literally a fall. When the
+// tracker is confused about a fall, the drop it computes is exactly the thing
+// that cannot be trusted to decide whether to print.
+//
+// A fall death with no telemetry is the case the whole investigation is waiting
+// on, so the cause has to open the gate, not the number the tracker produced.
+test("a fall-family death is recognised whatever the computed drop", () => {
+  for (const cause of [
+    "Blade fell from a high place",
+    "Atlas hit the ground too hard",
+    "Forge fell off a ladder",
+    "Mason fell out of the world",
+  ]) {
+    assert.equal(isFallDeath(cause), true, `should be a fall: ${cause}`);
+  }
+});
+
+test("ordinary deaths are not fall deaths", () => {
+  for (const cause of [
+    "Forge was slain by Zombie",
+    "Blade was shot by Skeleton",
+    "Mason drowned",
+    "Flora was blown up by Creeper",
+    "Mason suffocated in a wall",
+  ]) {
+    assert.equal(isFallDeath(cause), false, `should not be a fall: ${cause}`);
+  }
+});
+
+// "hit the ground too hard" was missed by every fall count I ran today, because
+// I only ever grepped "fell from". Spellings are part of the interface.
+test("every spelling Minecraft uses for fall damage is covered", () => {
+  assert.equal(isFallDeath("hit the ground too hard"), true);
+  assert.equal(isFallDeath("fell from a high place"), true);
 });
