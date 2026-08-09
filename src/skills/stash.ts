@@ -351,6 +351,37 @@ export function shouldAttemptExpansion(failures: Map<DepositFailure, number>): b
   return (failures.get("no_chest_found") ?? 0) > 0;
 }
 
+/**
+ * What the bot should DO about a bounced deposit, keyed on the dominant cause.
+ *
+ * shouldAttemptExpansion above was corrected to fire only on no_chest_found,
+ * because adding a chest cannot make an existing, located, adjacent chest open.
+ * That reasoning was never applied to the message, which suggested expanding for
+ * all three causes off the same merged counter — and the brain reads the message,
+ * not the gate. One 1h49m session logged the expand hint 86 times and crafted 30
+ * chests, its largest craft, while 34 iron ore went unsmelted.
+ *
+ * It compounds: unreachable chests read as "full", the brain adds chests, the
+ * maze gets denser, more chests fall out of reach. That maze is also what
+ * drowned Mason under a ceiling the escape was forbidden to dig.
+ */
+export function depositFailureAdvice(failures: Map<DepositFailure, number>): string {
+  const ranked = [...failures.entries()]
+    .filter(([, n]) => n > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const dominant = ranked[0]?.[0];
+  if (!dominant) return "";
+
+  // Only a genuinely missing chest is fixed by another chest.
+  if (dominant === "no_chest_found") {
+    return "No chest serves that category — craft a chest and place it by the stash.";
+  }
+  return (
+    "The chest exists and was found, so more chests will not help — do NOT craft one. " +
+    "It is blocked: clear the space around it or walk to a different chest."
+  );
+}
+
 /** Render per-cause item tallies as one clause, dominant cause first. Pure so the
  *  wording can be tested without a live world. */
 export function summarizeDepositFailure(failures: Map<DepositFailure, number>): string {
@@ -1007,11 +1038,11 @@ export async function depositStash(
     // work chasing chest supply when the stash had space but the lookup missed.
     return (
       `No reachable chest for ${noChest} carried item${noChest === 1 ? "" : "s"} ` +
-      `(${summarizeDepositFailure(failures)}) — the stash may need expanding, or its chests are out of range.`
+      `(${summarizeDepositFailure(failures)}). ${depositFailureAdvice(failures)}`
     );
   }
   if (noChest > 0) {
-    return `Deposited ${deposited} items. ${noChest} items couldn't fit (${summarizeDepositFailure(failures)}) — stash needs expansion.`;
+    return `Deposited ${deposited} items. ${noChest} items couldn't fit (${summarizeDepositFailure(failures)}). ${depositFailureAdvice(failures)}`;
   }
   if (deposited === 0) return nothingToBankMessage(keptNames);
   return `Deposited ${deposited} items at the stash.`;

@@ -8,6 +8,7 @@ import {
   CHEST_NEIGHBOUR_OFFSETS,
   summarizeDepositFailure,
   shouldAttemptExpansion,
+  depositFailureAdvice,
   obstructsChest,
   canClearObstruction,
   bestToolFor,
@@ -462,4 +463,54 @@ test("the ingot reserve still caps and pools the surplus", () => {
   const counts = new Map<string, number>();
   assert.equal(shouldKeep("iron_ingot", [], counts, KEEP_MATERIAL_RESERVE), true);
   assert.equal(shouldKeep("iron_ingot", [], counts, 20), false, "surplus ingots still pool");
+});
+
+// THE ADVICE PATH KEPT THE BUG THE CODE PATH FIXED.
+//
+// shouldAttemptExpansion was corrected to fire only on no_chest_found, because
+// adding a chest cannot make an existing, located, adjacent chest open. That
+// reasoning was never applied to the MESSAGE, which said "the stash may need
+// expanding" for all three causes off the same merged counter.
+//
+// The brain reads the message, not the gate. Over one 1h49m session:
+//
+//   86  "the stash may need expanding, or its chests are out of range"
+//   30  Crafted chest        <- the single largest craft of the session
+//    0  Smelted anything     <- while 34 iron ore sat unprocessed
+//
+// It is a feedback loop, not just wasted effort: unreachable chests read as
+// "full", the brain crafts more chests, the maze gets denser, more chests fall
+// out of reach. It is the same chest maze that drowned Mason under a ceiling
+// the escape was forbidden to dig.
+test("advice never suggests expanding when a chest was found but unusable", () => {
+  for (const cause of ["chest_unreachable", "chest_open_failed"] as const) {
+    const advice = depositFailureAdvice(new Map([[cause, 5]]));
+    assert.doesNotMatch(advice, /expand|another chest|craft a chest/i, `${cause}: must not ask for more chests`);
+    assert.match(advice, /reach|open|blocked|clear/i, `${cause}: must describe the real obstruction`);
+  }
+});
+
+test("advice does suggest a chest when no chest serves the category", () => {
+  const advice = depositFailureAdvice(new Map([["no_chest_found", 3]]));
+  assert.match(advice, /chest/i, "a missing chest is the one case another chest fixes");
+});
+
+// A mixed bag must follow the DOMINANT cause. Merging them is what produced the
+// original bug: one no_chest_found among twenty unreachables read as "expand".
+test("mixed causes follow the dominant one, not the presence of any", () => {
+  const mostlyUnreachable = new Map([
+    ["chest_unreachable", 20],
+    ["no_chest_found", 1],
+  ] as const);
+  assert.doesNotMatch(depositFailureAdvice(mostlyUnreachable), /expand/i);
+
+  const mostlyMissing = new Map([
+    ["no_chest_found", 20],
+    ["chest_unreachable", 1],
+  ] as const);
+  assert.match(depositFailureAdvice(mostlyMissing), /chest/i);
+});
+
+test("no recorded failures yields no advice to act on", () => {
+  assert.equal(depositFailureAdvice(new Map()), "");
 });
