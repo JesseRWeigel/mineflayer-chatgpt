@@ -27,6 +27,7 @@ import { executeAction } from "./actions.js";
 import { digOutIfStuck, escapeWaterIfDrowning } from "./navigation.js";
 import { isStallResult, shouldForceDigOut, pruneStalls } from "./stall-rescue.js";
 import { isDeathTrap } from "./death-trap.js";
+import { classifyResult } from "./action-result.js";
 import { isAtBase } from "./respawn.js";
 import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
@@ -1262,10 +1263,7 @@ export class BotBrain {
 
     // ── Scoreboard ──
     // (isSuccess computed below — record after it)
-    const isSuccess =
-      /complet|harvest|built|planted|smelted|crafted|arriv|gather|mined|caught|lit|bridg|chop|killed|ate|explored|placed|fished|sleep|zzz/i.test(
-        result,
-      );
+    const isSuccess = classifyResult(result);
     this.lastActionWasSuccess = isSuccess;
     recordAction(this.roleConfig.name, decision.action, result, isSuccess);
     if (decision.action === "invoke_skill" || skillRegistry.has(decision.action)) {
