@@ -28,6 +28,7 @@ import { digOutIfStuck, escapeWaterIfDrowning } from "./navigation.js";
 import { isStallResult, shouldForceDigOut, pruneStalls } from "./stall-rescue.js";
 import { isDeathTrap } from "./death-trap.js";
 import { classifyResult } from "./action-result.js";
+import { blockDurationFor } from "./block-escalation.js";
 import { isAtBase } from "./respawn.js";
 import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
@@ -113,9 +114,24 @@ export class BotBrain {
   private static readonly FAILURE_TTL_TRANSIENT_MS = 120_000;
   private static readonly FAILURE_TTL_STRUCTURAL_MS = 3_600_000;
 
-  private blockAction(key: string, msg: string, ttlMs: number = BotBrain.FAILURE_TTL_TRANSIENT_MS): void {
+  /** How many times each key has been blocked, so repeat offenders escalate. */
+  private readonly blockCounts = new Map<string, number>();
+
+  /**
+   * Suppress an action. With no explicit ttlMs the window ESCALATES with the
+   * number of prior blocks, so a skill that can never succeed stops cycling
+   * back every two minutes. See block-escalation.ts for why.
+   */
+  private blockAction(key: string, msg: string, ttlMs?: number): void {
+    const times = (this.blockCounts.get(key) ?? 0) + 1;
+    this.blockCounts.set(key, times);
     this.recentFailures.set(key, msg);
-    this.failureExpiry.set(key, Date.now() + ttlMs);
+    this.failureExpiry.set(key, Date.now() + (ttlMs ?? blockDurationFor(times)));
+  }
+
+  /** An action that works again earns back a clean slate. */
+  private clearBlockHistory(key: string): void {
+    this.blockCounts.delete(key);
   }
 
   private purgeExpiredFailures(): void {
@@ -1418,6 +1434,7 @@ export class BotBrain {
       } else {
         this.failureCounts.delete(actionKey);
         this.recentFailures.delete(actionKey);
+        this.clearBlockHistory(actionKey);
       }
     }
 

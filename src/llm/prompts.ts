@@ -11,7 +11,15 @@
 
 import { getSkillPromptLines } from "../skills/registry.js";
 import { getDynamicSkillNames } from "../skills/dynamic-loader.js";
-import { rankSkills, annotateSkill } from "../skills/reliability.js";
+import { categorizeSkills, annotateSkill } from "../skills/reliability.js";
+import { pickSkillMenu } from "../skills/skill-menu.js";
+
+/** Advances once per strategic prompt so the reserved explore slots rotate
+ *  through the whole untried pool instead of showing the same head forever. */
+let rotationCounter = 0;
+function nextRotation(): number {
+  return rotationCounter++;
+}
 
 export interface RoleContext {
   name: string;
@@ -94,15 +102,19 @@ export function buildStrategicPrompt(role: RoleContext): string {
   const builtinSkills = role.allowedSkills?.length ? role.allowedSkills.join(", ") : "";
   const skillLines = !role.allowedSkills?.length ? getSkillPromptLines() : "";
 
-  // Ranked by team-wide success rate: proven first, untried next (exploration),
-  // strugglers last, retired skills excluded entirely.
-  const dynamicSkills = rankSkills(getDynamicSkillNames());
+  // Proven skills lead, but EXPLORE_SLOTS are reserved for untried ones and
+  // rotate every render. A flat proven-first slice made the library read-only:
+  // 131 skills existed and only 18 had ever been attempted, because a skill
+  // needed stats to be shown and needed to be shown to earn stats.
+  const allDynamic = getDynamicSkillNames();
+  const { proven, untried, struggling } = categorizeSkills(allDynamic);
+  const dynamicSkills = pickSkillMenu(proven, untried, struggling, nextRotation());
+  const unseen = allDynamic.length - dynamicSkills.length;
   const dynamicLine =
     dynamicSkills.length > 0
       ? `\nDynamic skills (use invoke_skill; % = team success rate): ${dynamicSkills
-          .slice(0, 10)
           .map(annotateSkill)
-          .join(", ")}${dynamicSkills.length > 10 ? ` (+${dynamicSkills.length - 10} more)` : ""}`
+          .join(", ")}${unseen > 0 ? ` (+${unseen} more — ask for one by name if you need it)` : ""}`
       : "";
 
   const missionLine = role.seasonGoal

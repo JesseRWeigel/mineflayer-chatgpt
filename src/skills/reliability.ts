@@ -97,7 +97,11 @@ export function checkRetiredWithParole(name: string): boolean {
  * Order skills for the prompt: proven performers first, untried skills next
  * (exploration), strugglers last, retired excluded.
  */
-export function rankSkills(names: string[]): string[] {
+export function categorizeSkills(names: string[]): {
+  proven: string[];
+  untried: string[];
+  struggling: string[];
+} {
   const proven: string[] = [];
   const untried: string[] = [];
   const struggling: string[] = [];
@@ -109,6 +113,11 @@ export function rankSkills(names: string[]): string[] {
     else struggling.push(n);
   }
   proven.sort((a, b) => (getSkillStats(b)?.rate ?? 0) - (getSkillStats(a)?.rate ?? 0));
+  return { proven, untried, struggling };
+}
+
+export function rankSkills(names: string[]): string[] {
+  const { proven, untried, struggling } = categorizeSkills(names);
   return [...proven, ...untried, ...struggling];
 }
 
