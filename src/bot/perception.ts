@@ -1,6 +1,7 @@
 import type { Bot } from "mineflayer";
 import type { Entity } from "prismarine-entity";
 import { recordOre } from "./memory.js";
+import { miningReachLine, bestPickaxeName } from "./mining-reach.js";
 
 export function getWorldContext(bot: Bot): string {
   const pos = bot.entity.position;
@@ -46,6 +47,15 @@ export function getWorldContext(bot: Bot): string {
 
   if (nearbyBlocks.length > 0) {
     parts.push(`Nearby notable blocks: ${nearbyBlocks.join(", ")}`);
+    // Which of those can actually be harvested with what's in the bag. Without
+    // this, five different models all chose mine_block iron_ore while holding a
+    // wooden pickaxe -- the block list said the ore was there and nothing said
+    // it was out of reach. tool-tier.ts knew, but only checked after the dig.
+    const reach = miningReachLine(
+      nearbyBlocks,
+      bestPickaxeName(items.map((i) => i.name)),
+    );
+    if (reach) parts.push(reach);
   }
 
   if (food <= 6) {
