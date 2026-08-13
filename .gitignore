@@ -15,3 +15,4 @@ finetune/.venv/
 finetune/dataset.jsonl
 finetune/*-lora*/
 finetune/*.gguf
+.advancement-extract/
