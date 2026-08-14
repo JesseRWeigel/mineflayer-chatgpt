@@ -8,6 +8,7 @@ import { smeltOresSkill } from "./smelt-ores.js";
 import { goFishingSkill } from "./go-fishing.js";
 import { buildBridgeSkill } from "./build-bridge.js";
 import { setupStashSkill } from "./setup-stash.js";
+import { craftBucketSkill } from "./craft-bucket.js";
 
 export const skillRegistry = new Map<string, Skill>();
 
@@ -24,6 +25,7 @@ register(smeltOresSkill);
 register(goFishingSkill);
 register(buildBridgeSkill);
 register(setupStashSkill);
+register(craftBucketSkill);
 
 // Dynamic skills are loaded lazily by calling loadDynamicSkills() from dynamic-loader.ts.
 // The import is intentionally kept out of this file to avoid circular module evaluation:
