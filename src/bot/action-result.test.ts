@@ -82,3 +82,47 @@ test("genuine achievements still register", () => {
   assert.equal(classifyResult("Smelted 8 iron_ingot."), true);
   assert.equal(classifyResult("Arrived at 120, 64, -30."), true);
 });
+
+// ── REGRESSION: the anchored version rejected the codebase's own house style ──
+//
+// Measured 2026-08-14 against 16 real success strings pulled from
+// dynamic-loader.ts, actions.ts and the built-in skills: the anchored regex
+// rejected 13 of them. Two successful runs of a working skill were enough to
+// blacklist it, because brain.ts feeds this into trackFailure.
+
+test("a dynamic skill reporting completion is a success", () => {
+  // Every one of the 131 dynamic skills returns exactly this shape.
+  assert.equal(classifyResult("collectBamboo completed."), true);
+  assert.equal(classifyResult("buildShelter completed."), true);
+});
+
+test("built-in skills that put the noun first are successes", () => {
+  assert.equal(classifyResult("Gear crafted!"), true);
+  assert.equal(classifyResult("Farm planted!"), true);
+  assert.equal(classifyResult("HOUSE BUILT!"), true);
+  assert.equal(classifyResult("Bridge built!"), true);
+  assert.equal(classifyResult("All materials gathered!"), true);
+  assert.equal(classifyResult("Strip mine complete!"), true);
+  assert.equal(classifyResult("Smelting done!"), true);
+  assert.equal(classifyResult("Stash bootstrapped!"), true);
+});
+
+test("combat and generation results are successes", () => {
+  assert.equal(classifyResult("Defeated zombie using advanced combat!"), true);
+  assert.equal(classifyResult("Generated skill 'buildTower'! I can now use it with invoke_skill."), true);
+});
+
+test("terminal-verb matching still does not swallow refusals", () => {
+  // The whole reason the anchor existed. These must stay false.
+  assert.equal(classifyResult("Can't harvest stone with wooden_pickaxe"), false);
+  assert.equal(classifyResult("Couldn't get the farm planted because there was no water"), false);
+  assert.equal(classifyResult("Failed to craft chest: Error: no table"), false);
+  assert.equal(classifyResult("Nothing to deposit, inventory is empty."), false);
+  assert.equal(classifyResult("No path to the goal!"), false);
+  assert.equal(classifyResult("buildTower failed: TypeError"), false);
+  assert.equal(classifyResult("buildTower aborted."), false);
+});
+
+test("genuinely novel phrasing still defaults to false", () => {
+  assert.equal(classifyResult("The wind whispers through the birches"), false);
+});

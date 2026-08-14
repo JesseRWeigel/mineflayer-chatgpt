@@ -60,3 +60,40 @@ test("the team has not been to the nether or the end", () => {
   assert.ok(![...team].some((id) => id.startsWith("nether/")));
   assert.ok(![...team].some((id) => id.startsWith("end/")));
 });
+
+// ── REGRESSION: a torn read is not amnesia ──
+//
+// Paper rewrites these 45KB files while the swarm runs, and readEarned runs on
+// every decision cycle. Treating any failure as "earned nothing" meant one
+// mid-write read could tell the model ADVANCEMENTS: 0/122 and, if it landed
+// during appendSnapshot, write a spurious 0 row into the CSV that is the whole
+// project's evidence of progress.
+
+test("a missing file is genuinely zero, not a fallback", () => {
+  assert.deepEqual(readEarned("NeverJoined", "server"), new Set());
+});
+
+test("a malformed file falls back to the last good read rather than to zero", async () => {
+  const fs = await import("node:fs");
+  const os = await import("node:os");
+  const path = await import("node:path");
+  const { offlineUUID } = await import("./advancement-progress.js");
+
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "adv-"));
+  fs.writeFileSync(path.join(dir, "server.properties"), "level-name=w\n");
+  const advDir = path.join(dir, "w", "advancements");
+  fs.mkdirSync(advDir, { recursive: true });
+  const file = path.join(advDir, `${offlineUUID("Torn")}.json`);
+
+  fs.writeFileSync(file, JSON.stringify({ "minecraft:story/root": { done: true } }));
+  assert.deepEqual(readEarned("Torn", dir), new Set(["story/root"]), "baseline good read");
+
+  fs.writeFileSync(file, '{"minecraft:story/root": {"do');  // truncated mid-flush
+  assert.deepEqual(
+    readEarned("Torn", dir),
+    new Set(["story/root"]),
+    "a truncated read must not report zero progress",
+  );
+
+  fs.rmSync(dir, { recursive: true, force: true });
+});

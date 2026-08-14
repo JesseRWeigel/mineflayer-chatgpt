@@ -17,6 +17,28 @@ type ActiveSkillState = {
 // Per-bot skill state — keyed by bot instance so multiple bots don't interfere.
 const activeSkillMap = new Map<Bot, ActiveSkillState>();
 
+/**
+ * The truthful outcome of each bot's most recent skill run.
+ *
+ * runSkill returns only `result.message`, so by the time the brain sees a skill
+ * result it is a bare string and the boolean is gone. The brain then guessed at
+ * success by pattern-matching that string, which meant "collectBamboo
+ * completed." and "HOUSE BUILT!" read as failures — and two successful runs of
+ * a working skill were enough to blacklist it.
+ *
+ * Keyed by bot instance for the same reason activeSkillMap is: five bots share
+ * this module and must not read each other's outcomes.
+ */
+const lastSkillOutcome = new WeakMap<Bot, { skill: string; success: boolean }>();
+
+/** The recorded outcome, if the last skill run for this bot was `skillName`. */
+export function takeSkillOutcome(bot: Bot, skillName: string): boolean | undefined {
+  const rec = lastSkillOutcome.get(bot);
+  if (!rec || rec.skill !== skillName) return undefined;
+  lastSkillOutcome.delete(bot); // single-use: a stale outcome must never be reused
+  return rec.success;
+}
+
 export function isSkillRunning(bot: Bot): boolean {
   return activeSkillMap.has(bot);
 }
@@ -163,6 +185,9 @@ export async function runSkill(bot: Bot, skill: Skill, params: Record<string, an
     const result = await Promise.race([skillPromise, timeoutPromise]);
     const durationSeconds = (Date.now() - startTime) / 1000;
 
+    // Hand the brain the real answer instead of making it guess from prose.
+    lastSkillOutcome.set(bot, { skill: skill.name, success: result.success });
+
     // Record skill attempt in per-bot memory (fallback to singleton for non-registered bots)
     const memStore = getBotMemoryStore(bot);
     if (memStore) {
@@ -183,6 +208,7 @@ export async function runSkill(bot: Bot, skill: Skill, params: Record<string, an
     return result.message;
   } catch (err: any) {
     const durationSeconds = (Date.now() - startTime) / 1000;
+    lastSkillOutcome.set(bot, { skill: skill.name, success: false });
     const memStore = getBotMemoryStore(bot);
     if (memStore) {
       memStore.recordSkillAttempt(skill.name, false, durationSeconds, `Crashed: ${err.message}`);

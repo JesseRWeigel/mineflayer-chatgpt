@@ -88,3 +88,25 @@ test("the line stays short enough to not crowd the context", () => {
     "context budget: this renders on every strategic decision",
   );
 });
+
+// ── REGRESSION: furniture is not a mining target ──
+//
+// perception.ts passes all of NOTABLE_BLOCKS, which mixes ore with landmarks.
+// A bot holding no pickaxe was told `NEEDS wooden_pickaxe: crafting_table` --
+// the table it needs to craft the pickaxe, reported as locked behind it.
+
+test("a pickaxe-less bot is never told the crafting table needs a pickaxe", () => {
+  const line = miningReachLine(["crafting_table", "furnace", "chest", "stone"], null);
+  assert.ok(!line.includes("crafting_table"), `crafting_table must not appear: ${line}`);
+  assert.ok(!line.includes("furnace"), `furnace must not appear: ${line}`);
+});
+
+test("furniture is not offered as mineable either", () => {
+  const line = miningReachLine(["crafting_table", "chest", "iron_ore"], "stone_pickaxe");
+  assert.ok(!line.includes("chest"), `chest must not read as ore: ${line}`);
+  assert.ok(line.includes("iron_ore"), `real ore should still show: ${line}`);
+});
+
+test("water and lava are landmarks, not blocks to mine", () => {
+  assert.equal(miningReachLine(["water", "lava"], "stone_pickaxe"), "");
+});

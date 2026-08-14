@@ -33,15 +33,29 @@ export function levelName(serverDir = "server"): string {
   }
 }
 
+/**
+ * Last good read per bot, so a torn read does not read as amnesia.
+ *
+ * Paper rewrites these files while the swarm runs. Treating every failure as
+ * "earned nothing" meant a single mid-write read could tell the model
+ * `ADVANCEMENTS: 0/122 earned` and, if it landed during appendSnapshot, write a
+ * spurious 0 row into the one CSV that is the project's evidence of progress.
+ */
+const lastGood = new Map<string, Set<string>>();
+
 export function readEarned(botName: string, serverDir = "server"): Set<string> {
   const file = path.join(serverDir, levelName(serverDir), "advancements", `${offlineUUID(botName)}.json`);
   const earned = new Set<string>();
   let raw: Record<string, unknown>;
   try {
     raw = JSON.parse(readFileSync(file, "utf-8"));
-  } catch {
-    // A bot that has never joined has no file. Not an error — it has earned nothing.
-    return earned;
+  } catch (err) {
+    // A bot that has never joined genuinely has no file, and has earned nothing.
+    if ((err as NodeJS.ErrnoException)?.code === "ENOENT") return earned;
+    // Anything else — a torn read mid-flush, a truncated write — is not
+    // evidence that progress was lost. Say so, and keep the last known set.
+    console.warn(`[Advancements] Unreadable progress for ${botName}: ${(err as Error).message}`);
+    return lastGood.get(file) ?? earned;
   }
   for (const [key, value] of Object.entries(raw)) {
     if (key === "DataVersion") continue;
@@ -52,6 +66,7 @@ export function readEarned(botName: string, serverDir = "server"): Set<string> {
       earned.add(id);
     }
   }
+  lastGood.set(file, earned);
   return earned;
 }
 

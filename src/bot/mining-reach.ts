@@ -62,6 +62,30 @@ export function splitByReach(
 /** Keeps a block-rich cave from crowding out the rest of the context. */
 const MAX_PER_GROUP = 6;
 
+/**
+ * Furniture and landmarks that are never mining targets.
+ *
+ * NOTABLE_BLOCKS in perception.ts mixes ore with things worth knowing are
+ * nearby — crafting_table, furnace, chest, bed, spawner, water. Running those
+ * through the harvest check produced `NEEDS wooden_pickaxe: crafting_table` for
+ * a bot holding no pickaxe: the table it needs to CRAFT the pickaxe, reported
+ * as locked behind the pickaxe. With a stone pickaxe it read `can mine now —
+ * crafting_table, chest`, offering furniture as ore.
+ */
+const NOT_A_MINING_TARGET = new Set([
+  "crafting_table",
+  "furnace",
+  "chest",
+  "bed",
+  "enchanting_table",
+  "anvil",
+  "brewing_stand",
+  "spawner",
+  "village_bell",
+  "water",
+  "lava",
+]);
+
 function list(names: string[]): string {
   const shown = names.slice(0, MAX_PER_GROUP);
   const extra = names.length - shown.length;
@@ -87,8 +111,9 @@ function list(names: string[]): string {
  * @returns a single context line, or "" when there is nothing notable nearby
  */
 export function miningReachLine(nearby: string[], pickaxe: string | null | undefined): string {
-  if (nearby.length === 0) return "";
-  const { reachable, blocked } = splitByReach(nearby, pickaxe);
+  const targets = nearby.filter((b) => !NOT_A_MINING_TARGET.has(b));
+  if (targets.length === 0) return "";
+  const { reachable, blocked } = splitByReach(targets, pickaxe);
 
   const head =
     reachable.length > 0

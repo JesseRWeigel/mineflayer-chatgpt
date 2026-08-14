@@ -33,7 +33,12 @@ import { isAtBase } from "./respawn.js";
 import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
-import { abortActiveSkill, isSkillRunning, getActiveSkillName } from "../skills/executor.js";
+import {
+  abortActiveSkill,
+  isSkillRunning,
+  getActiveSkillName,
+  takeSkillOutcome,
+} from "../skills/executor.js";
 import { skillRegistry } from "../skills/registry.js";
 import { BotMemoryStore } from "./memory.js";
 import { getAllMemoryStores } from "./memory-registry.js";
@@ -1286,7 +1291,12 @@ export class BotBrain {
 
     // ── Scoreboard ──
     // (isSuccess computed below — record after it)
-    const isSuccess = classifyResult(result);
+    // Skills know whether they worked; only prose has to be guessed at. Reading
+    // the recorded boolean first is what stops "HOUSE BUILT!" scoring as a
+    // failure and blacklisting a skill that works.
+    const skillName =
+      decision.action === "invoke_skill" ? (normalizedParams.skill as string) : decision.action;
+    const isSuccess = takeSkillOutcome(this.bot, skillName) ?? classifyResult(result);
     this.lastActionWasSuccess = isSuccess;
     recordAction(this.roleConfig.name, decision.action, result, isSuccess);
     if (decision.action === "invoke_skill" || skillRegistry.has(decision.action)) {

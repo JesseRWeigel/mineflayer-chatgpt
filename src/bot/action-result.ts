@@ -28,9 +28,48 @@
  * So classify on sentence shape, not substring presence.
  */
 
-/** Past-tense verbs that mean the bot actually accomplished something. */
+/**
+ * WHAT THE FIRST VERSION OF THIS FILE GOT WRONG.
+ *
+ * Anchoring at ^ fixed "Can't harvest stone" but broke almost everything else,
+ * because the codebase's success strings mostly lead with the noun:
+ *
+ *   "collectBamboo completed."       — every one of 131 dynamic skills
+ *   "Gear crafted!"  "HOUSE BUILT!"  "Farm planted!"  "Bridge built!"
+ *   "All materials gathered!"  "Strip mine complete!"  "Smelting done!"
+ *   "Defeated zombie using advanced combat!"
+ *
+ * Measured against 16 real success strings: the anchored version rejected 13.
+ * The unanchored regex it replaced rejected 3 — and only passed the rest by
+ * accident, matching "ate" inside Gener-ate-d and Defe-ate-d.
+ *
+ * That was not merely a bad metric. brain.ts feeds this to trackFailure, where
+ * a skill result classed as non-success increments failureCounts, so TWO
+ * successful runs of a working skill blacklisted it — with escalating TTLs and
+ * no path back, since the clear-history branch only runs on success.
+ *
+ * The real fix is upstream: skills now report a genuine boolean through
+ * takeSkillOutcome() in src/skills/executor.ts, so this function is only
+ * consulted for built-in actions that return nothing but a sentence.
+ */
+
+/** Explicit failure markers. Checked first — a refusal anywhere wins. */
+const FAILURE =
+  /\b(can'?t|cannot|couldn'?t|failed|unable|error|aborted|timed? ?out|crashed|retired|nothing to|no path|not enough|needs? an? )/i;
+
+/** Past-tense verb opening the sentence: "Deposited 12 items at the stash." */
 const ACHIEVEMENT =
-  /^\s*(deposited|withdrew|mined|crafted|smelted|built|planted|gathered|harvested|arrived|explored|placed|chopped|killed|caught|fished|lit|bridged|completed|ate|slept)/i;
+  /^\s*(deposited|withdrew|mined|crafted|smelted|built|planted|gathered|harvested|arrived|explored|placed|chopped|killed|caught|fished|lit|bridged|completed|ate|slept|defeated|generated|gave|collected|obtained|equipped|reached|stored)/i;
+
+/**
+ * Past-tense verb CLOSING the sentence: "Gear crafted!", "HOUSE BUILT!".
+ *
+ * Terminal by construction — the trailing punctuation and end-anchor are what
+ * keep "Farm planted!" apart from "Couldn't get the farm planted because...".
+ * The leading \b stops "uncompleted" and similar from matching.
+ */
+const TERMINAL_SUCCESS =
+  /\b(crafted|built|planted|gathered|harvested|smelted|complete|completed|done|bootstrapped|placed|stored|equipped|lit|generated)\s*[!.]?\s*$/i;
 
 /**
  * Decide whether an action result reports an achievement.
@@ -38,15 +77,16 @@ const ACHIEVEMENT =
  * @param result the one-sentence outcome string returned by an action
  * @returns true if the bot accomplished something, false if it refused or failed
  *
- * Unrecognised phrasing counts as failure. That keeps ACTION_SUCCESS_PCT honest
- * and the blacklist aggressive, at the price of a new skill scoring 0% until its
- * verb is added to ACHIEVEMENT above. If a generated skill ever looks stuck at
- * 0%, check its wording here before debugging the skill itself.
- *
- * Anchoring at the start of the sentence is what separates "Harvested 12 wheat"
- * from "Can't harvest wheat". A refusal never opens with a past-tense verb, so
- * no separate refusal pattern is needed; failing to match is the refusal case.
+ * Unrecognised phrasing still counts as failure, as specified. An unknown
+ * result is not evidence of success. But "unrecognised" now means genuinely
+ * novel wording rather than the ordinary house style of half the codebase.
  */
 export function classifyResult(result: string): boolean {
-  return ACHIEVEMENT.test(result);
+  // A sentence that OPENS with an achievement verb is a success even when it
+  // goes on to admit a shortfall: "Deposited 8 items. 4 items couldn't fit
+  // (chest full)." did deposit 8 items. Checking failure markers first would
+  // throw away every partial success in the codebase.
+  if (ACHIEVEMENT.test(result)) return true;
+  if (FAILURE.test(result)) return false;
+  return TERMINAL_SUCCESS.test(result);
 }
