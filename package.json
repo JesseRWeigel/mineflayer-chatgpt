@@ -10,7 +10,7 @@
     "start": "tsx --max-old-space-size=3072 src/index.ts",
     "server": "cd server && java -Xmx2G -Xms1G -jar paper.jar --nogui",
     "download-skills": "node scripts/download-voyager-skills.mjs",
-    "test": "node --import tsx --test --test-force-exit src/**/*.test.ts",
+    "test": "node --import tsx --test src/**/*.test.ts",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
     "format": "prettier --write 'src/**/*.ts'",
