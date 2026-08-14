@@ -3,7 +3,8 @@ dist/
 .env
 server/
 *.jar
-logs/
+logs/*
+!logs/advancement-progress.csv
 memory.json
 firebase-debug.log
 

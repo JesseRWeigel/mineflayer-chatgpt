@@ -18,6 +18,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 import { isNeuralServerRunning } from "../neural/bridge.js";
+import { appendSnapshot } from "./advancement-log.js";
+import { BOT_ROSTER } from "./role.js";
 import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
 import { createFallTracker, isFallDeath } from "./fall-tracker.js";
@@ -51,9 +53,32 @@ async function ensureNeuralServer(): Promise<void> {
   console.warn("[Bot] Neural server timed out — combat fallback active.");
 }
 
+// createBot runs once per bot, and again on every reconnect (up to
+// MAX_RESTARTS times each) — none of that is "swarm start". Gate on a
+// module-level flag so the snapshot fires exactly once per process, on
+// whichever bot happens to spin up first, rather than once per bot or once
+// per restart.
+let advancementSnapshotLogged = false;
+
 export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig = ATLAS_CONFIG) {
   startScoreboard();
   ensureNeuralServer().catch((e) => console.warn("[Bot] Neural spawn error:", e));
+
+  // One row per swarm start. Cheap, and it is the only record of whether any
+  // of this works. Must never take the swarm down with it — a missing server
+  // directory (fresh checkout, server not yet provisioned) reads as zero
+  // progress, not a crash.
+  if (!advancementSnapshotLogged) {
+    advancementSnapshotLogged = true;
+    try {
+      appendSnapshot(
+        BOT_ROSTER.map((b) => b.name),
+        new Date(),
+      );
+    } catch (e) {
+      console.warn("[Bot] Advancement snapshot failed:", e);
+    }
+  }
 
   // Load memory — register with executor so skill results go to this bot's file.
   const memStore = new BotMemoryStore(roleConfig.memoryFile);
