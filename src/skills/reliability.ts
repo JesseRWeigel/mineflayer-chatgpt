@@ -11,7 +11,7 @@
  */
 
 import { getAllMemoryStores } from "../bot/memory-registry.js";
-import { PRECONDITION_KEYWORDS } from "../bot/memory.js";
+import { isPreconditionFailure } from "../bot/memory.js";
 
 export interface SkillStats {
   attempts: number;
@@ -26,11 +26,6 @@ const RETIRE_RATE = 0.1;
 const CACHE_TTL_MS = 60_000;
 let cache: Map<string, SkillStats> | null = null;
 let cacheAt = 0;
-
-function isPreconditionFailure(notes: string): boolean {
-  const lower = (notes || "").toLowerCase();
-  return PRECONDITION_KEYWORDS.some((k) => lower.includes(k.toLowerCase()));
-}
 
 function computeStats(): Map<string, SkillStats> {
   const m = new Map<string, SkillStats>();

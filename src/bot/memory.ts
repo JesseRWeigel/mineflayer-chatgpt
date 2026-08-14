@@ -61,6 +61,38 @@ const defaultMemory: BotMemory = {
   seasonGoal: undefined,
 };
 
+/**
+ * A skill that THREW is a broken skill, whatever the exception happened to say.
+ *
+ * dynamic-loader returns `<name> failed: <err.message>` only from its catch
+ * branch; a precondition is a clean early return, not an exception. Without
+ * this override, "Cannot find" — added so Voyager's mineBlock is not retired
+ * for ore simply not being nearby — also swallowed
+ * "craftChest failed: Cannot find crafting_table nearby". Every one of
+ * craftChest's 85 consecutive failures was therefore excluded from its own
+ * statistics, its attempt count stayed 0, isRetired never fired, and the swarm
+ * re-invoked a skill with a 0% success rate indefinitely. Measured 2026-08-14.
+ */
+const CRASHED = /^\s*\S+ failed:/i;
+
+export function isSkillCrash(notes: string): boolean {
+  return CRASHED.test(notes || "");
+}
+
+/**
+ * Was this failure the environment's fault rather than the skill's?
+ *
+ * A crash always counts against the skill, even when the exception text
+ * contains a precondition phrase. Single source of truth for both the
+ * per-bot broken-skill list here and the team-wide retirement stats in
+ * skills/reliability.ts, which had drifted into two copies of this rule.
+ */
+export function isPreconditionFailure(notes: string): boolean {
+  if (isSkillCrash(notes)) return false;
+  const lower = (notes || "").toLowerCase();
+  return PRECONDITION_KEYWORDS.some((k) => lower.includes(k.toLowerCase()));
+}
+
 export const PRECONDITION_KEYWORDS = [
   "No trees found",
   "need wood",
@@ -247,11 +279,8 @@ export class BotMemoryStore {
     const successCount = skillAttempts.filter((s) => s.success).length;
     const successRate = skillAttempts.length > 0 ? (successCount / skillAttempts.length) * 100 : 0;
 
-    const isPreconditionFail =
-      !success && PRECONDITION_KEYWORDS.some((k) => notes.toLowerCase().includes(k.toLowerCase()));
-    const realFailures = skillAttempts.filter(
-      (a) => !a.success && !PRECONDITION_KEYWORDS.some((k) => (a.notes || "").toLowerCase().includes(k.toLowerCase())),
-    );
+    const isPreconditionFail = !success && isPreconditionFailure(notes);
+    const realFailures = skillAttempts.filter((a) => !a.success && !isPreconditionFailure(a.notes || ""));
     if (!success && !isPreconditionFail && realFailures.length >= 5 && !this.memory.brokenSkillNames.includes(skill)) {
       this.memory.brokenSkillNames.push(skill);
       console.log(`[Memory] ${skill} added to permanent broken skills list`);
