@@ -19,7 +19,7 @@ import type { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
 import type { Entity } from "prismarine-entity";
 import { config } from "../config.js";
-import { BotRoleConfig, FARM_SITE } from "./role.js";
+import { BotRoleConfig, FARM_SITE, BOT_ROSTER } from "./role.js";
 import { queryStrategic, queryReactive, queryCritic, chatWithLLM, type LLMMessage } from "../llm/index.js";
 import type { RoleContext } from "../llm/prompts.js";
 import { getWorldContext, isHostile } from "./perception.js";
@@ -41,6 +41,8 @@ import { updateBulletin, formatTeamBulletin } from "./bulletin.js";
 import { createLogger } from "../util/logger.js";
 import { recordAction, recordSkillResult, checkInventoryMilestones } from "./scoreboard.js";
 import { getTechTreeLine } from "./curriculum.js";
+import { advancementLine } from "./advancement-line.js";
+import { readTeamEarned } from "./advancement-progress.js";
 import { recordTrajectory } from "./trajectory.js";
 import { buildStrategicPrompt } from "../llm/prompts.js";
 
@@ -587,6 +589,11 @@ export class BotBrain {
     // Tech-tree curriculum — deterministic "what's next" from inventory
     const techLine = getTechTreeLine(this.bot, this.roleConfig.role);
     if (techLine) ctx += `\n\n${techLine}`;
+
+    // Ground truth from the server, not from the bot's own claims. Cached by
+    // readTeamEarned's caller cadence — buildContext runs at most every ~10s.
+    const advLine = advancementLine(this.roleConfig.role, readTeamEarned(BOT_ROSTER.map((b) => b.name)));
+    if (advLine) ctx += `\n\n${advLine}`;
 
     // Current goal
     if (this.currentGoal && this.goalStepsLeft > 0) {

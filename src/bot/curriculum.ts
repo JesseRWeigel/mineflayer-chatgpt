@@ -138,7 +138,10 @@ export function getTechTreeLine(bot: Bot, role?: string): string {
     }
   }
 
-  if (!next) return "TECH TREE: complete through diamonds. You are endgame — focus on your role and the mission.";
+  // The tech ladder is early-game scaffolding only. Past diamonds the
+  // advancement tree takes over as the curriculum, so say nothing here rather
+  // than declaring victory at 10% completion.
+  if (!next) return "";
   const reachedStr = reached.length ? reached.join(", ") : "nothing yet";
   return `TECH TREE: reached [${reachedStr}]. NEXT MILESTONE: ${next.name} — ${next.suggestion}`;
 }
