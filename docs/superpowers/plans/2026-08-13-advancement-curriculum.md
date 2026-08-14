@@ -55,7 +55,10 @@ const NESTED = "META-INF/versions/1.21.4/server-1.21.4.jar";
 const OUTER = path.resolve("server/cache/mojang_1.21.4.jar");
 const TMP = path.resolve(".advancement-extract");
 
-export interface AdvancementNode {
+/** Shape of one row in the generated file. The runtime re-declares this in
+ *  src/bot/advancement-tree.ts; this copy documents the tool's output and is
+ *  deliberately local, since a build script exports nothing. */
+interface AdvancementNode {
   id: string;
   parent: string | null;
   title: string;
@@ -607,9 +610,17 @@ test("every role in the roster resolves to something on a mixed frontier", () =>
   }
 });
 
-test("routing is deterministic so two bots do not thrash between goals", () => {
-  const f = [node("story/lava_bucket"), node("story/form_obsidian")];
-  assert.equal(assignFor("Miner / Smelter", f)?.id, assignFor("Miner / Smelter", f)?.id);
+test("the gateway beats the dead end even when the dead end sorts first", () => {
+  // enchant_item unlocks 0 further advancements; lava_bucket unlocks 5 and is
+  // the only route to the nether. Sorted by id, the dead end wins -- which is
+  // exactly the bug this ordering exists to prevent.
+  const f = [node("story/enchant_item"), node("story/lava_bucket")];
+  assert.equal(assignFor("Miner / Smelter", f)?.id, "story/lava_bucket");
+});
+
+test("a parent outranks its own child so the chain is walked in order", () => {
+  const f = [node("story/form_obsidian"), node("story/lava_bucket")];
+  assert.equal(assignFor("Miner / Smelter", f)?.id, "story/lava_bucket");
 });
 ```
 
