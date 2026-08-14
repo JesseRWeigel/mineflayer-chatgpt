@@ -26,7 +26,9 @@
 **Files:**
 - Create: `tools/extract-advancements.ts`
 - Create: `src/data/advancement-tree.json` (generated output, committed)
-- Test: `src/bot/advancement-tree.test.ts` (asserts on the generated data)
+- Test: none. This task's output is data, and it is asserted on by
+  `src/bot/advancement-tree.test.ts`, which **Task 2 owns and creates**. Verify
+  by hand here (Step 3); do not write a test file in this task.
 
 **Interfaces:**
 - Consumes: nothing.
@@ -682,7 +684,7 @@ export function assignFor(role: string, frontier: AdvancementNode[]): Advancemen
 - [ ] **Step 4: Run test to verify it passes**
 
 Run: `node --import tsx --test src/bot/advancement-routing.test.ts`
-Expected: PASS, 7 tests
+Expected: PASS, 8 tests
 
 - [ ] **Step 5: Commit**
 
@@ -947,10 +949,26 @@ In `src/bot/index.ts`, add the import and a single call once the roster is known
 import { appendSnapshot } from "./advancement-log.js";
 import { BOT_ROSTER } from "./role.js";
 
-// One row per swarm start. Cheap, and it is the only record of whether any of
-// this works.
-appendSnapshot(BOT_ROSTER.map((b) => b.name), new Date());
+// Once per PROCESS, not once per createBot: createBot runs 5x at swarm start
+// and again on every reconnect (up to 50x), which would write ~55 rows a
+// session and destroy the time series this file exists to produce. The flag is
+// set before the call so a throw cannot cause a retry.
+let advancementSnapshotLogged = false;
+// ...inside createBot:
+if (!advancementSnapshotLogged) {
+  advancementSnapshotLogged = true;
+  try {
+    appendSnapshot(BOT_ROSTER.map((b) => b.name), new Date());
+  } catch (e) {
+    // A missing server directory (fresh checkout) reads as zero progress,
+    // never as a crash that takes the swarm down.
+    console.warn("[Bot] Advancement snapshot failed:", e);
+  }
+}
 ```
+
+Note: `logs/` is gitignored wholesale, so committing the CSV needs
+`.gitignore` changed to `logs/*` plus `!logs/advancement-progress.csv`.
 
 - [ ] **Step 6: Verify the first row is real**
 
