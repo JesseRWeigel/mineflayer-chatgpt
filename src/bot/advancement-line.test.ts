@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { advancementLine } from "./advancement-line.js";
+import { advancementLine, resetClaims } from "./advancement-line.js";
 import { ALL_ADVANCEMENTS } from "./advancement-tree.js";
 
 // THE BUG THIS FILE EXISTS FOR.
@@ -47,4 +47,40 @@ test("a completed game yields an empty line rather than a fake goal", () => {
 
 test("the line stays short enough for a per-decision context", () => {
   assert.ok(advancementLine("Farmer / Crafter", TEAM_2026_08_13).length < 300);
+});
+
+// ── FIVE BOTS MUST GET FIVE GOALS ──
+//
+// Live 2026-08-14: five bots, three distinct advancements. Atlas and Blade were
+// both sent to a Trial Chamber (which they were far too under-geared to
+// survive) and Forge and Mason were both sent for the same lava bucket.
+
+test("the five roles get five distinct advancements", () => {
+  resetClaims();
+  const roles = ["Explorer / Miner", "Farmer / Crafter", "Miner / Smelter", "Builder", "Combat / Guard"];
+  const ids = roles.map((r) => /\(([^)]+)\)/.exec(advancementLine(r, TEAM_2026_08_13))?.[1]);
+  assert.equal(new Set(ids).size, roles.length, `expected 5 distinct goals, got ${JSON.stringify(ids)}`);
+});
+
+test("a role keeps its goal across re-planning instead of thrashing", () => {
+  resetClaims();
+  const first = advancementLine("Miner / Smelter", TEAM_2026_08_13);
+  const second = advancementLine("Miner / Smelter", TEAM_2026_08_13);
+  assert.equal(first, second, "re-rendering must not move a bot off its own goal");
+});
+
+test("nobody is sent to a Trial Chamber at iron tier", () => {
+  resetClaims();
+  for (const role of ["Explorer / Miner", "Combat / Guard", "Builder"]) {
+    assert.doesNotMatch(
+      advancementLine(role, TEAM_2026_08_13),
+      /trials_edition|under_lock_and_key|hero_of_the_village/,
+      `${role} was sent somewhere it cannot survive`,
+    );
+  }
+});
+
+test("Forge still gets the nether spine, which is the whole point", () => {
+  resetClaims();
+  assert.match(advancementLine("Miner / Smelter", TEAM_2026_08_13), /lava_bucket/);
 });

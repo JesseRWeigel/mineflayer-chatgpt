@@ -70,3 +70,44 @@ test("a parent outranks its own child so the chain is walked in order", () => {
   const f = [node("story/form_obsidian"), node("story/lava_bucket")];
   assert.equal(assignFor("Miner / Smelter", f)?.id, "story/lava_bucket");
 });
+
+// ── THE SECOND HALF OF THE BUG ──
+//
+// Measured live 2026-08-14 on the real frontier:
+//
+//   Atlas -> adventure/minecraft_trials_edition
+//   Blade -> adventure/minecraft_trials_edition
+//   Forge -> story/lava_bucket
+//   Mason -> story/lava_bucket
+//   Flora -> husbandry/tame_an_animal
+//
+// Five bots, three distinct goals. Routing is deterministic per role, so any
+// two roles sharing a category preference converge on the same advancement and
+// duplicate each other's work. The tree is 122 wide; the whole reason for
+// routing by role was to walk it in parallel.
+
+test("a claimed advancement is not handed to a second bot", () => {
+  const f = [node("story/lava_bucket"), node("story/enchant_item")];
+  const first = assignFor("Miner / Smelter", f, new Set());
+  assert.equal(first?.id, "story/lava_bucket");
+  const second = assignFor("Builder", f, new Set([first!.id]));
+  assert.equal(second?.id, "story/enchant_item", "the second bot must take the next best, not the same one");
+});
+
+test("a bot still gets its own claim back rather than being starved", () => {
+  // Re-planning must not make a bot abandon the goal it is already pursuing.
+  const f = [node("story/lava_bucket")];
+  assert.equal(assignFor("Miner / Smelter", f, new Set(["story/lava_bucket"]), "story/lava_bucket")?.id, "story/lava_bucket");
+});
+
+test("when everything is claimed a bot doubles up rather than idling", () => {
+  const f = [node("story/lava_bucket")];
+  assert.equal(assignFor("Builder", f, new Set(["story/lava_bucket"]))?.id, "story/lava_bucket");
+});
+
+test("claims do not disturb ordering among what is left", () => {
+  const f = [node("story/enchant_item"), node("story/lava_bucket"), node("story/shiny_gear")];
+  const second = assignFor("Miner / Smelter", f, new Set(["story/lava_bucket"]));
+  // Of what remains, both have 0 descendants, so id order decides.
+  assert.equal(second?.id, "story/enchant_item");
+});

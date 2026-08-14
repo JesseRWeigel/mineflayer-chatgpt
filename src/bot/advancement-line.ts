@@ -6,10 +6,42 @@
 
 import { frontierOf, TOTAL_ADVANCEMENTS } from "./advancement-tree.js";
 import { assignFor } from "./advancement-routing.js";
+import { withinReach } from "./advancement-gating.js";
+
+/**
+ * Who is currently working on what, so five bots pursue five advancements.
+ *
+ * Keyed by role rather than bot name because a role is what routing decides on,
+ * and the roster is one bot per role. Reassigning the same role simply replaces
+ * its claim, so a bot that finishes or gives up frees its goal automatically.
+ */
+const claims = new Map<string, string>();
+
+/** Everything claimed by a role other than this one. */
+function claimedByOthers(role: string): Set<string> {
+  const out = new Set<string>();
+  for (const [r, id] of claims) if (r !== role) out.add(id);
+  return out;
+}
 
 export function advancementLine(role: string, earned: Set<string>): string {
-  const target = assignFor(role, frontierOf(earned));
-  if (!target) return "";
+  // Gate before routing, not after: a dangerous advancement should never win
+  // the ranking and then be discarded, because that would leave the bot with
+  // nothing while the next-best option was still available.
+  const reachable = frontierOf(earned).filter((a) => withinReach(a.id, earned));
+
+  const target = assignFor(role, reachable, claimedByOthers(role), claims.get(role));
+  if (!target) {
+    claims.delete(role);
+    return "";
+  }
+  claims.set(role, target.id);
+
   const desc = target.description ? ` — ${target.description}.` : "";
   return `ADVANCEMENTS: ${earned.size}/${TOTAL_ADVANCEMENTS} earned. NEXT FOR YOU: "${target.title}" (${target.id})${desc}`;
+}
+
+/** Test seam: forget every claim. Not used in production. */
+export function resetClaims(): void {
+  claims.clear();
 }

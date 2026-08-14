@@ -34,12 +34,38 @@ function byUnlockValue(a: AdvancementNode, b: AdvancementNode): number {
   return descendantCount(b.id) - descendantCount(a.id) || a.id.localeCompare(b.id);
 }
 
-export function assignFor(role: string, frontier: AdvancementNode[]): AdvancementNode | null {
-  if (frontier.length === 0) return null;
+/** Best match for a role within a candidate set, or null if the set is empty. */
+function pick(role: string, candidates: AdvancementNode[]): AdvancementNode | null {
+  if (candidates.length === 0) return null;
   const order = AFFINITY[role] ?? DEFAULT_ORDER;
   for (const category of order) {
-    const matches = frontier.filter((a) => a.category === category).sort(byUnlockValue);
+    const matches = candidates.filter((a) => a.category === category).sort(byUnlockValue);
     if (matches.length > 0) return matches[0];
   }
-  return [...frontier].sort(byUnlockValue)[0];
+  return [...candidates].sort(byUnlockValue)[0];
+}
+
+/**
+ * Assign one advancement to one role.
+ *
+ * @param claimed  advancements other bots are already pursuing
+ * @param ownClaim this bot's current goal, which it keeps rather than abandoning
+ *
+ * Without the claim set, routing is deterministic per role and any two roles
+ * sharing a category preference converge on the same goal. Measured live
+ * 2026-08-14: five bots, three distinct advancements — Atlas and Blade both on
+ * the trial chamber, Forge and Mason both on lava_bucket. The tree is 122 wide
+ * and the entire point of routing by role was to walk it in parallel.
+ */
+export function assignFor(
+  role: string,
+  frontier: AdvancementNode[],
+  claimed: Set<string> = new Set(),
+  ownClaim?: string,
+): AdvancementNode | null {
+  if (frontier.length === 0) return null;
+  const free = frontier.filter((a) => !claimed.has(a.id) || a.id === ownClaim);
+  // Doubling up beats idling: if every reachable advancement is spoken for, the
+  // bot joins the nearest effort rather than standing still.
+  return pick(role, free) ?? pick(role, frontier);
 }
