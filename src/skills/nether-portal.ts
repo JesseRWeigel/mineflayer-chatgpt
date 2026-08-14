@@ -8,6 +8,7 @@
 
 import type { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
+import { findSite, type BlockKind } from "./portal-siting.js";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import type { Skill, SkillResult } from "./types.js";
@@ -79,9 +80,26 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. Craft those first.`;
 
   const p = bot.entity.position;
-  // Build one block clear of the bot so it never entombs itself in the frame.
-  const origin: Vec3Like = { x: Math.floor(p.x) + 2, y: Math.floor(p.y), z: Math.floor(p.z) };
   const axis: "x" | "z" = "x";
+
+  // Siting used to be "two blocks east of wherever the bot stands", unchecked.
+  // A portal is a 4x5 volume; two east of a bot on a ridge is a frame that
+  // cannot be placed, and each obsidian block costs a round trip to a lava pool.
+  // Probe the world instead and refuse to start rather than burn ten trips.
+  const probe = (q: Vec3Like): BlockKind => {
+    const b = bot.blockAt(new Vec3(q.x, q.y, q.z));
+    if (!b) return "unknown"; // unloaded chunk — never assume it is clear
+    if (b.name === "obsidian") return "obsidian";
+    if (b.name === "water" || b.name === "lava") return "liquid";
+    if (b.name === "air" || b.name === "cave_air" || b.name === "void_air") return "air";
+    return "solid";
+  };
+
+  // Start one above the bot's feet: the frame's floor row rests ON the ground,
+  // so the interior begins a block higher.
+  const centre: Vec3Like = { x: Math.floor(p.x) + 2, y: Math.floor(p.y) + 1, z: Math.floor(p.z) };
+  const origin = findSite(centre, axis, probe, 6);
+  if (!origin) return "No clear 4x5 space for a portal within 6 blocks. Move somewhere open and retry.";
 
   const frame = framePositions(origin, axis);
   const got = await acquireObsidian(bot, frame);
