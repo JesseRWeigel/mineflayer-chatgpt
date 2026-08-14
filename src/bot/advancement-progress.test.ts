@@ -13,9 +13,23 @@ import { offlineUUID, readEarned, readTeamEarned, levelName } from "./advancemen
 // cobblestone" as a failure for weeks without anyone noticing.
 //
 // The server awards advancements. The bot cannot fake one.
+//
+// WHY THESE READ A FIXTURE AND NOT server/.
+//
+// They pointed at the live server directory, which is gitignored. On a fresh
+// clone the reads returned empty, so half of them passed vacuously and the rest
+// failed outright. Worse, "the team has not been to the nether" asserted on
+// LIVE state -- it would start failing the moment the swarm succeeded at the
+// exact thing this whole branch exists to make it do.
+//
+// The fixture is a copy of the five real files taken 2026-08-13, trimmed to the
+// completed advancements plus two recipe entries so the exclusion path still
+// has something to exclude.
+
+const FIXTURE = "src/bot/__fixtures__/server";
 
 test("offline UUIDs match what the server actually wrote", () => {
-  // Verified against server/ai-world/advancements on 2026-08-13.
+  // Verified against the live server/ai-world/advancements on 2026-08-13.
   assert.equal(offlineUUID("Atlas"), "1d4a9c61-6828-3517-9704-a0518eccaaa5");
   assert.equal(offlineUUID("Forge"), "2ddbb85b-90ad-320b-9e1f-c301c5383966");
   assert.equal(offlineUUID("Flora"), "fca4d5a4-b8c1-3fcc-8a0a-eb752019a2bb");
@@ -24,39 +38,47 @@ test("offline UUIDs match what the server actually wrote", () => {
 });
 
 test("the level name comes from server.properties, not a hardcoded 'world'", () => {
-  assert.equal(levelName("server"), "ai-world");
+  assert.equal(levelName(FIXTURE), "ai-world");
+});
+
+test("a missing server.properties falls back to 'world' rather than throwing", () => {
+  assert.equal(levelName("no/such/dir"), "world");
 });
 
 test("a bot with no progress file yields an empty set rather than throwing", () => {
-  assert.deepEqual(readEarned("NoSuchBot", "server"), new Set());
+  assert.deepEqual(readEarned("NoSuchBot", FIXTURE), new Set());
 });
 
 test("recipe unlocks are never counted as advancements", () => {
-  const earned = readEarned("Atlas", "server");
+  // The fixture deliberately retains two recipe entries so this can fail.
+  const earned = readEarned("Atlas", FIXTURE);
   assert.ok(![...earned].some((id) => id.startsWith("recipes/")));
 });
 
 test("ids are stored bare so they join against the tree", () => {
-  const earned = readEarned("Atlas", "server");
+  const earned = readEarned("Atlas", FIXTURE);
   assert.ok(![...earned].some((id) => id.includes("minecraft:")));
 });
 
 test("Atlas has the diamond that made the old ladder terminal", () => {
-  assert.ok(readEarned("Atlas", "server").has("story/mine_diamond"));
+  assert.ok(readEarned("Atlas", FIXTURE).has("story/mine_diamond"));
 });
 
 test("the team union is at least as large as any single member", () => {
   const roster = ["Atlas", "Flora", "Forge", "Mason", "Blade"];
-  const team = readTeamEarned(roster, "server");
+  const team = readTeamEarned(roster, FIXTURE);
   for (const bot of roster) {
-    for (const id of readEarned(bot, "server")) {
+    for (const id of readEarned(bot, FIXTURE)) {
       assert.ok(team.has(id), `${id} earned by ${bot} missing from the union`);
     }
   }
 });
 
-test("the team has not been to the nether or the end", () => {
-  const team = readTeamEarned(["Atlas", "Flora", "Forge", "Mason", "Blade"], "server");
+test("the recorded 2026-08-13 baseline is 13 advancements, none nether or end", () => {
+  // Pinned to the fixture, so this stays true after the swarm reaches the
+  // nether. The live figure is what the CSV tracks; this is the baseline.
+  const team = readTeamEarned(["Atlas", "Flora", "Forge", "Mason", "Blade"], FIXTURE);
+  assert.equal(team.size, 13);
   assert.ok(![...team].some((id) => id.startsWith("nether/")));
   assert.ok(![...team].some((id) => id.startsWith("end/")));
 });
