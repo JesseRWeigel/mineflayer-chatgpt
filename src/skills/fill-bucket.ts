@@ -17,6 +17,9 @@ import type { Bot } from "mineflayer";
 import type { Skill, SkillResult } from "./types.js";
 import { fillBucket } from "./fluid.js";
 import { digDownTo } from "./descend.js";
+import pkg from "mineflayer-pathfinder";
+const { goals } = pkg;
+import { safeGoto } from "../bot/navigation.js";
 
 export type Fluid = "lava" | "water";
 
@@ -117,11 +120,27 @@ export const fillBucketSkill: Skill = {
         Math.floor(bot.entity.position.y),
       );
       if (plan.shouldDescend) {
-        const dug = await digDownTo(bot, plan.targetY, 140);
-        result = `${result} ${dug}`;
-        const retry = await fillBucket(bot, fluid);
-        filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
-        result = `${result} ${retry}`;
+        // A shaft stops at the first aquifer or unsurvivable drop, and both are
+        // local: measured 2026-08-15, two descents ended at "water 3 blocks
+        // below" and "4-block drop below" around y=44-51, far short of lava.
+        // Step aside and sink a fresh shaft rather than treating one blocked
+        // hole as proof there is no way down.
+        for (let attempt = 0; attempt < 3 && !filled; attempt++) {
+          const dug = await digDownTo(bot, plan.targetY, 140);
+          result = `${result} ${dug}`;
+          const retry = await fillBucket(bot, fluid);
+          filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
+          result = `${result} ${retry}`;
+          if (filled || Math.floor(bot.entity.position.y) <= plan.targetY) break;
+
+          // Move a few blocks sideways before the next shaft.
+          try {
+            const p = bot.entity.position;
+            await safeGoto(bot, new goals.GoalNear(p.x + 6, p.y, p.z + 6, 1), 12000);
+          } catch {
+            break; // boxed in — stop rather than spin
+          }
+        }
       }
     }
 

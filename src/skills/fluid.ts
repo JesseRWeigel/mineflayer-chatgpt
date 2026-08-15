@@ -99,9 +99,18 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   }
 
   await bot.equip(bucket, "hand");
-  // activateBlock targets this exact block (and looks at it internally), so
-  // there is no separate lookAt-then-hope-the-raycast-agrees step needed.
-  await bot.activateBlock(source);
+
+  // Fluids have NO interaction shape, so bot.activateBlock does nothing to them
+  // — there is no block face to click. Filling a bucket is "look at the fluid,
+  // then use the held item", which is a different packet entirely.
+  //
+  // This cost a day: the skill reached lava at negative y and reported "Bucket
+  // did not fill from the lava source", because activateBlock had been
+  // substituted for lookAt+activateItem on the reasoning that it looks at the
+  // block internally. It does, and that is correct for solid blocks and inert
+  // for fluid ones.
+  await bot.lookAt(source.position.offset(0.5, 0.5, 0.5), true);
+  bot.activateItem();
   await new Promise((r) => setTimeout(r, 500)); // let the inventory packet land
 
   const filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
