@@ -7,6 +7,7 @@
 import { frontierOf, TOTAL_ADVANCEMENTS } from "./advancement-tree.js";
 import { assignFor } from "./advancement-routing.js";
 import { withinReach } from "./advancement-gating.js";
+import { hintFor } from "./advancement-hints.js";
 
 /**
  * Who is currently working on what, so five bots pursue five advancements.
@@ -38,7 +39,12 @@ export function advancementLine(role: string, earned: Set<string>): string {
   claims.set(role, target.id);
 
   const desc = target.description ? ` — ${target.description}.` : "";
-  return `ADVANCEMENTS: ${earned.size}/${TOTAL_ADVANCEMENTS} earned. NEXT FOR YOU: "${target.title}" (${target.id})${desc}`;
+  // Mojang's description says WHAT, never HOW. Without the route from goal to
+  // skill, craft_bucket sat unused in Forge's menu for 3.5 hours while its
+  // context read "Fill a Bucket with lava".
+  const hint = hintFor(target.id);
+  const how = hint ? ` HOW: ${hint}` : "";
+  return `ADVANCEMENTS: ${earned.size}/${TOTAL_ADVANCEMENTS} earned. NEXT FOR YOU: "${target.title}" (${target.id})${desc}${how}`;
 }
 
 /** Test seam: forget every claim. Not used in production. */
