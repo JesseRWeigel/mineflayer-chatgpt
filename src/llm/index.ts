@@ -11,6 +11,7 @@ import {
   type RoleContext,
 } from "./prompts.js";
 import { createLogger } from "../util/logger.js";
+import { recordLlmCall, UNHEALTHY_AFTER } from "./health.js";
 
 /** Model-aware think option. qwen3.6 needs think:false (it otherwise burns the
  *  whole token budget reasoning — the original gotcha). gpt-oss models are
@@ -253,9 +254,32 @@ export async function queryStrategic(
     );
     llmLog.debug("LLM:strategic", "Full prompt:", JSON.stringify(messages, null, 2));
     llmLog.debug("LLM:strategic", "Full response:", response.message.content);
+    const recovered = recordLlmCall(true);
+    if (recovered.justRecovered) {
+      console.log(
+        `\n${"=".repeat(72)}\n[LLM] RECOVERED — the model is answering again. Bots resume real decisions.\n${"=".repeat(72)}\n`,
+      );
+    }
     return parseDecision(response.message.content, role.name);
   } catch (err) {
     llmLog.error("LLM:strategic", "Error:", err);
+
+    // An unreachable brain used to degrade silently: every bot fell back to
+    // "Planning..." and chose idle, which looks exactly like a navigation
+    // problem. One banner per outage, not one per call — a line repeated on
+    // every failure is how the original undici trace got buried.
+    const outcome = recordLlmCall(false);
+    if (outcome.justTripped) {
+      console.error(
+        `\n${"=".repeat(72)}\n` +
+          `[LLM] BRAIN UNREACHABLE — ${UNHEALTHY_AFTER} consecutive strategic calls failed.\n` +
+          `      Every bot is now falling back to idle. This is NOT a navigation bug.\n` +
+          `      Check: ollama ps (a model stuck in "Stopping..." needs a service restart),\n` +
+          `      and that ${config.ollama.host} is reachable.\n` +
+          `      Last error: ${(err as Error)?.message ?? String(err)}\n` +
+          `${"=".repeat(72)}\n`,
+      );
+    }
     return { thought: "Planning...", action: "idle", params: {} };
   }
 }
