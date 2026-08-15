@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { buildCriticPrompt, resolveAllowedActions } from "./prompts.js";
+import { buildCriticPrompt, resolveAllowedActions, buildStrategicPrompt } from "./prompts.js";
 
 // Role action lists as configured in src/bot/role.ts.
 const ROLES: Record<string, string[]> = {
@@ -73,4 +73,39 @@ test("critic prompt always constrains action choice", () => {
 
   assert.ok(prompt.includes("AVAILABLE ACTIONS"));
   assert.ok(prompt.includes("Only suggest actions from this list."));
+});
+
+// THE BUG THIS ADDITION EXISTS FOR.
+//
+// Measured 2026-08-15: Forge's context was perfect — goal "Hot Stuff"
+// (story/lava_bucket), a HOW naming craft_bucket then fill_bucket, and
+// fill_bucket present in its SKILLS list. It spent the hour on deposit_stash
+// instead: 52 picks, 19 of them blocked as recently-failed and 19 returning
+// "Banked nothing — everything I'm carrying is gear I'm keeping". Zero
+// invoke_skill calls all hour.
+//
+// The role priorities are eight numbered prescriptive rules in the SYSTEM
+// prompt; the advancement goal was one line of state in the user message. None
+// of the eight mention lava or the nether. The model followed the numbered
+// list, which is what a numbered list in a system prompt is for.
+//
+// Ranking them explicitly is cheaper than rewriting five roles' priorities.
+
+test("the prompt subordinates maintenance priorities to the advancement goal", () => {
+  const p = buildStrategicPrompt({
+    name: "Forge",
+    personality: "gruff",
+    role: "Miner / Smelter",
+    priorities: "FORGE PRIORITIES:\n1. mine\n6. When inventory is 30+ full: deposit_stash",
+  });
+  assert.match(p, /MAINTENANCE, NOT THE MISSION/);
+  // The ranking has to come after the priorities, or it reads as a preamble to
+  // them rather than a correction of them.
+  assert.ok(p.indexOf("MAINTENANCE, NOT THE MISSION") > p.indexOf("FORGE PRIORITIES"));
+});
+
+test("the prompt tells the bot not to repeat a no-op action", () => {
+  const p = buildStrategicPrompt({ name: "Forge", personality: "gruff", role: "Miner / Smelter" });
+  assert.match(p, /Banked nothing/);
+  assert.match(p, /do NOT\s*\n?repeat it|do NOT repeat it/);
 });

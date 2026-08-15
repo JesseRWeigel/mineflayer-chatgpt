@@ -130,6 +130,14 @@ ${skillLines}${dynamicLine}
 
 ${role.priorities || ""}
 
+THESE PRIORITIES ARE MAINTENANCE, NOT THE MISSION.
+The "ADVANCEMENTS: ... NEXT FOR YOU" line in your CURRENT STATE is the actual
+objective, and its "HOW:" names the exact skill to invoke. Run the maintenance
+priorities only when something is genuinely wrong (starving, unarmed, in
+danger) or when a step above is blocked. If an action reports that it
+accomplished nothing — "Banked nothing", "Already have a bucket" — do NOT
+repeat it; go do the HOW step instead.
+
 CRAFTING BASICS:
 - Logs → planks (1 log = 4 planks). Planks → sticks (2 planks = 4 sticks).
 - 3 planks + 2 sticks → wooden_pickaxe. 2 planks → crafting_table.
