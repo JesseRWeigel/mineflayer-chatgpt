@@ -62,6 +62,14 @@ export function bucketPlan(inventoryNames: string[], fluid: Fluid): BucketPlan {
  */
 export const LAVA_SEA_Y = -52;
 
+/**
+ * Total digging time fill_bucket may spend across all its shafts.
+ *
+ * Comfortably inside the executor's 240s watchdog, leaving room for the
+ * searches, the walks between shafts, and the scoop itself.
+ */
+export const SHAFT_BUDGET_MS = 150_000;
+
 export interface DescentPlan {
   shouldDescend: boolean;
   targetY: number;
@@ -125,8 +133,19 @@ export const fillBucketSkill: Skill = {
         // below" and "4-block drop below" around y=44-51, far short of lava.
         // Step aside and sink a fresh shaft rather than treating one blocked
         // hole as proof there is no way down.
+        // The executor kills a skill at 240s (executor.ts:158). Three unbudgeted
+        // shafts blew straight through it: 2 of 6 runs came back "timed out —
+        // aborted to free the bot", losing their descent. Spend at most
+        // SHAFT_BUDGET_MS total so the skill reports its own progress instead of
+        // being killed mid-dig.
+        const deadline = Date.now() + SHAFT_BUDGET_MS;
         for (let attempt = 0; attempt < 3 && !filled; attempt++) {
-          const dug = await digDownTo(bot, plan.targetY, 140);
+          const left = deadline - Date.now();
+          if (left < 15_000) {
+            result = `${result} Out of time for more shafts.`;
+            break;
+          }
+          const dug = await digDownTo(bot, plan.targetY, 140, left);
           result = `${result} ${dug}`;
           const retry = await fillBucket(bot, fluid);
           filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);

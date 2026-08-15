@@ -27,6 +27,18 @@ export const SAFE_FALL = 3;
 /** How far past the lookahead to search for a floor under a cavity. */
 const FLOOR_SEARCH = SAFE_FALL + 2;
 
+/**
+ * Keep going, or stop and report?
+ *
+ * The executor kills a skill at 240s. fill_bucket's three-shaft retry could
+ * spend far more than that digging, so 2 of 6 runs were killed mid-shaft and
+ * lost their progress. A skill that manages its own budget stops on its own
+ * terms and says where it got to.
+ */
+export function shouldKeepDigging(msRemaining: number, dug: number, maxBlocks: number): boolean {
+  return msRemaining > 0 && dug < maxBlocks;
+}
+
 export interface DigVerdict {
   safe: boolean;
   reason: string;
@@ -89,8 +101,9 @@ function kindOf(bot: Bot, pos: Vec3): BlockKind {
  * Dig straight down toward `targetY`, one block at a time, stopping at the first
  * unsafe lookahead. Returns a sentence describing where it ended up and why.
  */
-export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80): Promise<string> {
+export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budgetMs = 90_000): Promise<string> {
   const startY = Math.floor(bot.entity.position.y);
+  const deadline = Date.now() + budgetMs;
   let dug = 0;
 
   // Stone needs a pickaxe. Without this the first bot.dig on stone returned
@@ -102,7 +115,7 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80): Prom
     .sort((a, b) => rank(b.name) - rank(a.name))[0];
   if (pick) await bot.equip(pick, "hand").catch(() => {});
 
-  while (Math.floor(bot.entity.position.y) > targetY && dug < maxBlocks) {
+  while (Math.floor(bot.entity.position.y) > targetY && shouldKeepDigging(deadline - Date.now(), dug, maxBlocks)) {
     const feet = bot.entity.position.floored();
     const verdict = safeToDigDown((d) => kindOf(bot, feet.offset(0, -d, 0)));
     if (!verdict.safe) {
@@ -124,6 +137,9 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80): Prom
   }
 
   const endY = Math.floor(bot.entity.position.y);
+  if (endY > targetY && Date.now() >= deadline) {
+    return `Dug down ${dug} blocks from y=${startY} to y=${endY}, then ran out of time (target y=${targetY}).`;
+  }
   return endY <= targetY
     ? `Dug down from y=${startY} to y=${endY}.`
     : `Dug down ${dug} blocks from y=${startY}, now at y=${endY} (target y=${targetY}).`;

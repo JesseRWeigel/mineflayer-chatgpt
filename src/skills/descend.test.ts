@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { safeToDigDown, DANGER_LOOKAHEAD } from "./descend.js";
+import { safeToDigDown, DANGER_LOOKAHEAD, shouldKeepDigging } from "./descend.js";
 
 // THE BUG THIS FILE EXISTS FOR.
 //
@@ -90,4 +90,27 @@ test("lava under a short drop is still refused", () => {
   // The gap is survivable; what is at the bottom is not.
   const probe = (d: number) => (d === 2 ? ("air" as const) : d >= 3 ? ("lava" as const) : ("solid" as const));
   assert.equal(safeToDigDown(probe).safe, false);
+});
+
+// ── REGRESSION: the descent must fit inside the skill watchdog ──
+//
+// fill_bucket got a three-shaft retry loop, each shaft up to 140 blocks. At
+// roughly a second per block that is well past the executor's 240s watchdog,
+// and 2 of 6 fill_bucket runs came back "timed out after Ns — aborted to free
+// the bot", losing whatever descent progress they had made.
+//
+// A budget the caller can shrink is the fix: the loop stops on its own terms
+// and reports where it got, instead of being killed mid-shaft.
+
+test("the descent stops when its time budget is spent", () => {
+  // 0 remaining means stop before the first block.
+  assert.equal(shouldKeepDigging(0, 5, 100), false);
+});
+
+test("a fresh budget keeps digging", () => {
+  assert.equal(shouldKeepDigging(60_000, 5, 100), true);
+});
+
+test("the block cap still applies independently of time", () => {
+  assert.equal(shouldKeepDigging(60_000, 100, 100), false);
 });
