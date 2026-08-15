@@ -150,9 +150,21 @@ export const stripMineSkill: Skill = {
     // bot never actually had iron to smelt. Walk back over the tunnel.
     await collectNearbyDrops(bot, 16, 8000);
 
+    // Report the depth actually reached, not the one intended. Nine runs
+    // returned "Strip mine complete!" while Forge stayed at y=68: the 60s
+    // descent timeout fired, the catch swallowed it, and the skill mined a
+    // tunnel at the surface and called it a success. Anything downstream that
+    // needs depth -- fill_bucket looking for lava -- was then told to strip_mine
+    // again, from the same place, forever.
+    const endY = Math.floor(bot.entity.position.y);
+    const reachedDepth = endY <= TARGET_Y + 5;
+    const depthNote = reachedDepth
+      ? ` Now at y=${endY}.`
+      : ` NOTE: still at y=${endY}, never reached ore depth (y=${TARGET_Y}) — the descent was blocked or timed out. Try from an open area or a cave entrance.`;
+
     return {
       success: true,
-      message: `Strip mine complete! Dug ${TUNNEL_LENGTH}-block tunnel, mined ${mined} blocks total. ${formatOres(oresFound)}`,
+      message: `Strip mine complete! Dug ${TUNNEL_LENGTH}-block tunnel, mined ${mined} blocks total.${depthNote} ${formatOres(oresFound)}`,
       stats: { blocksMined: mined, oresFound: oresFound.length },
     };
   },

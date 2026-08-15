@@ -48,8 +48,14 @@ export function pickApproach(botPos: Vec3Like, source: Vec3Like): Vec3Like | nul
   return { x: source.x, y: source.y, z: source.z + (dz >= 0 ? 1 : -1) };
 }
 
-/** Depth below which open lava pools are common enough to go looking. */
-export const LAVA_DEPTH = 10;
+/**
+ * Depth at or below which we stop telling the bot to dig deeper.
+ *
+ * Must sit ABOVE strip_mine's TARGET_Y (16), or the advice is a loop: the bot
+ * digs down, arrives at 16, is told it is still too high, and digs again
+ * forever. The first version of this used 10 and would have done exactly that.
+ */
+export const LAVA_DEPTH = 20;
 
 /**
  * What to do when there is no source in range.
@@ -65,7 +71,7 @@ export function noSourceAdvice(fluid: "water" | "lava", y: number): string {
   const base = `Cannot find a ${fluid} source within 32 blocks.`;
   if (fluid === "water") return `${base} Look for a lake, river or ocean on the surface.`;
   if (y > LAVA_DEPTH) {
-    return `${base} You are at y=${y}; open lava is rare this high. invoke_skill {"skill":"strip_mine"} to get down near y=11, then retry.`;
+    return `${base} You are at y=${y}; open lava is rare this high. invoke_skill {"skill":"strip_mine"} to dig down to ore depth, then retry.`;
   }
   return `${base} You are deep enough — explore sideways through caves to find a pool.`;
 }

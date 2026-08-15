@@ -92,3 +92,16 @@ test("advice never begins with a crash prefix", () => {
   // "<name> failed:" marks a thrown skill and always counts against retirement.
   for (const y of [73, 8]) assert.doesNotMatch(noSourceAdvice("lava", y), /^\s*\S+ failed:/);
 });
+
+test("the advice cannot loop: its threshold is above what strip_mine can reach", async () => {
+  // strip_mine's TARGET_Y is 16. If LAVA_DEPTH sat below that, a bot that dug
+  // down perfectly would arrive at 16, be told it is still too high, and dig
+  // again forever. The first version of this used 10 and would have.
+  const { LAVA_DEPTH } = await import("./fluid.js");
+  const stripMineTarget = 16;
+  assert.ok(
+    LAVA_DEPTH > stripMineTarget,
+    `LAVA_DEPTH ${LAVA_DEPTH} must exceed strip_mine's TARGET_Y ${stripMineTarget} or the advice loops`,
+  );
+  assert.doesNotMatch(noSourceAdvice("lava", stripMineTarget), /strip_mine/);
+});
