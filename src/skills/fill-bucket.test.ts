@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { bucketPlan } from "./fill-bucket.js";
+import { bucketPlan, descentPlan } from "./fill-bucket.js";
 
 // THE BUG THIS FILE EXISTS FOR.
 //
@@ -59,4 +59,38 @@ test("the not-ready message never begins with a crash prefix", () => {
   for (const inv of [[], ["iron_ingot"], ["water_bucket"]]) {
     assert.doesNotMatch(bucketPlan(inv, "lava").message, /^\s*\S+ failed:/);
   }
+});
+
+// ── REGRESSION: a skill that needs depth must get itself there ──
+//
+// Measured 2026-08-15: strip_mine reached y=16 thirty-two times, and every
+// single fill_bucket ran at y=70 or y=68. The bot descended, surfaced, and only
+// later chose fill_bucket -- from the surface. The advice to "strip_mine first"
+// assumed the model would chain two skills across time AND hold position
+// between them, which it does not.
+//
+// Depth is a precondition of the skill, so the skill owns it.
+
+test("a surface bot with a bucket should descend before giving up", () => {
+  const d = descentPlan(["bucket"], 70);
+  assert.equal(d.shouldDescend, true);
+  assert.ok(d.targetY < 0, `lava is abundant in the deep sea; target was ${d.targetY}`);
+});
+
+test("a bot already in the lava layer does not dig further", () => {
+  assert.equal(descentPlan(["bucket"], -55).shouldDescend, false);
+});
+
+test("no bucket means no descent — digging first would waste the trip", () => {
+  assert.equal(descentPlan([], 70).shouldDescend, false);
+});
+
+test("already holding lava means done, not another shaft", () => {
+  assert.equal(descentPlan(["lava_bucket"], 70).shouldDescend, false);
+});
+
+test("iron depth is not lava depth", () => {
+  // strip_mine targets y=16 for iron. Lava is sparse there, which is why every
+  // fill_bucket at that depth still found nothing.
+  assert.equal(descentPlan(["bucket"], 16).shouldDescend, true);
 });

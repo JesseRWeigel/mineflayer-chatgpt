@@ -16,6 +16,7 @@
 import type { Bot } from "mineflayer";
 import type { Skill, SkillResult } from "./types.js";
 import { fillBucket } from "./fluid.js";
+import { digDownTo } from "./descend.js";
 
 export type Fluid = "lava" | "water";
 
@@ -49,6 +50,39 @@ export function bucketPlan(inventoryNames: string[], fluid: Fluid): BucketPlan {
   };
 }
 
+/**
+ * Depth at which lava is genuinely abundant.
+ *
+ * The 1.18+ deep lava sea starts around y=-54. strip_mine targets y=16, which
+ * is iron depth, not lava depth — which is why every fill_bucket run at y=16
+ * still found nothing.
+ */
+export const LAVA_SEA_Y = -52;
+
+export interface DescentPlan {
+  shouldDescend: boolean;
+  targetY: number;
+}
+
+/**
+ * Should this bot dig toward the lava sea before giving up?
+ *
+ * Measured 2026-08-15: strip_mine reached y=16 thirty-two times and every
+ * fill_bucket ran at y=70 or y=68. The bot descended, surfaced, and only later
+ * chose fill_bucket. Telling the model to "strip_mine first" assumed it would
+ * chain two skills across time and hold position between them; it does neither.
+ *
+ * Depth is a precondition of this skill, so this skill owns getting there.
+ */
+export function descentPlan(inventoryNames: string[], y: number): DescentPlan {
+  const hasEmptyBucket = inventoryNames.includes("bucket");
+  const alreadyFull = inventoryNames.includes("lava_bucket");
+  return {
+    shouldDescend: hasEmptyBucket && !alreadyFull && y > LAVA_SEA_Y + 6,
+    targetY: LAVA_SEA_Y,
+  };
+}
+
 export const fillBucketSkill: Skill = {
   name: "fill_bucket",
   description:
@@ -71,8 +105,26 @@ export const fillBucketSkill: Skill = {
     if (plan.done) return { success: true, message: plan.message };
     if (!plan.ready) return { success: false, message: plan.message };
 
-    const result = await fillBucket(bot, fluid);
-    const filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
+    let result = await fillBucket(bot, fluid);
+    let filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
+
+    // No lava in range is usually a depth problem, not an absence problem. Dig
+    // toward the lava sea and look again rather than returning advice the bot
+    // will act on from a different place ten minutes later.
+    if (!filled && fluid === "lava") {
+      const plan = descentPlan(
+        bot.inventory.items().map((i) => i.name),
+        Math.floor(bot.entity.position.y),
+      );
+      if (plan.shouldDescend) {
+        const dug = await digDownTo(bot, plan.targetY, 140);
+        result = `${result} ${dug}`;
+        const retry = await fillBucket(bot, fluid);
+        filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
+        result = `${result} ${retry}`;
+      }
+    }
+
     return { success: filled, message: result };
   },
 };
