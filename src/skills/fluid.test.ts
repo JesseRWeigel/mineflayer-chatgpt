@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isSourceBlock, pickApproach, noSourceAdvice } from "./fluid.js";
+import { isSourceBlock, pickApproach, noSourceAdvice, withinReach, REACH_BLOCKS } from "./fluid.js";
 
 // WHAT THIS FILE PINS DOWN.
 //
@@ -104,4 +104,22 @@ test("the advice cannot loop: its threshold is above what strip_mine can reach",
     `LAVA_DEPTH ${LAVA_DEPTH} must exceed strip_mine's TARGET_Y ${stripMineTarget} or the advice loops`,
   );
   assert.doesNotMatch(noSourceAdvice("lava", stripMineTarget), /strip_mine/);
+});
+
+// ── REGRESSION: scooping from out of reach reports a lie ──
+//
+// Measured 2026-08-15: fill_bucket descended 46 blocks to y=-29, found lava,
+// and returned "Bucket did not fill from the lava source". findBlock searches
+// 32 blocks; the walk to the approach square is best-effort and swallows its
+// own failure; and activateItem does nothing to a block outside the ~4.5 block
+// reach. So a bot 20 blocks from lava "tried to scoop" and reported a failure
+// that read like a mechanics problem rather than a distance one.
+
+test("out of reach is reported as distance, not as a failed scoop", () => {
+  assert.equal(withinReach(0, 0, 0, 20, 0, 0), false);
+  assert.equal(withinReach(0, 0, 0, 3, 0, 1), true);
+});
+
+test("the reach limit matches Minecraft's, not an invented number", () => {
+  assert.ok(REACH_BLOCKS >= 3 && REACH_BLOCKS <= 6, `REACH_BLOCKS ${REACH_BLOCKS} is not a plausible reach`);
 });

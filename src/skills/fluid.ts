@@ -57,6 +57,14 @@ export function pickApproach(botPos: Vec3Like, source: Vec3Like): Vec3Like | nul
  */
 export const LAVA_DEPTH = 20;
 
+/** How close the bot must be for activateItem to affect a block. */
+export const REACH_BLOCKS = 4.5;
+
+/** Is the target close enough to interact with at all? */
+export function withinReach(bx: number, by: number, bz: number, tx: number, ty: number, tz: number): boolean {
+  return Math.hypot(bx - tx, by - ty, bz - tz) <= REACH_BLOCKS;
+}
+
 /**
  * What to do when there is no source in range.
  *
@@ -96,6 +104,17 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
       // Best effort — an unreachable approach square still leaves scooping
       // from wherever the bot ended up worth trying rather than bailing.
     }
+  }
+
+  // findBlock searches 32 blocks and the walk above is best-effort, so the bot
+  // may still be nowhere near the lava. activateItem does nothing outside the
+  // ~4.5 block reach, which produced "Bucket did not fill from the lava source"
+  // — a mechanics-sounding failure for what was really a distance problem.
+  const p = bot.entity.position;
+  const sp = source.position;
+  if (!withinReach(p.x, p.y, p.z, sp.x + 0.5, sp.y + 0.5, sp.z + 0.5)) {
+    const d = Math.hypot(p.x - sp.x, p.y - sp.y, p.z - sp.z);
+    return `Found ${fluid} at ${sp.x},${sp.y},${sp.z} but could not get closer than ${d.toFixed(0)} blocks — the path there is blocked. Try approaching from another side.`;
   }
 
   await bot.equip(bucket, "hand");
