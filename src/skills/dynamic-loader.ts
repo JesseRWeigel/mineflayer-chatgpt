@@ -320,11 +320,21 @@ function buildDynamicSkill(name: string, filePath: string): Skill {
           filename: filePath,
         }) as Promise<void>;
 
-        const timeoutPromise = new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error(`${name} timed out after 120s`)), 120_000),
-        );
+        // The watchdog must be cleared when the skill wins the race. Leaving it
+        // armed held the event loop open for the remaining 120s and later
+        // rejected a promise nobody was listening to. It made this file's two
+        // 180ms tests take 128 SECONDS -- the entire suite's runtime -- and in
+        // production every dynamic skill invocation left one behind.
+        let watchdog: NodeJS.Timeout | undefined;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          watchdog = setTimeout(() => reject(new Error(`${name} timed out after 120s`)), 120_000);
+        });
 
-        await Promise.race([vmPromise, timeoutPromise]);
+        try {
+          await Promise.race([vmPromise, timeoutPromise]);
+        } finally {
+          if (watchdog) clearTimeout(watchdog);
+        }
         onProgress({ skillName: name, phase: "Done", progress: 1, message: `${name} complete`, active: false });
         return { success: true, message: `${name} completed.` };
       } catch (err: any) {
