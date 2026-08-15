@@ -39,11 +39,14 @@ test("water is refused too — a flooded shaft drowns the bot", () => {
   assert.equal(safeToDigDown((d) => (d === 2 ? "water" : "solid")).safe, false);
 });
 
-test("an open drop is refused rather than fallen into", () => {
-  // Air below means a cave: digging the last block drops the bot into it.
-  const r = safeToDigDown((d) => (d === 2 ? "air" : "solid"));
+test("a drop too deep to survive is refused rather than fallen into", () => {
+  // Air from d=2 with the floor 5 blocks down: a 4-block fall, past the
+  // no-damage threshold. (A 1-block step is fine and is covered below — this
+  // test originally refused that too, which is what stalled every descent at
+  // the first cave.)
+  const r = safeToDigDown((d) => (d >= 2 && d <= 6 ? "air" : "solid"));
   assert.equal(r.safe, false);
-  assert.match(r.reason, /drop|air|cave/i);
+  assert.match(r.reason, /drop|fall|shaft/i);
 });
 
 test("unknown blocks are refused, not assumed solid", () => {
@@ -59,4 +62,32 @@ test("the lookahead is deep enough to matter", () => {
 test("the refusal reason is human-readable for the log", () => {
   const r = safeToDigDown((d) => (d === 1 ? "lava" : "solid"));
   assert.ok(r.reason.length > 8, "the log line has to explain itself");
+});
+
+// ── REGRESSION: refusing every cave means never reaching the lava sea ──
+//
+// Measured 2026-08-15: "Dug down 15 to y=53, then stopped: open air 3 block(s)
+// below — a cave drop, not a dig." Correct as written, and fatal to the goal:
+// the lava sea is at y=-52 and caves riddle everything between. A descent that
+// halts at the first cavity never arrives.
+//
+// A short drop onto solid floor is harmless — fall damage starts above 3
+// blocks. A long one is not. The check has to tell them apart instead of
+// refusing both.
+
+test("a short drop onto solid floor is allowed", () => {
+  // air at 2, floor at 3: a 1-block step down.
+  const probe = (d: number) => (d === 2 ? ("air" as const) : ("solid" as const));
+  assert.equal(safeToDigDown(probe).safe, true, "a 1-block step is not a fall");
+});
+
+test("a long drop is still refused", () => {
+  // air all the way through the lookahead and beyond: a real shaft.
+  assert.equal(safeToDigDown(() => "air").safe, false);
+});
+
+test("lava under a short drop is still refused", () => {
+  // The gap is survivable; what is at the bottom is not.
+  const probe = (d: number) => (d === 2 ? ("air" as const) : d >= 3 ? ("lava" as const) : ("solid" as const));
+  assert.equal(safeToDigDown(probe).safe, false);
 });
