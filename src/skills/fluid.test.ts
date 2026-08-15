@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isSourceBlock, pickApproach, noSourceAdvice, withinReach, REACH_BLOCKS } from "./fluid.js";
+import { isSourceBlock, pickApproach, noSourceAdvice, withinReach, REACH_BLOCKS, FLUID_SEARCH_BLOCKS } from "./fluid.js";
 
 // WHAT THIS FILE PINS DOWN.
 //
@@ -122,4 +122,15 @@ test("out of reach is reported as distance, not as a failed scoop", () => {
 
 test("the reach limit matches Minecraft's, not an invented number", () => {
   assert.ok(REACH_BLOCKS >= 3 && REACH_BLOCKS <= 6, `REACH_BLOCKS ${REACH_BLOCKS} is not a plausible reach`);
+});
+
+test("the fluid search reaches beyond a single cave chamber", () => {
+  // 32 blocks was too short underground: a bot inside a cave system reported
+  // "cannot find a lava source" and dug a fresh 46-block shaft instead of
+  // walking to the pool it was already near.
+  assert.ok(FLUID_SEARCH_BLOCKS >= 64, `${FLUID_SEARCH_BLOCKS} is too short to find cave lava`);
+});
+
+test("the no-source message reports the radius actually searched", () => {
+  assert.match(noSourceAdvice("lava", 70), new RegExp(String(FLUID_SEARCH_BLOCKS)));
 });

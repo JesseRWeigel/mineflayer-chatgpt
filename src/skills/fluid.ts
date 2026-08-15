@@ -60,6 +60,17 @@ export const LAVA_DEPTH = 20;
 /** How close the bot must be for activateItem to affect a block. */
 export const REACH_BLOCKS = 4.5;
 
+/**
+ * How far to look for a fluid source.
+ *
+ * 32 was too small to be useful underground. A bot standing in a cave system at
+ * y=-29 had lava somewhere in it and reported "cannot find a lava source",
+ * which sent it digging a fresh 46-block shaft instead of walking to the pool
+ * it was already near. Walking is cheaper than excavating, and the whole
+ * three-shaft apparatus existed to work around a search that was too short.
+ */
+export const FLUID_SEARCH_BLOCKS = 96;
+
 /** Is the target close enough to interact with at all? */
 export function withinReach(bx: number, by: number, bz: number, tx: number, ty: number, tz: number): boolean {
   return Math.hypot(bx - tx, by - ty, bz - tz) <= REACH_BLOCKS;
@@ -76,7 +87,7 @@ export function withinReach(bx: number, by: number, bz: number, tx: number, ty: 
  * brain cannot act on gets retried unchanged.
  */
 export function noSourceAdvice(fluid: "water" | "lava", y: number): string {
-  const base = `Cannot find a ${fluid} source within 32 blocks.`;
+  const base = `Cannot find a ${fluid} source within ${FLUID_SEARCH_BLOCKS} blocks.`;
   if (fluid === "water") return `${base} Look for a lake, river or ocean on the surface.`;
   if (y > LAVA_DEPTH) {
     return `${base} You are at y=${y}; open lava is rare this high. invoke_skill {"skill":"strip_mine"} to dig down to ore depth, then retry.`;
@@ -91,18 +102,21 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
 
   const source = bot.findBlock({
     matching: (b) => b.name === fluid && isSourceBlock(b),
-    maxDistance: 32,
+    maxDistance: FLUID_SEARCH_BLOCKS,
   });
   if (!source) return noSourceAdvice(fluid, Math.floor(bot.entity.position.y));
 
   const stand = pickApproach(bot.entity.position, source.position);
   if (stand) {
+    // Walk, and give it time to actually arrive: the source may now be up to
+    // FLUID_SEARCH_BLOCKS away, where the old 15s budget could not reach.
+    // Failing to arrive used to be swallowed, so the bot "scooped" from 20
+    // blocks off and reported a mechanics failure.
     bot.pathfinder.setMovements(baseMoves(bot));
     try {
-      await safeGoto(bot, new goals.GoalBlock(stand.x, stand.y, stand.z), 15000);
+      await safeGoto(bot, new goals.GoalNear(stand.x, stand.y, stand.z, 1), 45_000);
     } catch {
-      // Best effort — an unreachable approach square still leaves scooping
-      // from wherever the bot ended up worth trying rather than bailing.
+      /* fall through to the reach check below, which reports the real distance */
     }
   }
 

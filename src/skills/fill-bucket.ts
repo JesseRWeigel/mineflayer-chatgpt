@@ -68,7 +68,7 @@ export const LAVA_SEA_Y = -52;
  * Comfortably inside the executor's 240s watchdog, leaving room for the
  * searches, the walks between shafts, and the scoop itself.
  */
-export const SHAFT_BUDGET_MS = 150_000;
+export const SHAFT_BUDGET_MS = 120_000;
 
 export interface DescentPlan {
   shouldDescend: boolean;
@@ -133,13 +133,17 @@ export const fillBucketSkill: Skill = {
         // below" and "4-block drop below" around y=44-51, far short of lava.
         // Step aside and sink a fresh shaft rather than treating one blocked
         // hole as proof there is no way down.
+        // Shafts are the LAST resort, not the first. fillBucket now searches 96
+        // blocks and walks to what it finds, which is cheaper than excavating;
+        // this only runs when there is genuinely no lava within that radius.
+        //
         // The executor kills a skill at 240s (executor.ts:158). Three unbudgeted
         // shafts blew straight through it: 2 of 6 runs came back "timed out —
         // aborted to free the bot", losing their descent. Spend at most
         // SHAFT_BUDGET_MS total so the skill reports its own progress instead of
         // being killed mid-dig.
         const deadline = Date.now() + SHAFT_BUDGET_MS;
-        for (let attempt = 0; attempt < 3 && !filled; attempt++) {
+        for (let attempt = 0; attempt < 2 && !filled; attempt++) {
           const left = deadline - Date.now();
           if (left < 15_000) {
             result = `${result} Out of time for more shafts.`;
