@@ -28,6 +28,7 @@ import { digOutIfStuck, escapeWaterIfDrowning } from "./navigation.js";
 import { isStallResult, shouldForceDigOut, pruneStalls } from "./stall-rescue.js";
 import { isDeathTrap } from "./death-trap.js";
 import { classifyResult } from "./action-result.js";
+import { freshState, sampleMovement, isStuck } from "./stuck-detector.js";
 import { blockDurationFor } from "./block-escalation.js";
 import { isAtBase } from "./respawn.js";
 import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../stream/overlay.js";
@@ -272,31 +273,33 @@ export class BotBrain {
     // Key on real immobility instead of perceived idleness. A skill that
     // legitimately stays put (strip_mine digging down) still moves, so this does
     // not fight normal work.
-    let lastMovePos = this.bot.entity?.position?.clone() ?? null;
-    let lastMoveAt = Date.now();
     const STUCK_MS = 90_000;
+    let stuckState = freshState(
+      this.bot.entity?.position ?? { x: 0, y: 0, z: 0 },
+      Date.now(),
+    );
 
     const unstickTimer = setInterval(() => {
       const pos = this.bot.entity?.position;
       if (!pos) return;
 
-      if (!lastMovePos || pos.distanceTo(lastMovePos) > 2) {
-        lastMovePos = pos.clone();
-        lastMoveAt = Date.now();
-        return;
-      }
-
-      const stuckFor = Date.now() - lastMoveAt;
+      // Compare against the PREVIOUS SAMPLE, not a stale anchor. The old rule
+      // only advanced its reference on a >2-block jump, so a bot mining a vein
+      // or smelting at a furnace looked motionless and was dug out mid-action
+      // every 90s — 892 times across the swarm in one 5.5h session.
+      stuckState = sampleMovement(stuckState, pos, Date.now());
+      const stuck = isStuck(stuckState, Date.now(), STUCK_MS);
       const idle = !this.processing && !isSkillRunning(this.bot);
 
       // Idle bots get the original gentle treatment; genuinely immobile ones get
       // rescued whatever they believe they are doing.
-      if (idle || stuckFor > STUCK_MS) {
-        if (stuckFor > STUCK_MS) {
+      if (idle || stuck) {
+        if (stuck) {
+          const stuckFor = Date.now() - stuckState.lastMoveAt;
           console.log(
             `[Unstick] ${this.roleConfig.name} has not moved in ${Math.round(stuckFor / 1000)}s — digging out mid-action`,
           );
-          lastMoveAt = Date.now(); // don't re-fire every tick while it works
+          stuckState = freshState(pos, Date.now()); // don't re-fire while it works
         }
         digOutIfStuck(this.bot).catch(() => {});
       }
