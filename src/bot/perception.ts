@@ -2,8 +2,9 @@ import type { Bot } from "mineflayer";
 import type { Entity } from "prismarine-entity";
 import { recordOre } from "./memory.js";
 import { miningReachLine, bestPickaxeName } from "./mining-reach.js";
+import { undergroundNote } from "./underground.js";
 
-export function getWorldContext(bot: Bot): string {
+export function getWorldContext(bot: Bot, role?: string): string {
   const pos = bot.entity.position;
   const health = bot.health;
   const food = bot.food;
@@ -92,9 +93,9 @@ export function getWorldContext(bot: Bot): string {
     }
     if (skyAccessY !== -1 && skyAccessY <= 10) {
       // Solid block within 10 blocks above — definitely underground
-      parts.push(
-        `ALERT: Bot is UNDERGROUND (Y=${pos.y.toFixed(0)}, ceiling ${skyAccessY} blocks up). Use 'explore' to reach the surface — you need sunlight for trees and wood gathering. Cannot gather_wood underground.`,
-      );
+      // Was an unconditional order to surface, which sent the Miner/Smelter
+      // climbing out of the mine it had just dug. See underground.ts.
+      parts.push(undergroundNote(pos.y, skyAccessY, role));
     } else if (skyAccessY === -1) {
       // No ceiling within 20 blocks — might be in open-air at low elevation
       parts.push(

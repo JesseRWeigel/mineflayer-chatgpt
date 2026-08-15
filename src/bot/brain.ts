@@ -584,7 +584,7 @@ export class BotBrain {
 
   /** Build the world context string for strategic decisions. */
   private buildContext(): string {
-    const worldContext = getWorldContext(this.bot);
+    const worldContext = getWorldContext(this.bot, this.roleConfig.role);
     let ctx = `CURRENT STATE:\n${worldContext}`;
 
     // Pending chat messages
