@@ -20,7 +20,7 @@
 
 const HINTS: Record<string, string> = {
   "story/lava_bucket":
-    'You need a bucket first: invoke_skill {"skill":"craft_bucket"} (3 iron ingots), then fill it at a lava pool.',
+    'invoke_skill {"skill":"craft_bucket"} (3 iron ingots), then invoke_skill {"skill":"fill_bucket","fluid":"lava"}.',
   "story/form_obsidian":
     'Obsidian comes from water poured on a lava source. invoke_skill {"skill":"build_nether_portal"} does the casting.',
   "story/enter_the_nether":

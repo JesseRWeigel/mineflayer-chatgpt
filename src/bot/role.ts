@@ -142,6 +142,7 @@ export const FORGE_CONFIG: BotRoleConfig = {
     "smelt_ores",
     "craft_gear",
     "craft_bucket",
+    "fill_bucket",
     "craft_flint_and_steel",
     "build_nether_portal",
     "return_from_nether",
