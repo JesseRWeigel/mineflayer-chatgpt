@@ -4,6 +4,7 @@ import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import { baseMoves, collectNearbyDrops } from "../bot/navigation.js";
+import { digDownTo } from "./descend.js";
 
 const TUNNEL_LENGTH = 40;
 const TORCH_INTERVAL = 6;
@@ -70,7 +71,14 @@ export const stripMineSkill: Skill = {
           ),
         ]);
       } catch {
-        /* partial descent — mine wherever we reached */
+        // The pathfinder could not route a dig path out of this terrain. That
+        // is the common case, not the rare one: 12 of 14 runs stalled within a
+        // few blocks of the surface while the 2 that worked reached y=16 and
+        // y=-33 comfortably. Raising the budget would only re-create the
+        // watchdog stall noted below, so fall back to digging straight down,
+        // which is what a player does and what safeToDigDown makes survivable.
+        const fallback = await digDownTo(bot, TARGET_Y);
+        console.log(`[Skill] strip_mine pathfinder descent failed; ${fallback}`);
       }
       // Collect anything the descent dropped (ore dug on the way down).
       await collectNearbyDrops(bot, 4, 3000);
