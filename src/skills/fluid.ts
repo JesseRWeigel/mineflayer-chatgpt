@@ -48,6 +48,28 @@ export function pickApproach(botPos: Vec3Like, source: Vec3Like): Vec3Like | nul
   return { x: source.x, y: source.y, z: source.z + (dz >= 0 ? 1 : -1) };
 }
 
+/** Depth below which open lava pools are common enough to go looking. */
+export const LAVA_DEPTH = 10;
+
+/**
+ * What to do when there is no source in range.
+ *
+ * "Cannot find a lava source within 32 blocks" is true and useless: it never
+ * says that Forge was standing at y=73, where surface lava is rare, while lava
+ * pools are common below y=10. The bot re-ran the skill from the same spot.
+ *
+ * Same shape as tool-tier's harvestAdvice, for the same reason: a failure the
+ * brain cannot act on gets retried unchanged.
+ */
+export function noSourceAdvice(fluid: "water" | "lava", y: number): string {
+  const base = `Cannot find a ${fluid} source within 32 blocks.`;
+  if (fluid === "water") return `${base} Look for a lake, river or ocean on the surface.`;
+  if (y > LAVA_DEPTH) {
+    return `${base} You are at y=${y}; open lava is rare this high. invoke_skill {"skill":"strip_mine"} to get down near y=11, then retry.`;
+  }
+  return `${base} You are deep enough — explore sideways through caves to find a pool.`;
+}
+
 /** Equip a bucket, walk to a safe approach square, and scoop. Returns a result sentence. */
 export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<string> {
   const bucket = bot.inventory.items().find((i) => i.name === "bucket");
@@ -57,7 +79,7 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     matching: (b) => b.name === fluid && isSourceBlock(b),
     maxDistance: 32,
   });
-  if (!source) return `Cannot find a ${fluid} source within 32 blocks.`;
+  if (!source) return noSourceAdvice(fluid, Math.floor(bot.entity.position.y));
 
   const stand = pickApproach(bot.entity.position, source.position);
   if (stand) {

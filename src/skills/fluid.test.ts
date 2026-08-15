@@ -2,7 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isSourceBlock, pickApproach } from "./fluid.js";
+import { isSourceBlock, pickApproach, noSourceAdvice } from "./fluid.js";
 
 // WHAT THIS FILE PINS DOWN.
 //
@@ -61,4 +61,34 @@ test("a bot already standing on the source is moved off it, not left there", () 
   const stand = pickApproach(source, source);
   assert.ok(stand);
   assert.notDeepEqual(stand, source);
+});
+
+// ── REGRESSION: a failure the brain cannot act on gets retried unchanged ──
+//
+// fill_bucket ran 13 times and returned "Cannot find a lava source within 32
+// blocks" every time. True, and useless: Forge was at y=73, where surface lava
+// is rare, and nothing said that lava pools sit below y=10 or that strip_mine
+// is how you get there. The bot retried from the same spot.
+
+test("lava advice names the depth and the skill that gets you there", () => {
+  const a = noSourceAdvice("lava", 73);
+  assert.match(a, /y=73/, "say where the bot actually is");
+  assert.match(a, /strip_mine/, "name the route down");
+});
+
+test("a bot already deep is told to explore sideways, not to dig further", () => {
+  const a = noSourceAdvice("lava", 8);
+  assert.doesNotMatch(a, /strip_mine/, "it is already deep enough");
+  assert.match(a, /cave|sideways/i);
+});
+
+test("water advice points at the surface, not underground", () => {
+  const a = noSourceAdvice("water", 70);
+  assert.doesNotMatch(a, /strip_mine/);
+  assert.match(a, /lake|river|ocean/i);
+});
+
+test("advice never begins with a crash prefix", () => {
+  // "<name> failed:" marks a thrown skill and always counts against retirement.
+  for (const y of [73, 8]) assert.doesNotMatch(noSourceAdvice("lava", y), /^\s*\S+ failed:/);
 });
