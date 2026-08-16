@@ -51,6 +51,8 @@ for (const a of ALL_ADVANCEMENTS) {
   CHILDREN.set(a.parent, list);
 }
 
+const DESCENDANT_COUNTS = new Map<string, number>();
+
 /**
  * How many advancements this one eventually unlocks.
  *
@@ -60,8 +62,11 @@ for (const a of ALL_ADVANCEMENTS) {
  * portal stayed unbuilt.
  */
 export function descendantCount(id: string): number {
+  const cached = DESCENDANT_COUNTS.get(id);
+  if (cached !== undefined) return cached;
   let total = 0;
   for (const child of CHILDREN.get(id) ?? []) total += 1 + descendantCount(child);
+  DESCENDANT_COUNTS.set(id, total);
   return total;
 }
 
