@@ -20,6 +20,7 @@ const DOOR_TYPES = [
   "dark_oak_door",
   "cherry_door",
   "mangrove_door",
+  "pale_oak_door",
 ] as const;
 
 /** Remember last build site so repeated build_house calls finish the same house */
