@@ -26,7 +26,7 @@ const HINTS: Record<string, string> = {
   // building the portal is still the right move, because entering the Nether
   // does NOT require this advancement and unlocks 24 more.
   "story/form_obsidian":
-    'Pour water on a lava source to make obsidian; picking it UP needs a diamond_pickaxe. Either way invoke_skill {"skill":"build_nether_portal"} — the Nether does not require this advancement.',
+    'Water on a lava source makes obsidian; picking it UP needs a diamond_pickaxe. invoke_skill {"skill":"build_nether_portal"} either way.',
   "story/enter_the_nether":
     'invoke_skill {"skill":"build_nether_portal"} — it casts the frame and lights it. Needs a bucket and flint_and_steel.',
   "nether/root":
