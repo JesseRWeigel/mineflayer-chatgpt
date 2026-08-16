@@ -188,7 +188,7 @@ export const craftGearSkill: Skill = {
         .items()
         .filter((i) => i.name === "iron_ingot")
         .reduce((sum, i) => sum + i.count, 0);
-      const owned = bot.inventory.items().map((i) => i.name);
+      const owned = bot.inventory.slots.filter(Boolean).map((i) => i.name);
       const piece = affordableArmourPiece(ingots, owned);
       if (piece) {
         console.log(`[GearDebug] armour: ${ingots} ingots -> attempting ${piece}`);
