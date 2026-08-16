@@ -161,11 +161,16 @@ function dimensionOf(bot: Bot): string {
   return bot.game.dimension;
 }
 
+function isNether(dim: string): boolean {
+  return dim === "the_nether" || dim === "minecraft:the_nether";
+}
+
+function isOverworld(dim: string): boolean {
+  return dim === "overworld" || dim === "minecraft:overworld";
+}
+
 export async function returnThroughPortal(bot: Bot): Promise<string> {
-  // mineflayer's Dimension type is never "minecraft:"-prefixed (index.d.ts:482:
-  // 'the_nether' | 'overworld' | 'the_end'), so checking for a prefixed variant
-  // here was dead code masking an impossible comparison.
-  if (dimensionOf(bot) !== "the_nether") {
+  if (!isNether(dimensionOf(bot))) {
     return "Not in the Nether — nothing to return from.";
   }
   const portal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 64 });
@@ -181,7 +186,7 @@ export async function returnThroughPortal(bot: Bot): Promise<string> {
 
   // Standing in the portal is what triggers the transition; give it time.
   await new Promise((r) => setTimeout(r, 6000));
-  const home = dimensionOf(bot) === "overworld";
+  const home = isOverworld(dimensionOf(bot));
   return home ? "Returned to the overworld." : "Stood in the portal but did not transition.";
 }
 
