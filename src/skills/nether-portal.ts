@@ -188,7 +188,7 @@ export async function returnThroughPortal(bot: Bot): Promise<string> {
 export const buildNetherPortalSkill: Skill = {
   name: "build_nether_portal",
   description:
-    "Build and light a Nether portal near your current position using obsidian (cast or mined) and flint_and_steel. Requires a bucket and flint_and_steel first. Records the portal location so return_from_nether can find its way home.",
+    "Build and light a Nether portal near your current position. Casts obsidian from lava and water, crafts an igniter if you lack one, lights the portal, and records its location for return_from_nether. Needs a bucket.",
   params: {},
 
   estimateMaterials(_bot, _params) {

@@ -52,3 +52,33 @@ test("hints stay short enough to sit in a per-decision context", () => {
     assert.ok(hintFor(id).length < 160, `${id} hint is too long: ${hintFor(id).length}`);
   }
 });
+
+// ── REGRESSION: a hint must LEAD with the action ──
+//
+// The lava_bucket hint worked and reads:
+//   invoke_skill {"skill":"craft_bucket"} ... then invoke_skill {"skill":"fill_bucket"}
+//
+// The form_obsidian hint did not, and read:
+//   Water on a lava source makes obsidian; picking it UP needs a
+//   diamond_pickaxe. invoke_skill {"skill":"build_nether_portal"} either way.
+//
+// Measured 2026-08-16: with that hint in place, build_nether_portal was invoked
+// ZERO times across a full hour, while everything else about it was correct —
+// named in the goal, present in Forge's SKILLS, invoke_skill available.
+//
+// The difference is where the action sits. Adding an honest caveat about
+// diamond pickaxes pushed the instruction behind two clauses of qualification,
+// and the model acted on the qualification.
+
+test("every hint leads with the action, not with a caveat", () => {
+  for (const id of ["story/lava_bucket", "story/form_obsidian", "story/enter_the_nether", "nether/root"]) {
+    const h = hintFor(id);
+    if (!h) continue;
+    const firstInvoke = h.indexOf("invoke_skill");
+    assert.ok(firstInvoke >= 0, `${id} names no skill`);
+    assert.ok(
+      firstInvoke < 40,
+      `${id} buries its action ${firstInvoke} chars in — the model acts on what comes first: ${h}`,
+    );
+  }
+});
