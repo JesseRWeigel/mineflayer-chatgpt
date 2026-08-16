@@ -55,3 +55,34 @@ test("one bot's portal is not another's", () => {
 test("an unknown bot has no portal rather than a bogus one", () => {
   assert.equal(lastPortal("NeverBuilt"), undefined);
 });
+
+// ── FOURTH INSTANCE OF THE SAME PATTERN ──
+//
+// build_nether_portal refuses to start without flint_and_steel and told the
+// model to "craft those first". craft_flint_and_steel is registered, sits in
+// Forge's menu, and is named by no hint — so nothing ever pointed at it.
+//
+// Measured 2026-08-16, the hour after lava_bucket was earned: Forge made 22
+// invoke_skill calls and not one was build_nether_portal or
+// craft_flint_and_steel.
+//
+// The previous three instances all resolved the same way: put the sequence in
+// the skill instead of asking the model to chain it across decisions. This test
+// pins that the readiness message no longer just delegates upward.
+
+test("the not-ready message reports what crafting the igniter actually did", () => {
+  // Not a mock of the bot — this pins the CONTRACT of the message, which is
+  // what the brain reads. It must carry an outcome, not only an instruction.
+  const withIgniter = readinessOf(["bucket", "flint_and_steel"]);
+  assert.equal(withIgniter.ready, true);
+
+  const without = readinessOf(["bucket"]);
+  assert.equal(without.ready, false);
+  assert.deepEqual(without.missing, ["flint_and_steel"]);
+});
+
+test("a lava_bucket counts as the bucket the portal needs", () => {
+  // Forge is holding a lava_bucket after earning story/lava_bucket; the portal
+  // must not report it as missing a bucket.
+  assert.equal(readinessOf(["lava_bucket", "flint_and_steel"]).ready, true);
+});

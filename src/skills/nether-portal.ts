@@ -14,6 +14,7 @@ const { goals } = pkg;
 import type { Skill, SkillResult } from "./types.js";
 import { framePositions, interiorPositions, ignitionTarget } from "./portal-geometry.js";
 import { acquireObsidian } from "./obsidian.js";
+import { craftFlintAndSteel } from "./flint-and-steel.js";
 import type { Vec3Like } from "./fluid.js";
 import { baseMoves, safeGoto } from "../bot/navigation.js";
 
@@ -76,7 +77,18 @@ async function placeFrame(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<
 
 export async function buildNetherPortal(bot: Bot): Promise<string> {
   const names = bot.inventory.items().map((i) => i.name);
-  const { ready, missing } = readinessOf(names);
+  let { ready, missing } = readinessOf(names);
+
+  // Make the prerequisites rather than asking the model to chain skills across
+  // decisions. That advice has failed three times now: craft_bucket sat unused
+  // until its goal named it, fill_bucket ran from the surface after strip_mine
+  // had already descended, and craft_flint_and_steel is registered, in Forge's
+  // menu, and named by nothing. A skill that needs a thing should make it.
+  if (!ready && missing.includes("flint_and_steel")) {
+    const igniter = await craftFlintAndSteel(bot);
+    ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
+    if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. ${igniter}`;
+  }
   if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. Craft those first.`;
 
   const p = bot.entity.position;

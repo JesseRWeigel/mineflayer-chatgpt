@@ -28,7 +28,7 @@ const HINTS: Record<string, string> = {
   "story/form_obsidian":
     'Water on a lava source makes obsidian; picking it UP needs a diamond_pickaxe. invoke_skill {"skill":"build_nether_portal"} either way.',
   "story/enter_the_nether":
-    'invoke_skill {"skill":"build_nether_portal"} — it casts the frame and lights it. Needs a bucket and flint_and_steel.',
+    'invoke_skill {"skill":"build_nether_portal"} — it casts the frame, crafts an igniter if needed, and lights it.',
   "nether/root":
     'Get there by portal: invoke_skill {"skill":"build_nether_portal"}.',
   "story/smelt_iron": 'invoke_skill {"skill":"smelt_ores"} turns raw_iron into ingots.',
