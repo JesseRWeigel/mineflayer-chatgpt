@@ -21,8 +21,12 @@
 const HINTS: Record<string, string> = {
   "story/lava_bucket":
     'invoke_skill {"skill":"craft_bucket"} (3 iron ingots), then invoke_skill {"skill":"fill_bucket","fluid":"lava"}.',
+  // form_obsidian triggers on obsidian IN INVENTORY, and obsidian needs a
+  // diamond pickaxe to pick up. Casting a portal frame does not earn it — but
+  // building the portal is still the right move, because entering the Nether
+  // does NOT require this advancement and unlocks 24 more.
   "story/form_obsidian":
-    'Obsidian comes from water poured on a lava source. invoke_skill {"skill":"build_nether_portal"} does the casting.',
+    'Pour water on a lava source to make obsidian; picking it UP needs a diamond_pickaxe. Either way invoke_skill {"skill":"build_nether_portal"} — the Nether does not require this advancement.',
   "story/enter_the_nether":
     'invoke_skill {"skill":"build_nether_portal"} — it casts the frame and lights it. Needs a bucket and flint_and_steel.',
   "nether/root":
