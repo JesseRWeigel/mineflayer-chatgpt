@@ -97,7 +97,26 @@ export function noSourceAdvice(fluid: "water" | "lava", y: number): string {
 
 /** Equip a bucket, walk to a safe approach square, and scoop. Returns a result sentence. */
 export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<string> {
-  const bucket = bot.inventory.items().find((i) => i.name === "bucket");
+  // Already carrying the goods — filling would be a wasted round trip.
+  if (bot.inventory.items().some((i) => i.name === `${fluid}_bucket`)) {
+    return `Filled bucket with ${fluid} (already had it).`;
+  }
+
+  // A bucket full of the WRONG fluid is not "no bucket": the portal's
+  // readiness check accepts any bucket, so a bot arriving with water could
+  // never start the lava-first cast — 29 of the hour's 53 portal failures
+  // were this exact dead end. Dump it where we stand and carry on.
+  let bucket = bot.inventory.items().find((i) => i.name === "bucket");
+  if (!bucket) {
+    const wrong = bot.inventory.items().find((i) => i.name === "water_bucket" || i.name === "lava_bucket");
+    if (wrong) {
+      // Three blocks aside, not at the feet — the wrong fluid can be lava,
+      // and a bot must not pour lava on itself to free up its own bucket.
+      const feet = bot.entity.position.floored();
+      await emptyBucket(bot, { x: feet.x + 3, y: feet.y, z: feet.z });
+      bucket = bot.inventory.items().find((i) => i.name === "bucket");
+    }
+  }
   if (!bucket) return `No empty bucket to fill with ${fluid}.`;
 
   const source = bot.findBlock({
