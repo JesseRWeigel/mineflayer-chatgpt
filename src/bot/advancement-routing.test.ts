@@ -50,8 +50,11 @@ test("an empty frontier yields null, not a crash", () => {
 
 test("every role in the roster resolves to something on a mixed frontier", () => {
   const f = [
-    node("story/lava_bucket"), node("husbandry/breed_an_animal"),
-    node("adventure/kill_all_mobs"), node("nether/root"), node("adventure/adventuring_time"),
+    node("story/lava_bucket"),
+    node("husbandry/breed_an_animal"),
+    node("adventure/kill_all_mobs"),
+    node("nether/root"),
+    node("adventure/adventuring_time"),
   ];
   for (const role of ["Explorer / Miner", "Farmer / Crafter", "Miner / Smelter", "Builder", "Combat / Guard"]) {
     assert.ok(assignFor(role, f), `${role} got no assignment`);
@@ -97,7 +100,10 @@ test("a claimed advancement is not handed to a second bot", () => {
 test("a bot still gets its own claim back rather than being starved", () => {
   // Re-planning must not make a bot abandon the goal it is already pursuing.
   const f = [node("story/lava_bucket")];
-  assert.equal(assignFor("Miner / Smelter", f, new Set(["story/lava_bucket"]), "story/lava_bucket")?.id, "story/lava_bucket");
+  assert.equal(
+    assignFor("Miner / Smelter", f, new Set(["story/lava_bucket"]), "story/lava_bucket")?.id,
+    "story/lava_bucket",
+  );
 });
 
 test("when everything is claimed a bot doubles up rather than idling", () => {

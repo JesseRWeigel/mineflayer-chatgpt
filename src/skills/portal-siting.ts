@@ -52,12 +52,7 @@ export function siteIsBuildable(origin: Vec3Like, axis: "x" | "z", probe: BlockP
  * Outward order matters: the bot walks to wherever this points, and every
  * block of that walk is time not spent hauling lava.
  */
-export function findSite(
-  centre: Vec3Like,
-  axis: "x" | "z",
-  probe: BlockProbe,
-  radius: number,
-): Vec3Like | null {
+export function findSite(centre: Vec3Like, axis: "x" | "z", probe: BlockProbe, radius: number): Vec3Like | null {
   for (let r = 0; r <= radius; r++) {
     for (let dx = -r; dx <= r; dx++) {
       for (let dz = -r; dz <= r; dz++) {

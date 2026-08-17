@@ -79,7 +79,10 @@ export async function mineObsidian(bot: Bot, count: number): Promise<string> {
 export async function acquireObsidian(bot: Bot, positions: Vec3Like[]): Promise<string> {
   const names = bot.inventory.items().map((i) => i.name);
   if (chooseStrategy(names) === "mine") {
-    const held = bot.inventory.items().filter((i) => i.name === "obsidian").reduce((n, i) => n + i.count, 0);
+    const held = bot.inventory
+      .items()
+      .filter((i) => i.name === "obsidian")
+      .reduce((n, i) => n + i.count, 0);
     if (held >= positions.length) return `Already holding ${held} obsidian.`;
     const res = await mineObsidian(bot, positions.length - held);
     // Mining can come up short if no obsidian is nearby; fall back rather than stall.

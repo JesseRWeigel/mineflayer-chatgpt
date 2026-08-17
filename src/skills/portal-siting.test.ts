@@ -51,8 +51,7 @@ test("one intruding block anywhere in the volume is enough to reject", () => {
 
 test("lava or water in the volume is rejected, not treated as air", () => {
   const frame = framePositions(origin, "x")[0];
-  const puddle: BlockProbe = (p) =>
-    p.x === frame.x && p.y === frame.y && p.z === frame.z ? "liquid" : flatGround(p);
+  const puddle: BlockProbe = (p) => (p.x === frame.x && p.y === frame.y && p.z === frame.z ? "liquid" : flatGround(p));
   assert.equal(siteIsBuildable(origin, "x", puddle), false);
 });
 
@@ -77,7 +76,10 @@ test("findSite returns the nearest buildable spot on open ground", () => {
 });
 
 test("findSite gives up rather than returning an unbuildable site", () => {
-  assert.equal(findSite({ x: 0, y: 65, z: 0 }, "x", () => "solid", 3), null);
+  assert.equal(
+    findSite({ x: 0, y: 65, z: 0 }, "x", () => "solid", 3),
+    null,
+  );
 });
 
 test("findSite searches outward, so a nearby clearing beats a distant one", () => {

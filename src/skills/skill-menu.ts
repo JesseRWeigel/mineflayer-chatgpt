@@ -42,12 +42,7 @@ function window<T>(items: T[], offset: number, count: number): T[] {
  * @param rotation   a counter that advances each render; rotates the untried window
  * @returns deduped skill names, proven first, then untried, then strugglers
  */
-export function pickSkillMenu(
-  proven: string[],
-  untried: string[],
-  struggling: string[],
-  rotation: number,
-): string[] {
+export function pickSkillMenu(proven: string[], untried: string[], struggling: string[], rotation: number): string[] {
   const explore = window(untried, rotation * EXPLORE_SLOTS, EXPLORE_SLOTS);
 
   // Unused exploration slots fall back to proven skills rather than going to

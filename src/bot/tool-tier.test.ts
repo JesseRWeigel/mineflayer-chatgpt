@@ -118,11 +118,7 @@ test("a bot with no pickaxe is sent to wood, never to stone", () => {
     const advice = harvestAdvice(target, null);
     assert.match(advice, /wood/i, `${target}: must point at wood, the only thing it can gather`);
     assert.match(advice, /wooden_pickaxe/, `${target}: the first tool is always wooden`);
-    assert.doesNotMatch(
-      advice,
-      /Mine stone|mine stone/,
-      `${target}: cannot tell a pickaxe-less bot to mine stone`,
-    );
+    assert.doesNotMatch(advice, /Mine stone|mine stone/, `${target}: cannot tell a pickaxe-less bot to mine stone`);
   }
 });
 

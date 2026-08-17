@@ -110,12 +110,8 @@ test("a malformed file falls back to the last good read rather than to zero", as
   fs.writeFileSync(file, JSON.stringify({ "minecraft:story/root": { done: true } }));
   assert.deepEqual(readEarned("Torn", dir), new Set(["story/root"]), "baseline good read");
 
-  fs.writeFileSync(file, '{"minecraft:story/root": {"do');  // truncated mid-flush
-  assert.deepEqual(
-    readEarned("Torn", dir),
-    new Set(["story/root"]),
-    "a truncated read must not report zero progress",
-  );
+  fs.writeFileSync(file, '{"minecraft:story/root": {"do'); // truncated mid-flush
+  assert.deepEqual(readEarned("Torn", dir), new Set(["story/root"]), "a truncated read must not report zero progress");
 
   fs.rmSync(dir, { recursive: true, force: true });
 });

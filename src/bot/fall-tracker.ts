@@ -95,7 +95,7 @@ export function createFallTracker(initialY: number): FallTracker {
         fallStartY = lastGroundY;
         leftGroundAt = now;
         departureContext = context;
-              // A caller that reports footing and never saw solid ground means the bot
+        // A caller that reports footing and never saw solid ground means the bot
         // was never on any: say so, rather than handing back the lagging sample.
         footingContext = footingReported ? (sawSolid ? lastSolidContext : "") : lastGroundContext;
         footingAt = sawSolid ? lastSolidAt : now;

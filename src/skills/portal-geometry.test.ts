@@ -57,7 +57,10 @@ test("the frame is a closed ring around the interior", () => {
   const known = new Set([...frame, ...inner].map((p) => `${p.x},${p.y},${p.z}`));
   for (const p of inner) {
     for (const d of [
-      { x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 },
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: -1 },
     ]) {
       assert.ok(
         known.has(`${p.x + d.x},${p.y + d.y},${p.z}`),

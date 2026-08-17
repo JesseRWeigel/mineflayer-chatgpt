@@ -80,8 +80,17 @@ test("an inventory with no pickaxe yields null, not a stray item", () => {
 
 test("the line stays short enough to not crowd the context", () => {
   const everything = [
-    "iron_ore", "copper_ore", "lapis_ore", "gold_ore", "redstone_ore",
-    "diamond_ore", "emerald_ore", "obsidian", "stone", "coal_ore", "oak_log",
+    "iron_ore",
+    "copper_ore",
+    "lapis_ore",
+    "gold_ore",
+    "redstone_ore",
+    "diamond_ore",
+    "emerald_ore",
+    "obsidian",
+    "stone",
+    "coal_ore",
+    "oak_log",
   ];
   assert.ok(
     miningReachLine(everything, "wooden_pickaxe").length < 400,

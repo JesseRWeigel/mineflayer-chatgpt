@@ -2,7 +2,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { isSourceBlock, pickApproach, noSourceAdvice, withinReach, REACH_BLOCKS, FLUID_SEARCH_BLOCKS } from "./fluid.js";
+import {
+  isSourceBlock,
+  pickApproach,
+  noSourceAdvice,
+  withinReach,
+  REACH_BLOCKS,
+  FLUID_SEARCH_BLOCKS,
+} from "./fluid.js";
 
 // WHAT THIS FILE PINS DOWN.
 //

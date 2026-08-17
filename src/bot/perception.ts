@@ -52,10 +52,7 @@ export function getWorldContext(bot: Bot, role?: string): string {
     // this, five different models all chose mine_block iron_ore while holding a
     // wooden pickaxe -- the block list said the ore was there and nothing said
     // it was out of reach. tool-tier.ts knew, but only checked after the dig.
-    const reach = miningReachLine(
-      nearbyBlocks,
-      bestPickaxeName(items.map((i) => i.name)),
-    );
+    const reach = miningReachLine(nearbyBlocks, bestPickaxeName(items.map((i) => i.name)));
     if (reach) parts.push(reach);
   }
 

@@ -49,8 +49,7 @@ const NO_TOOL_NEEDED = new Set([
   "dark_oak_log",
 ]);
 
-const cheapestFor = (tier: number): string =>
-  Object.entries(PICKAXE_TIERS).find(([, t]) => t === tier)?.[0] ?? "stone";
+const cheapestFor = (tier: number): string => Object.entries(PICKAXE_TIERS).find(([, t]) => t === tier)?.[0] ?? "stone";
 
 /**
  * What each pickaxe is actually crafted from. A wooden pickaxe is 3 planks and

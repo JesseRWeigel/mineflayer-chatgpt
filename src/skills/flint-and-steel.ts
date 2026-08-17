@@ -17,12 +17,11 @@ const GRAVEL_PER_FLINT = 10;
  * Kept separate from the bot so the brain can ask "is this worth trying?"
  * without a server, and so the arithmetic is testable.
  */
-export function igniterPlan(have: {
-  flint?: number;
-  gravel?: number;
-  iron_ingot?: number;
-  flint_and_steel?: number;
-}): { have: boolean; needGravel: number; needIron: number } {
+export function igniterPlan(have: { flint?: number; gravel?: number; iron_ingot?: number; flint_and_steel?: number }): {
+  have: boolean;
+  needGravel: number;
+  needIron: number;
+} {
   if ((have.flint_and_steel ?? 0) > 0) return { have: true, needGravel: 0, needIron: 0 };
   const needIron = Math.max(0, 1 - (have.iron_ingot ?? 0));
   if ((have.flint ?? 0) > 0) return { have: false, needGravel: 0, needIron };

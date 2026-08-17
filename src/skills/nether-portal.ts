@@ -52,9 +52,7 @@ export function lastPortal(botName: string): { origin: Vec3Like; axis: "x" | "z"
 async function placeFrame(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<void> {
   const frame = framePositions(origin, axis);
   const floor = frame.filter((p) => p.y === origin.y - 1);
-  const jambs = frame
-    .filter((p) => p.y >= origin.y && p.y < origin.y + 3)
-    .sort((a, b) => a.y - b.y);
+  const jambs = frame.filter((p) => p.y >= origin.y && p.y < origin.y + 3).sort((a, b) => a.y - b.y);
   const lintel = frame.filter((p) => p.y === origin.y + 3);
   const ordered = [...floor, ...jambs, ...lintel];
 

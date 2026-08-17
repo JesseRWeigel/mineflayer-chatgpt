@@ -40,17 +40,11 @@ test("withdrawing from the stash is a success", () => {
 });
 
 test("a partial deposit is still a success", () => {
-  assert.equal(
-    classifyResult("Deposited 8 items. 4 items couldn't fit (chest full)."),
-    true,
-  );
+  assert.equal(classifyResult("Deposited 8 items. 4 items couldn't fit (chest full)."), true);
 });
 
 test("refusing to harvest is not a success", () => {
-  assert.equal(
-    classifyResult("Can't harvest stone with wooden_pickaxe, it needs a stone_pickaxe."),
-    false,
-  );
+  assert.equal(classifyResult("Can't harvest stone with wooden_pickaxe, it needs a stone_pickaxe."), false);
 });
 
 test("refusing to sleep is not a success", () => {
@@ -62,10 +56,7 @@ test("an empty inventory deposit is not a success", () => {
 });
 
 test("an unreachable stash is not a success", () => {
-  assert.equal(
-    classifyResult("Can't reach the stash, 45 blocks away (blocked or underground)."),
-    false,
-  );
+  assert.equal(classifyResult("Can't reach the stash, 45 blocks away (blocked or underground)."), false);
 });
 
 test("a navigation failure is not a success", () => {

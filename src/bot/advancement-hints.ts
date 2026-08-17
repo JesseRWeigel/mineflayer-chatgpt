@@ -29,8 +29,7 @@ const HINTS: Record<string, string> = {
     'invoke_skill {"skill":"build_nether_portal"} — it casts obsidian from lava and water. (Picking obsidian UP also needs a diamond_pickaxe.)',
   "story/enter_the_nether":
     'invoke_skill {"skill":"build_nether_portal"} — it casts the frame, crafts an igniter if needed, and lights it.',
-  "nether/root":
-    'Get there by portal: invoke_skill {"skill":"build_nether_portal"}.',
+  "nether/root": 'Get there by portal: invoke_skill {"skill":"build_nether_portal"}.',
   "story/smelt_iron": 'invoke_skill {"skill":"smelt_ores"} turns raw_iron into ingots.',
   "story/iron_tools": 'invoke_skill {"skill":"craft_gear"} makes the best tools your materials allow.',
   "story/shiny_gear": 'invoke_skill {"skill":"craft_gear"} once you have diamonds.',

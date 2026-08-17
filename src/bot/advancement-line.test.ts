@@ -12,10 +12,19 @@ import { ALL_ADVANCEMENTS } from "./advancement-tree.js";
 // held 13 of 122 advancements and had never entered the nether.
 
 const TEAM_2026_08_13 = new Set([
-  "story/root", "story/mine_stone", "story/upgrade_tools", "story/smelt_iron",
-  "story/iron_tools", "story/obtain_armor", "story/mine_diamond", "story/deflect_arrow",
-  "adventure/root", "adventure/kill_a_mob", "adventure/sleep_in_bed",
-  "husbandry/root", "husbandry/plant_seed",
+  "story/root",
+  "story/mine_stone",
+  "story/upgrade_tools",
+  "story/smelt_iron",
+  "story/iron_tools",
+  "story/obtain_armor",
+  "story/mine_diamond",
+  "story/deflect_arrow",
+  "adventure/root",
+  "adventure/kill_a_mob",
+  "adventure/sleep_in_bed",
+  "husbandry/root",
+  "husbandry/plant_seed",
 ]);
 
 test("the line names a concrete next advancement", () => {

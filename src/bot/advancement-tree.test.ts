@@ -36,10 +36,13 @@ test("ids are bare, not namespaced", () => {
 test("the five roots have no parent and everything else does", () => {
   const roots = ALL_ADVANCEMENTS.filter((a) => a.parent === null);
   assert.equal(roots.length, 5);
-  assert.deepEqual(
-    roots.map((r) => r.id).sort(),
-    ["adventure/root", "end/root", "husbandry/root", "nether/root", "story/root"],
-  );
+  assert.deepEqual(roots.map((r) => r.id).sort(), [
+    "adventure/root",
+    "end/root",
+    "husbandry/root",
+    "nether/root",
+    "story/root",
+  ]);
 });
 
 test("every non-root parent resolves to a real node", () => {
@@ -72,7 +75,10 @@ test("descendantCount measures how much an advancement unlocks", () => {
 
 test("earning a parent unlocks its children", () => {
   const f = frontierOf(new Set(["story/root"]));
-  assert.ok(f.some((a) => a.id === "story/mine_stone"), "mine_stone should unlock after story/root");
+  assert.ok(
+    f.some((a) => a.id === "story/mine_stone"),
+    "mine_stone should unlock after story/root",
+  );
   assert.ok(!f.some((a) => a.id === "story/root"), "an earned advancement is not on the frontier");
 });
 
@@ -87,12 +93,24 @@ test("the nether is gated behind form_obsidian, not directly available", () => {
 test("the real team state produces a non-empty frontier", () => {
   // The 13 advancements the swarm actually held on 2026-08-13.
   const earned = new Set([
-    "story/root", "story/mine_stone", "story/upgrade_tools", "story/smelt_iron",
-    "story/iron_tools", "story/obtain_armor", "story/mine_diamond", "story/deflect_arrow",
-    "adventure/root", "adventure/kill_a_mob", "adventure/sleep_in_bed",
-    "husbandry/root", "husbandry/plant_seed",
+    "story/root",
+    "story/mine_stone",
+    "story/upgrade_tools",
+    "story/smelt_iron",
+    "story/iron_tools",
+    "story/obtain_armor",
+    "story/mine_diamond",
+    "story/deflect_arrow",
+    "adventure/root",
+    "adventure/kill_a_mob",
+    "adventure/sleep_in_bed",
+    "husbandry/root",
+    "husbandry/plant_seed",
   ]);
   const f = frontierOf(earned);
   assert.ok(f.length > 0);
-  assert.ok(f.some((a) => a.id === "story/lava_bucket"), "lava_bucket is the real next step on the spine");
+  assert.ok(
+    f.some((a) => a.id === "story/lava_bucket"),
+    "lava_bucket is the real next step on the spine",
+  );
 });
