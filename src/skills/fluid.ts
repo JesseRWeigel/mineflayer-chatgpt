@@ -190,14 +190,20 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
     }
   }
 
-  // Right-clicking a block's top face pours the fluid into the space above
-  // it, so target the block directly below where the fluid should end up.
+  // Pouring is the same packet dance as filling: the server runs the bucket's
+  // own eye-ray trace when the ITEM is used, so "look at the top face of the
+  // block below the target space, then use the held item". activateBlock was
+  // the pour-side twin of the fill-side bug that cost a day — it survived here
+  // on the unverified reasoning that pouring "clicks a solid block, where it's
+  // right". Six "Bucket did not empty" failures an hour said otherwise.
   const target = bot.blockAt(new Vec3(at.x, at.y - 1, at.z));
   if (!target) return `Nothing to pour against at ${at.x},${at.y},${at.z}.`;
 
   await bot.equip(full, "hand");
-  await bot.lookAt(new Vec3(at.x + 0.5, at.y - 0.5, at.z + 0.5), true);
-  await bot.activateBlock(target);
+  // Aim just below the seam so the ray hits the support block's TOP face —
+  // hitting a side face would place the fluid in the wrong cell.
+  await bot.lookAt(new Vec3(at.x + 0.5, at.y - 0.02, at.z + 0.5), true);
+  bot.activateItem();
   await new Promise((r) => setTimeout(r, 500)); // let the inventory packet land
 
   const emptied = bot.inventory.items().some((i) => i.name === "bucket");
