@@ -148,8 +148,25 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   bot.activateItem();
   await new Promise((r) => setTimeout(r, 500)); // let the inventory packet land
 
-  const filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
-  return filled ? `Filled a bucket with ${fluid}.` : `Bucket did not fill from the ${fluid} source.`;
+  let filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
+  if (!filled) {
+    // The reach check passes at 4.5 but the server's own use-item ray starts
+    // at the EYES and can fall short or clip a pool-rim block from that far.
+    // The probe validated scoops at ~2 blocks; step in once and try again.
+    try {
+      await safeGoto(bot, new goals.GoalNear(sp.x, sp.y, sp.z, 1), 15_000);
+    } catch {
+      /* retry from wherever we got */
+    }
+    await bot.lookAt(source.position.offset(0.5, 0.5, 0.5), true);
+    bot.activateItem();
+    await new Promise((r) => setTimeout(r, 500));
+    filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
+  }
+  if (filled) return `Filled a bucket with ${fluid}.`;
+  const q = bot.entity.position;
+  const dNow = Math.hypot(q.x - sp.x, q.y - sp.y, q.z - sp.z);
+  return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}).`;
 }
 
 /** Pour a full bucket so the fluid lands at `at`. Returns a result sentence. */
