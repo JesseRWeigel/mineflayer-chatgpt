@@ -15,7 +15,7 @@ import type { Skill, SkillResult } from "./types.js";
 import { framePositions, interiorPositions, ignitionTarget } from "./portal-geometry.js";
 import { acquireObsidian } from "./obsidian.js";
 import { craftFlintAndSteel } from "./flint-and-steel.js";
-import type { Vec3Like } from "./fluid.js";
+import { isSourceBlock, type Vec3Like } from "./fluid.js";
 import { baseMoves, safeGoto } from "../bot/navigation.js";
 
 const REQUIRED = ["bucket", "flint_and_steel"] as const;
@@ -128,9 +128,31 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       // Casting re-checks reach per block; being short of the site is survivable.
     }
   } else {
+    // Site the frame beside the lava it will drink from, not beside the bot.
+    // A surface site over deep lava charges every one of ten casts a full
+    // descent round trip — the run that exposed this filled its bucket at
+    // depth and then could not climb back within budget ("Could not get
+    // within pouring range... the path back is blocked"). Ten of those can
+    // never fit one watchdog window; ten five-block hops can. As a bonus,
+    // the wrong-fluid dump in fillBucket lands its water near the site,
+    // becoming the refill station for the cast's water half.
+    const lava = bot.findBlock({
+      matching: (b) => b.name === "lava" && isSourceBlock(b),
+      maxDistance: 96,
+    });
+    if (lava && bot.entity.position.distanceTo(lava.position) > 10) {
+      bot.pathfinder.setMovements(baseMoves(bot));
+      try {
+        await safeGoto(bot, new goals.GoalNear(lava.position.x, lava.position.y, lava.position.z, 5), 60000);
+      } catch {
+        // Site wherever we got to; the cast's own fill reports distance honestly.
+      }
+    }
+
     // Start one above the bot's feet: the frame's floor row rests ON the
     // ground, so the interior begins a block higher.
-    const centre: Vec3Like = { x: Math.floor(p.x) + 2, y: Math.floor(p.y) + 1, z: Math.floor(p.z) };
+    const here = bot.entity.position;
+    const centre: Vec3Like = { x: Math.floor(here.x) + 2, y: Math.floor(here.y) + 1, z: Math.floor(here.z) };
     const site = findSiteFlexible(centre, probe, 16);
     if (site) {
       ({ origin, axis } = site);
