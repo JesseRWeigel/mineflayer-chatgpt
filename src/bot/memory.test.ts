@@ -289,6 +289,22 @@ test("memory: a missing-item refusal is a precondition, not a broken skill", () 
   assert.equal(isPreconditionFailure("Crashed: Cannot read properties of undefined (missing block)"), false);
 });
 
+test("memory: portal siting and partial-frame reports are preconditions too", () => {
+  // These re-retired build_nether_portal the day after the flint shortage did.
+  assert.equal(
+    isPreconditionFailure("No clear 4x5 space for a portal within 6 blocks. Move somewhere open and retry."),
+    true,
+  );
+  assert.equal(
+    isPreconditionFailure("Portal stalled: frame is not complete after acquiring and placing obsidian."),
+    true,
+  );
+  assert.equal(
+    isPreconditionFailure("Frame unfinished so far (Cast 3 of 15) — retry to continue this same frame."),
+    true,
+  );
+});
+
 test("memory: static skills get added to brokenSkillNames but are healed on reload", () => {
   const { store, file, cleanup } = tmpStore();
   try {

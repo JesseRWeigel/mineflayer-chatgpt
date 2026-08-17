@@ -136,6 +136,15 @@ export const PRECONDITION_KEYWORDS = [
   // still counts as real.
   "missing",
   "Not ready",
+  // build_nether_portal environment/progress reports. "No clear 4x5 space" is
+  // a location problem; a stalled or unfinished frame is banked PARTIAL
+  // progress (the site persists and the next run continues it). Neither says
+  // the skill is broken, and both re-retired it a day after the flint
+  // shortage did — the stats recompute from stored notes, so adding the
+  // phrasings here heals the historical record too.
+  "No clear",
+  "Portal stalled",
+  "Frame unfinished",
   // "timed out" removed — combat/mining skills that time out are real failures,
   // not precondition failures. exploreUntil timeouts use "aborted" instead.
 ];
