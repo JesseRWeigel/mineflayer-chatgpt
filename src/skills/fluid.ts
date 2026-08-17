@@ -155,12 +155,29 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
   const full = bot.inventory.items().find((i) => i.name === "water_bucket" || i.name === "lava_bucket");
   if (!full) return "No full bucket to empty.";
 
+  // Walk into pouring range first. Filling lava can end 100+ blocks below the
+  // portal site, and activateBlock beyond ~4.5 blocks does nothing — the pour
+  // silently failed from the fill spot and no obsidian ever converted.
+  const dist = bot.entity.position.distanceTo(new Vec3(at.x, at.y, at.z));
+  if (dist > 4) {
+    bot.pathfinder.setMovements(baseMoves(bot));
+    try {
+      await safeGoto(bot, new goals.GoalNear(at.x, at.y, at.z, 2), 45000);
+    } catch {
+      // fall through to the reach check below
+    }
+    if (bot.entity.position.distanceTo(new Vec3(at.x, at.y, at.z)) > 4.5) {
+      return `Could not get within pouring range of ${at.x},${at.y},${at.z} — the path back is blocked.`;
+    }
+  }
+
   // Right-clicking a block's top face pours the fluid into the space above
   // it, so target the block directly below where the fluid should end up.
   const target = bot.blockAt(new Vec3(at.x, at.y - 1, at.z));
   if (!target) return `Nothing to pour against at ${at.x},${at.y},${at.z}.`;
 
   await bot.equip(full, "hand");
+  await bot.lookAt(new Vec3(at.x + 0.5, at.y - 0.5, at.z + 0.5), true);
   await bot.activateBlock(target);
   await new Promise((r) => setTimeout(r, 500)); // let the inventory packet land
 

@@ -36,13 +36,19 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[]): Promise<stri
       continue;
     }
 
+    // "Stopped", not "Cast stopped": the caller whitelists the "Cast " prefix
+    // as progress, and this message sharing it made a 0-block failure read as
+    // success — the fill error was swallowed and the bot reported a bare
+    // "frame is not complete" with no cause for two hours.
     const lava = await fillBucket(bot, "lava");
-    if (!lava.startsWith("Filled")) return `Cast stopped after ${cast}/${positions.length}: ${lava}`;
-    await emptyBucket(bot, pos);
+    if (!lava.startsWith("Filled")) return `Stopped after ${cast}/${positions.length}: ${lava}`;
+    const pouredLava = await emptyBucket(bot, pos);
+    if (!pouredLava.startsWith("Poured")) return `Stopped after ${cast}/${positions.length}: ${pouredLava}`;
 
     const water = await fillBucket(bot, "water");
-    if (!water.startsWith("Filled")) return `Cast stopped after ${cast}/${positions.length}: ${water}`;
-    await emptyBucket(bot, { x: pos.x, y: pos.y + 1, z: pos.z });
+    if (!water.startsWith("Filled")) return `Stopped after ${cast}/${positions.length}: ${water}`;
+    const pouredWater = await emptyBucket(bot, { x: pos.x, y: pos.y + 1, z: pos.z });
+    if (!pouredWater.startsWith("Poured")) return `Stopped after ${cast}/${positions.length}: ${pouredWater}`;
 
     await new Promise((r) => setTimeout(r, 400));
     const now = bot.blockAt(new Vec3(pos.x, pos.y, pos.z));

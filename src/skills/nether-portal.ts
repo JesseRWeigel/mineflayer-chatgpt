@@ -32,6 +32,17 @@ export function readinessOf(names: string[]): { ready: boolean; missing: string[
 /** Where each bot's portal is, so it can find its way back. */
 const portals = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>();
 
+/**
+ * The site a bot has already started building on. Without this, every retry
+ * sited a fresh frame wherever the bot happened to be standing — the hour's
+ * log shows "No clear 4x5 space" alternating with "frame is not complete"
+ * as the site moved between attempts, scattering partial frames that could
+ * never individually finish. Casting resumes on a remembered site because
+ * castInPlace counts already-obsidian positions as done.
+ */
+const plannedSites = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>();
+const RESUME_RANGE = 48;
+
 export function recordPortal(bot: Bot, origin: Vec3Like, axis: "x" | "z"): void {
   portals.set(bot.username, { origin, axis });
 }
@@ -105,14 +116,28 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     return "solid";
   };
 
-  // Start one above the bot's feet: the frame's floor row rests ON the ground,
-  // so the interior begins a block higher.
-  const centre: Vec3Like = { x: Math.floor(p.x) + 2, y: Math.floor(p.y) + 1, z: Math.floor(p.z) };
-  const origin = findSite(centre, axis, probe, 6);
+  // Resume a half-built frame before siting a new one.
+  const prior = plannedSites.get(bot.username);
+  let origin: Vec3Like | null = null;
+  if (prior && Math.hypot(prior.origin.x - p.x, prior.origin.y - p.y, prior.origin.z - p.z) <= RESUME_RANGE) {
+    origin = prior.origin;
+    try {
+      await safeGoto(bot, new goals.GoalNear(origin.x, origin.y, origin.z, 3), 30000);
+    } catch {
+      // Casting re-checks reach per block; being short of the site is survivable.
+    }
+  } else {
+    // Start one above the bot's feet: the frame's floor row rests ON the
+    // ground, so the interior begins a block higher.
+    const centre: Vec3Like = { x: Math.floor(p.x) + 2, y: Math.floor(p.y) + 1, z: Math.floor(p.z) };
+    origin = findSite(centre, axis, probe, 6);
+    if (origin) plannedSites.set(bot.username, { origin, axis });
+  }
   if (!origin) return "No clear 4x5 space for a portal within 6 blocks. Move somewhere open and retry.";
 
   const frame = framePositions(origin, axis);
   const got = await acquireObsidian(bot, frame);
+  console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
   if (!got.startsWith("Cast") && !got.startsWith("Mined") && !got.startsWith("Already")) {
     return `Portal stalled getting obsidian: ${got}`;
   }
@@ -126,7 +151,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   }
 
   const frameComplete = frame.every((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian");
-  if (!frameComplete) return "Portal stalled: frame is not complete after acquiring and placing obsidian.";
+  if (!frameComplete) return `Frame unfinished so far (${got}) — retry to continue this same frame.`;
 
   // Clear the interior so the portal has room to form.
   for (const pos of interiorPositions(origin, axis)) {
@@ -149,6 +174,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   if (!lit) return "Frame built but the portal did not light. Check the frame is complete.";
 
   recordPortal(bot, origin, axis);
+  plannedSites.delete(bot.username);
   return `Portal built and lit at ${origin.x},${origin.y},${origin.z}.`;
 }
 
