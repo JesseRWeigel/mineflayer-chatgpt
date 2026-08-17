@@ -176,13 +176,22 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       return `No lava source within 96 blocks even at y=${Math.floor(bot.entity.position.y)}. Explore sideways through caves, then invoke_skill {"skill":"build_nether_portal"} again.`;
     }
 
-    if (bot.entity.position.distanceTo(lava.position) > 10) {
-      bot.pathfinder.setMovements(baseMoves(bot));
+    // Keep walking while the gap is closing. A single 60s leg once ended the
+    // run "still 40 blocks away" with ~170s of watchdog budget unused, and
+    // the model wandered off instead of re-invoking. Two more bounded legs
+    // fit comfortably under the 240s watchdog even after a 100s descent.
+    bot.pathfinder.setMovements(baseMoves(bot));
+    for (let leg = 0; leg < 3; leg++) {
+      let gap = bot.entity.position.distanceTo(lava.position);
+      if (gap <= 10) break;
       try {
-        await safeGoto(bot, new goals.GoalNear(lava.position.x, lava.position.y, lava.position.z, 5), 60000);
+        await safeGoto(bot, new goals.GoalNear(lava.position.x, lava.position.y, lava.position.z, 5), 45000);
       } catch {
-        /* checked below — a frame is only committed where the casts can drink */
+        /* measured below */
       }
+      const now = bot.entity.position.distanceTo(lava.position);
+      if (now >= gap - 2) break; // not closing — genuinely blocked
+      gap = now;
     }
 
     // Do NOT plan a frame the walk never reached. "Site wherever we got to"
@@ -192,6 +201,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // invocation continues from here.
     const lavaGap = bot.entity.position.distanceTo(lava.position);
     if (lavaGap > 15) {
+      console.log(`[Portal] ${bot.username}: walk fell short — ${lavaGap.toFixed(0)} blocks from lava`);
       return `Walking to lava at ${lava.position.x},${lava.position.y},${lava.position.z} — still ${lavaGap.toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
     }
 
