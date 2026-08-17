@@ -181,8 +181,18 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       try {
         await safeGoto(bot, new goals.GoalNear(lava.position.x, lava.position.y, lava.position.z, 5), 60000);
       } catch {
-        // Site wherever we got to; the cast's own fill reports distance honestly.
+        /* checked below — a frame is only committed where the casts can drink */
       }
+    }
+
+    // Do NOT plan a frame the walk never reached. "Site wherever we got to"
+    // re-created the doomed surface frame: lava was findable 90 blocks below
+    // the village, the walk fell short, and the surface site it committed was
+    // then resumed all run. Better to end this run partway down — the next
+    // invocation continues from here.
+    const lavaGap = bot.entity.position.distanceTo(lava.position);
+    if (lavaGap > 15) {
+      return `Walking to lava at ${lava.position.x},${lava.position.y},${lava.position.z} — still ${lavaGap.toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
     }
 
     // Start one above the bot's feet: the frame's floor row rests ON the
