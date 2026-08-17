@@ -15,7 +15,8 @@ import type { Skill, SkillResult } from "./types.js";
 import { framePositions, interiorPositions, ignitionTarget } from "./portal-geometry.js";
 import { acquireObsidian } from "./obsidian.js";
 import { craftFlintAndSteel } from "./flint-and-steel.js";
-import { isSourceBlock, type Vec3Like } from "./fluid.js";
+import { isSourceBlock, LAVA_DEPTH, type Vec3Like } from "./fluid.js";
+import { digDownTo } from "./descend.js";
 import { baseMoves, safeGoto } from "../bot/navigation.js";
 
 const REQUIRED = ["bucket", "flint_and_steel"] as const;
@@ -136,11 +137,29 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // never fit one watchdog window; ten five-block hops can. As a bonus,
     // the wrong-fluid dump in fillBucket lands its water near the site,
     // becoming the refill station for the cast's water half.
-    const lava = bot.findBlock({
-      matching: (b) => b.name === "lava" && isSourceBlock(b),
-      maxDistance: 96,
-    });
-    if (lava && bot.entity.position.distanceTo(lava.position) > 10) {
+    const findLava = () =>
+      bot.findBlock({
+        matching: (b) => b.name === "lava" && isSourceBlock(b),
+        maxDistance: 96,
+      });
+    let lava = findLava();
+
+    // No lava in range means the bot is invoking from the surface. Telling
+    // the model "strip_mine down, then retry" asked it to hold a two-step
+    // plan across separate decisions — the same shape that stranded
+    // craft_bucket and the igniter. The skill descends itself with the
+    // proven bounded digger, then looks again.
+    if (!lava && bot.entity.position.y > LAVA_DEPTH) {
+      console.log(`[Portal] ${bot.username}: no lava within 96 — descending first`);
+      const dug = await digDownTo(bot, -40, 80, 90_000);
+      console.log(`[Portal] ${bot.username} descent: ${dug}`);
+      lava = findLava();
+    }
+    if (!lava) {
+      return `No lava source within 96 blocks even at y=${Math.floor(bot.entity.position.y)}. Explore sideways through caves, then invoke_skill {"skill":"build_nether_portal"} again.`;
+    }
+
+    if (bot.entity.position.distanceTo(lava.position) > 10) {
       bot.pathfinder.setMovements(baseMoves(bot));
       try {
         await safeGoto(bot, new goals.GoalNear(lava.position.x, lava.position.y, lava.position.z, 5), 60000);
