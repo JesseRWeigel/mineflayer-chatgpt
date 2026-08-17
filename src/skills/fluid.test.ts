@@ -2,14 +2,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import {
-  isSourceBlock,
-  pickApproach,
-  noSourceAdvice,
-  withinReach,
-  REACH_BLOCKS,
-  FLUID_SEARCH_BLOCKS,
-} from "./fluid.js";
+import { isSourceBlock, noSourceAdvice, withinReach, REACH_BLOCKS, FLUID_SEARCH_BLOCKS } from "./fluid.js";
 
 // WHAT THIS FILE PINS DOWN.
 //
@@ -44,30 +37,6 @@ test("a missing block is not a source", () => {
 
 test("a non-fluid block is not a source however its metadata reads", () => {
   assert.equal(isSourceBlock({ name: "stone", metadata: 0 }), false);
-});
-
-test("the approach position is adjacent, level, and never the fluid itself", () => {
-  const source = { x: 10, y: 40, z: 10 };
-  const stand = pickApproach({ x: 14, y: 40, z: 10 }, source);
-  assert.ok(stand, "an approach must be found for an open source");
-  const dx = Math.abs(stand.x - source.x);
-  const dz = Math.abs(stand.z - source.z);
-  assert.equal(stand.y, source.y, "stand level with the source, not above it");
-  assert.ok(dx + dz === 1, `must be orthogonally adjacent, got dx=${dx} dz=${dz}`);
-});
-
-test("the approach is the side nearest the bot so it does not cross the pool", () => {
-  const source = { x: 0, y: 40, z: 0 };
-  assert.deepEqual(pickApproach({ x: 9, y: 40, z: 0 }, source), { x: 1, y: 40, z: 0 });
-  assert.deepEqual(pickApproach({ x: -9, y: 40, z: 0 }, source), { x: -1, y: 40, z: 0 });
-  assert.deepEqual(pickApproach({ x: 0, y: 40, z: 9 }, source), { x: 0, y: 40, z: 1 });
-});
-
-test("a bot already standing on the source is moved off it, not left there", () => {
-  const source = { x: 5, y: 40, z: 5 };
-  const stand = pickApproach(source, source);
-  assert.ok(stand);
-  assert.notDeepEqual(stand, source);
 });
 
 // ── REGRESSION: a failure the brain cannot act on gets retried unchanged ──

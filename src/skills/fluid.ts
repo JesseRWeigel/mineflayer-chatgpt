@@ -32,23 +32,6 @@ export function isSourceBlock(block: { name: string; metadata?: number } | null)
 }
 
 /**
- * A square to stand on while scooping: orthogonally adjacent, level with the
- * source, on the side the bot is already nearest.
- *
- * Never the source square itself and never directly above it — a bot that
- * approaches lava from on top falls in holding the team's only iron bucket.
- */
-export function pickApproach(botPos: Vec3Like, source: Vec3Like): Vec3Like | null {
-  const dx = botPos.x - source.x;
-  const dz = botPos.z - source.z;
-  // Favour the dominant axis so the bot does not walk around the pool.
-  if (Math.abs(dx) >= Math.abs(dz)) {
-    return { x: source.x + (dx >= 0 ? 1 : -1), y: source.y, z: source.z };
-  }
-  return { x: source.x, y: source.y, z: source.z + (dz >= 0 ? 1 : -1) };
-}
-
-/**
  * Depth at or below which we stop telling the bot to dig deeper.
  *
  * Must sit ABOVE strip_mine's TARGET_Y (16), or the advice is a loop: the bot
@@ -125,18 +108,18 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   });
   if (!source) return noSourceAdvice(fluid, Math.floor(bot.entity.position.y));
 
-  const stand = pickApproach(bot.entity.position, source.position);
-  if (stand) {
-    // Walk, and give it time to actually arrive: the source may now be up to
-    // FLUID_SEARCH_BLOCKS away, where the old 15s budget could not reach.
-    // Failing to arrive used to be swallowed, so the bot "scooped" from 20
-    // blocks off and reported a mechanics failure.
-    bot.pathfinder.setMovements(baseMoves(bot));
-    try {
-      await safeGoto(bot, new goals.GoalNear(stand.x, stand.y, stand.z, 1), 45_000);
-    } catch {
-      /* fall through to the reach check below, which reports the real distance */
-    }
+  // Let the PATHFINDER choose where to stand. pickApproach dictated a single
+  // cell at the source's own y, which for a buried pool is a cell inside the
+  // ground — an unsatisfiable goal that burned the whole walk budget and
+  // produced an hour of "could not get closer — the path there is blocked"
+  // at underground water pockets. GoalNear radius 2 lets the pathfinder pick
+  // any standable cell it can actually reach; the reach check below still
+  // gates the scoop.
+  bot.pathfinder.setMovements(baseMoves(bot));
+  try {
+    await safeGoto(bot, new goals.GoalNear(source.position.x, source.position.y, source.position.z, 2), 45_000);
+  } catch {
+    /* fall through to the reach check below, which reports the real distance */
   }
 
   // findBlock searches 32 blocks and the walk above is best-effort, so the bot
