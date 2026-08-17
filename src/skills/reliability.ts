@@ -69,18 +69,23 @@ export function isRetired(name: string): boolean {
 }
 
 /**
- * Invocation-gate variant with parole: every 10th blocked invocation lets
- * one attempt through. Without this, a retired skill could never demonstrate
- * that an underlying fix (sandbox improvement, refinement, library update)
+ * Invocation-gate variant with parole: the FIRST blocked invocation after a
+ * process start lets one attempt through, then every 10th after that. Without
+ * this, a retired skill could never demonstrate that an underlying fix
  * repaired it — new successes would lift its rate, but it could never earn
- * them. Only call this from the actual invocation path, never from prompt
+ * them. The first-block parole exists because restarts follow code changes
+ * here: build_nether_portal was fixed six times overnight, yet its 0/8 record
+ * (all from pre-fix versions) kept blocking it, and the model learned to stop
+ * choosing it after three refusals — so the every-10th counter would never
+ * fill. If the skill is genuinely still broken, a restart costs one attempt.
+ * Only call this from the actual invocation path, never from prompt
  * rendering (which would inflate the counter).
  */
 export function checkRetiredWithParole(name: string): boolean {
   if (!isRetired(name)) return false;
   const blocked = (blockedCounts.get(name) ?? 0) + 1;
   blockedCounts.set(name, blocked);
-  if (blocked % PAROLE_EVERY === 0) {
+  if (blocked === 1 || blocked % PAROLE_EVERY === 0) {
     console.log(`[Reliability] Parole attempt for retired skill '${name}' (block #${blocked})`);
     cache = null; // pick up the parole attempt's result promptly
     return false;
