@@ -151,9 +151,26 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // proven bounded digger, then looks again.
     if (!lava && bot.entity.position.y > LAVA_DEPTH) {
       console.log(`[Portal] ${bot.username}: no lava within 96 — descending first`);
-      const dug = await digDownTo(bot, -40, 80, 90_000);
-      console.log(`[Portal] ${bot.username} descent: ${dug}`);
-      lava = findLava();
+      // fill_bucket's proven shape: a refused shaft ("open air below — a
+      // shaft, not a dig", an aquifer) is a LOCAL verdict, not proof there is
+      // no way down — two runs in a row ended at the same y=67 ledge. Step
+      // aside and sink a fresh hole, all inside one budget so the executor's
+      // watchdog never kills the descent mid-dig.
+      const deadline = Date.now() + 100_000;
+      for (let attempt = 0; attempt < 2 && !lava; attempt++) {
+        const left = deadline - Date.now();
+        if (left < 15_000) break;
+        const dug = await digDownTo(bot, -40, 80, left);
+        console.log(`[Portal] ${bot.username} descent: ${dug}`);
+        lava = findLava();
+        if (lava || bot.entity.position.y <= LAVA_DEPTH) break;
+        try {
+          const q = bot.entity.position;
+          await safeGoto(bot, new goals.GoalNear(q.x + 6, q.y, q.z + 6, 1), 12_000);
+        } catch {
+          break; // boxed in — stop rather than spin
+        }
+      }
     }
     if (!lava) {
       return `No lava source within 96 blocks even at y=${Math.floor(bot.entity.position.y)}. Explore sideways through caves, then invoke_skill {"skill":"build_nether_portal"} again.`;
