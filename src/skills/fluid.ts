@@ -196,13 +196,19 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
   // the pour-side twin of the fill-side bug that cost a day — it survived here
   // on the unverified reasoning that pouring "clicks a solid block, where it's
   // right". Six "Bucket did not empty" failures an hour said otherwise.
+  // The pour ray needs a SOLID block to hit. Probe-verified 2026-08-17:
+  // aiming at the seam (0.02 under the target space) missed and the bucket
+  // stayed full; aiming at the support block's centre emptied it. And when
+  // the support is air there is nothing to hit and nowhere for a fluid
+  // source to rest — report that instead of "did not empty".
   const target = bot.blockAt(new Vec3(at.x, at.y - 1, at.z));
   if (!target) return `Nothing to pour against at ${at.x},${at.y},${at.z}.`;
+  if (target.name === "air" || target.name === "cave_air" || FLUIDS.has(target.name)) {
+    return `No solid support under ${at.x},${at.y},${at.z} to pour against.`;
+  }
 
   await bot.equip(full, "hand");
-  // Aim just below the seam so the ray hits the support block's TOP face —
-  // hitting a side face would place the fluid in the wrong cell.
-  await bot.lookAt(new Vec3(at.x + 0.5, at.y - 0.02, at.z + 0.5), true);
+  await bot.lookAt(new Vec3(at.x + 0.5, at.y - 0.5, at.z + 0.5), true);
   bot.activateItem();
   await new Promise((r) => setTimeout(r, 500)); // let the inventory packet land
 
