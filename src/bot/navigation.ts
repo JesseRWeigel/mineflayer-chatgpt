@@ -97,6 +97,16 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
 
     const stallCheck = setInterval(() => {
       if (!stallActive) return;
+      // Digging IS progress. The pathfinder stands still while it breaks each
+      // block of a dig-through route, so a stall detector that only watches
+      // position aborts every path that has to tunnel — which is why every
+      // buried water/lava pool read as "path there is blocked" while canDig
+      // was enabled the whole time.
+      if (bot.targetDigBlock) {
+        stallTicks = 0;
+        lastPos = bot.entity.position.clone();
+        return;
+      }
       const currentPos = bot.entity.position;
       const moved = currentPos.distanceTo(lastPos);
       if (moved < 0.3) {
