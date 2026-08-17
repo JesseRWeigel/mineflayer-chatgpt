@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "fs";
 import path from "path";
 import os from "os";
-import { BotMemoryStore } from "./memory.js";
+import { BotMemoryStore, isPreconditionFailure } from "./memory.js";
 
 // ── Helper: create a store backed by a temp file ────────────────────────────
 // Each test gets a completely fresh store with its own temp file.
@@ -278,6 +278,15 @@ test("memory: precondition failures don't count as real failures for broken dete
   } finally {
     cleanup();
   }
+});
+
+test("memory: a missing-item refusal is a precondition, not a broken skill", () => {
+  // The exact message that retired build_nether_portal at 0/9 — every one of
+  // those failures was a flint shortage, not a code bug.
+  assert.equal(isPreconditionFailure("Not ready for a portal: missing flint_and_steel. Craft those first."), true);
+  assert.equal(isPreconditionFailure("Still missing bucket: have 0, need 1."), true);
+  // Crashes stay real failures even when the trace mentions "missing".
+  assert.equal(isPreconditionFailure("Crashed: Cannot read properties of undefined (missing block)"), false);
 });
 
 test("memory: static skills get added to brokenSkillNames but are healed on reload", () => {

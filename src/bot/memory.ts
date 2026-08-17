@@ -73,7 +73,10 @@ const defaultMemory: BotMemory = {
  * statistics, its attempt count stayed 0, isRetired never fired, and the swarm
  * re-invoked a skill with a 0% success rate indefinitely. Measured 2026-08-14.
  */
-const CRASHED = /^\s*\S+ failed:/i;
+// "X failed: ..." (action results) and "Crashed: ..." (executor.ts's note for
+// a thrown exception). The second form slipped through — an exception whose
+// text happened to contain a precondition keyword classified as environment.
+const CRASHED = /^\s*\S+ failed:|^\s*crashed:/i;
 
 export function isSkillCrash(notes: string): boolean {
   return CRASHED.test(notes || "");
@@ -123,6 +126,16 @@ export const PRECONDITION_KEYWORDS = [
   // craft_gear with an empty inventory (environment, not bug)
   "No new tools crafted",
   "get materials first",
+  // Any "missing <item>" refusal is an inventory shortage, not a code bug.
+  // build_nether_portal was retired at 0/9 when every one of those failures
+  // was "Not ready for a portal: missing flint_and_steel" — the smelt_ores
+  // fuel-drought story again, one skill later. "missing materials" above was
+  // too narrow; the phrasing that actually occurs is "missing flint_and_steel",
+  // "Still missing bucket", "Missing: pickaxe". Crashes are exempt regardless
+  // (isSkillCrash is checked first), so a stack trace mentioning "missing"
+  // still counts as real.
+  "missing",
+  "Not ready",
   // "timed out" removed — combat/mining skills that time out are real failures,
   // not precondition failures. exploreUntil timeouts use "aborted" instead.
 ];
