@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { siteIsBuildable, findSite, type BlockProbe } from "./portal-siting.js";
+import { siteIsBuildable, findSite, findSiteFlexible, type BlockProbe } from "./portal-siting.js";
 import { framePositions, interiorPositions } from "./portal-geometry.js";
 
 // WHAT THIS FILE PINS DOWN.
@@ -91,4 +91,38 @@ test("findSite searches outward, so a nearby clearing beats a distant one", () =
   const found = findSite({ x: 0, y: 65, z: 0 }, "x", slot, 8);
   assert.ok(found, "the open band must be found");
   assert.ok(found.x >= 1 && found.x <= 5, `site ${found.x} should sit in the open band`);
+});
+
+// ── findSiteFlexible: both axes and a step of vertical tolerance ────────────
+//
+// One axis at exactly the bot's Y needs a flat shelf in a specific direction;
+// around the village that failed at radius 6 every time it ran, and the model
+// was told "move somewhere open" with nowhere concrete to go.
+
+test("flexible siting finds a site one step below the centre", () => {
+  // Bot stands on a one-block rise: ground is y<64 everywhere, so a frame
+  // centred at y=66 (bot's feet y=65 + 1) only works one step down at y=65.
+  const centre = { x: 0, y: 66, z: 0 };
+  const site = findSiteFlexible(centre, flatGround, 4);
+  assert.ok(site, "a site should exist one step below");
+  assert.equal(site.origin.y, 65);
+});
+
+test("flexible siting falls back to the z axis when x is walled off", () => {
+  // Two solid pillars where the x-frame's jambs would stand (x=-1 and x=2 at
+  // z=0). The z-oriented frame lives entirely on the x=0 column and its own
+  // jambs at z=-1/2, so it is untouched — only the orientation is blocked.
+  const zOnly: BlockProbe = (p) => {
+    if (p.y < 64) return "solid";
+    if ((p.x === -1 || p.x === 2) && p.z === 0) return "solid";
+    return "air";
+  };
+  const site = findSiteFlexible({ x: 0, y: 65, z: 0 }, zOnly, 0);
+  assert.ok(site, "the z orientation should rescue the site");
+  assert.equal(site.axis, "z");
+});
+
+test("flexible siting still reports null when nothing fits", () => {
+  const allSolid: BlockProbe = () => "solid";
+  assert.equal(findSiteFlexible({ x: 0, y: 65, z: 0 }, allSolid, 3), null);
 });

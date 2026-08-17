@@ -65,3 +65,33 @@ export function findSite(centre: Vec3Like, axis: "x" | "z", probe: BlockProbe, r
   }
   return null;
 }
+
+/**
+ * findSite, but willing to bend: either frame orientation, and a step up or
+ * down from the centre's level. One axis at exactly the bot's Y needs a flat
+ * 4-block shelf with five clear above it in a specific direction — around the
+ * village that condition failed at radius 6 every time it ran, and the model
+ * was told "move somewhere open" with nowhere concrete to go. Rings stay
+ * outermost so a near site in any variant beats a far site in the preferred
+ * one; the walk there is time not spent hauling lava.
+ */
+export function findSiteFlexible(
+  centre: Vec3Like,
+  probe: BlockProbe,
+  radius: number,
+): { origin: Vec3Like; axis: "x" | "z" } | null {
+  for (let r = 0; r <= radius; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        for (const dy of [0, 1, -1]) {
+          const candidate = { x: centre.x + dx, y: centre.y + dy, z: centre.z + dz };
+          for (const axis of ["x", "z"] as const) {
+            if (siteIsBuildable(candidate, axis, probe)) return { origin: candidate, axis };
+          }
+        }
+      }
+    }
+  }
+  return null;
+}

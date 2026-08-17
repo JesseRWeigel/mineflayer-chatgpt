@@ -8,7 +8,7 @@
 
 import type { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
-import { findSite, type BlockKind } from "./portal-siting.js";
+import { findSiteFlexible, type BlockKind } from "./portal-siting.js";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import type { Skill, SkillResult } from "./types.js";
@@ -101,7 +101,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. Craft those first.`;
 
   const p = bot.entity.position;
-  const axis: "x" | "z" = "x";
+  let axis: "x" | "z" = "x";
 
   // Siting used to be "two blocks east of wherever the bot stands", unchecked.
   // A portal is a 4x5 volume; two east of a bot on a ridge is a frame that
@@ -121,6 +121,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   let origin: Vec3Like | null = null;
   if (prior && Math.hypot(prior.origin.x - p.x, prior.origin.y - p.y, prior.origin.z - p.z) <= RESUME_RANGE) {
     origin = prior.origin;
+    axis = prior.axis;
     try {
       await safeGoto(bot, new goals.GoalNear(origin.x, origin.y, origin.z, 3), 30000);
     } catch {
@@ -130,10 +131,13 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // Start one above the bot's feet: the frame's floor row rests ON the
     // ground, so the interior begins a block higher.
     const centre: Vec3Like = { x: Math.floor(p.x) + 2, y: Math.floor(p.y) + 1, z: Math.floor(p.z) };
-    origin = findSite(centre, axis, probe, 6);
-    if (origin) plannedSites.set(bot.username, { origin, axis });
+    const site = findSiteFlexible(centre, probe, 16);
+    if (site) {
+      ({ origin, axis } = site);
+      plannedSites.set(bot.username, { origin, axis });
+    }
   }
-  if (!origin) return "No clear 4x5 space for a portal within 6 blocks. Move somewhere open and retry.";
+  if (!origin) return "No clear 4x5 space for a portal within 16 blocks. Move somewhere open and retry.";
 
   const frame = framePositions(origin, axis);
   const got = await acquireObsidian(bot, frame);
