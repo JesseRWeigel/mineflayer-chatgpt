@@ -455,6 +455,24 @@ export function shouldKeep(
   }
   if (itemName === "shield") return true;
 
+  // The Nether kit: ONE bucket (any fill state) and ONE igniter stay with the
+  // bot. Neither had a keep rule, so every deposit_stash trip donated them to
+  // the chest — the portal then failed "missing bucket, flint_and_steel" and
+  // the bot went back to re-grinding four iron for a kit it already owned.
+  // keepInventory means deaths never took them; the stash did.
+  if (itemName === "bucket" || itemName === "water_bucket" || itemName === "lava_bucket") {
+    const kept = currentCounts.get("__bucket") ?? 0;
+    if (kept >= 1) return false;
+    currentCounts.set("__bucket", 1);
+    return true;
+  }
+  if (itemName === "flint_and_steel") {
+    const kept = currentCounts.get("__igniter") ?? 0;
+    if (kept >= 1) return false;
+    currentCounts.set("__igniter", 1);
+    return true;
+  }
+
   // Never deposit your ONLY tools. shouldKeep protected iron+ gear only, so
   // wooden/stone pickaxes were dumped as junk on every stash trip — craft_gear
   // made wooden_pickaxe repeatedly (4 successes in run 127) and every one

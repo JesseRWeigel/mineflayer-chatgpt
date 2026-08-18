@@ -514,3 +514,22 @@ test("mixed causes follow the dominant one, not the presence of any", () => {
 test("no recorded failures yields no advice to act on", () => {
   assert.equal(depositFailureAdvice(new Map()), "");
 });
+
+// ── The Nether kit stays with the bot ───────────────────────────────────────
+//
+// Neither the bucket nor the igniter had a keep rule, so every deposit trip
+// donated them to the chest and the portal failed "missing bucket,
+// flint_and_steel" — the bot re-ground four iron for a kit it already owned.
+
+test("one bucket stays, whatever it is filled with; spares are banked", () => {
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("lava_bucket", [], counts), true, "the first bucket is the kit");
+  assert.equal(shouldKeep("bucket", [], counts), false, "a second bucket is surplus");
+  assert.equal(shouldKeep("water_bucket", [], counts), false, "so is a third, full or not");
+});
+
+test("one flint_and_steel stays; spares are banked", () => {
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("flint_and_steel", [], counts), true);
+  assert.equal(shouldKeep("flint_and_steel", [], counts), false);
+});
