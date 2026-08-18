@@ -242,7 +242,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // fit comfortably under the 240s watchdog even after a 100s descent.
     bot.pathfinder.setMovements(baseMoves(bot));
     for (let leg = 0; leg < 3; leg++) {
-      let gap = bot.entity.position.distanceTo(lava.position);
+      const gap = bot.entity.position.distanceTo(lava.position);
       if (gap <= 10) break;
       try {
         await safeGoto(bot, new goals.GoalNear(lava.position.x, lava.position.y, lava.position.z, 5), 45000);
@@ -250,8 +250,20 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         /* measured below */
       }
       const now = bot.entity.position.distanceTo(lava.position);
-      if (now >= gap - 2) break; // not closing — genuinely blocked
-      gap = now;
+      if (now >= gap - 2) {
+        // Not closing. Four runs reported the same "75 blocks away" from a
+        // pool at y=-4: the gap was almost entirely VERTICAL, and the
+        // pathfinder cannot plan a 70-block dig column — digDownTo can
+        // execute exactly that. Sink toward the pool's level and try the
+        // walk again from depth.
+        const drop = bot.entity.position.y - lava.position.y;
+        if (now > 15 && drop > 15) {
+          const dug = await digDownTo(bot, Math.floor(lava.position.y) + 2, 80, 90_000);
+          console.log(`[Portal] ${bot.username} vertical closure: ${dug}`);
+          continue;
+        }
+        break; // genuinely blocked laterally
+      }
     }
 
     // Do NOT plan a frame the walk never reached. "Site wherever we got to"
