@@ -15,7 +15,7 @@ import type { Skill, SkillResult } from "./types.js";
 import { framePositions, interiorPositions, ignitionTarget } from "./portal-geometry.js";
 import { acquireObsidian } from "./obsidian.js";
 import { craftFlintAndSteel } from "./flint-and-steel.js";
-import { isSourceBlock, LAVA_DEPTH, type Vec3Like } from "./fluid.js";
+import { fillBucket, isSourceBlock, LAVA_DEPTH, type Vec3Like } from "./fluid.js";
 import { digDownTo } from "./descend.js";
 import { baseMoves, safeGoto } from "../bot/navigation.js";
 
@@ -141,6 +141,19 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       // Casting re-checks reach per block; being short of the site is survivable.
     }
   } else {
+    // Carry the water DOWN. Three runs in a row reached the cast phase and
+    // died trying to tunnel to a buried aquifer at y=-3 — at lava depth,
+    // water is rare and encased, but the village lake is thirty seconds away
+    // on the surface. One carried charge becomes the site's station (the
+    // cast pours it on a neighbour cell and re-scoops it), so fill BEFORE
+    // descending, while water is cheap. Best effort: a failed surface fill
+    // just falls back to hunting water at depth like before.
+    const hasFluid = () => bot.inventory.items().some((i) => i.name === "water_bucket" || i.name === "lava_bucket");
+    if (!hasFluid() && bot.entity.position.y > LAVA_DEPTH) {
+      const surfaceWater = await fillBucket(bot, "water");
+      console.log(`[Portal] ${bot.username} surface water charge: ${surfaceWater}`);
+    }
+
     // Site the frame beside the lava it will drink from, not beside the bot.
     // A surface site over deep lava charges every one of ten casts a full
     // descent round trip — the run that exposed this filled its bucket at
