@@ -16,6 +16,23 @@ import { baseMoves, safeGoto } from "../bot/navigation.js";
 
 export type Vec3Like = { x: number; y: number; z: number };
 
+/**
+ * The bucket-use critical section. The reactive brain is allowed to interrupt
+ * skills by design (survival reflexes win), but a "Flee from creeper" fired in
+ * the ~2s between equipping the bucket and the use packet drags the bot away
+ * mid-scoop — probe-verified: the identical code fills lava flawlessly with no
+ * brain attached, while the fleet failed point-blank (standing 1.2, dy=1 — the
+ * displacement IS the flee). The brain defers reactive events while this latch
+ * is fresh; the window is short enough that the threat is still there after.
+ */
+const handsBusyMap = new WeakMap<Bot, number>();
+export function handsBusy(bot: Bot): boolean {
+  return (handsBusyMap.get(bot) ?? 0) > Date.now();
+}
+function holdHands(bot: Bot, ms: number): void {
+  handsBusyMap.set(bot, Date.now() + ms);
+}
+
 const FLUIDS = new Set(["water", "lava", "flowing_water", "flowing_lava"]);
 
 /**
@@ -133,6 +150,7 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     return `Found ${fluid} at ${sp.x},${sp.y},${sp.z} but could not get closer than ${d.toFixed(0)} blocks — the path there is blocked. Try approaching from another side.`;
   }
 
+  holdHands(bot, 2_500);
   await bot.equip(bucket, "hand");
 
   // Fluids have NO interaction shape, so bot.activateBlock does nothing to them
@@ -158,6 +176,8 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     } catch {
       /* retry from wherever we got */
     }
+    holdHands(bot, 2_500);
+    if (bot.heldItem?.name !== "bucket") await bot.equip(bucket, "hand");
     await bot.lookAt(source.position.offset(0.5, 0.5, 0.5), true);
     bot.activateItem();
     await new Promise((r) => setTimeout(r, 500));
@@ -207,6 +227,7 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
     return `No solid support under ${at.x},${at.y},${at.z} to pour against.`;
   }
 
+  holdHands(bot, 2_500);
   await bot.equip(full, "hand");
   await bot.lookAt(new Vec3(at.x + 0.5, at.y - 0.5, at.z + 0.5), true);
   bot.activateItem();

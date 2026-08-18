@@ -35,6 +35,7 @@ import { updateOverlay, addChatMessage, speakThought, setCurrentBot } from "../s
 import { generateSpeech } from "../stream/tts.js";
 import { filterContent, filterChatMessage, filterViewerMessage } from "../safety/filter.js";
 import { abortActiveSkill, isSkillRunning, getActiveSkillName, takeSkillOutcome } from "../skills/executor.js";
+import { handsBusy } from "../skills/fluid.js";
 import { skillRegistry } from "../skills/registry.js";
 import { BotMemoryStore } from "./memory.js";
 import { getAllMemoryStores } from "./memory-registry.js";
@@ -437,6 +438,15 @@ export class BotBrain {
 
       switch (event.type) {
         case "reactive":
+          // Survival reflexes may interrupt skills — but not the ~2s bucket
+          // critical section. A "Flee from creeper" between equip and the use
+          // packet dragged the caster off mid-scoop (probe-verified: same code
+          // fills flawlessly with no brain attached). Deferred, not dropped:
+          // the threat is still there two seconds later.
+          if (handsBusy(this.bot)) {
+            setTimeout(() => this.pushEvent(event), 2000);
+            break;
+          }
           await this.handleReactive(event);
           break;
         case "chat":
