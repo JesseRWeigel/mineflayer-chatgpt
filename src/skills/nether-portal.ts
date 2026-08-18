@@ -85,6 +85,41 @@ async function placeFrame(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<
   }
 }
 
+/**
+ * Dig a portal-shaped void out of the rock. Cave geometry beside a lava
+ * pocket almost never has a natural 4x5 clearance — two runs arrived at the
+ * pool and died on "No clear 4x5 space within 16 blocks". The bot carries a
+ * pickaxe and stone is free; carving the frame's volume (plus a standing
+ * pocket in front) turns any wall beside the lava into a site. Bounded per
+ * dig and overall, best effort — the caller re-probes afterwards.
+ */
+async function carveSite(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<void> {
+  const pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+  if (!pick) return;
+  await bot.equip(pick, "hand").catch(() => {});
+
+  const cells = [...framePositions(origin, axis), ...interiorPositions(origin, axis)];
+  // A standing pocket in front of the frame so the caster can work it.
+  const front = interiorPositions(origin, axis).map((c) =>
+    axis === "x" ? { x: c.x, y: c.y, z: c.z + 1 } : { x: c.x + 1, y: c.y, z: c.z },
+  );
+  const deadline = Date.now() + 90_000;
+  for (const cell of [...cells, ...front]) {
+    if (Date.now() > deadline) return;
+    const b = bot.blockAt(new Vec3(cell.x, cell.y, cell.z));
+    if (!b || b.name === "air" || b.name === "cave_air" || b.name === "water" || b.name === "lava") continue;
+    if (b.name === "obsidian" || b.name === "bedrock") continue;
+    try {
+      await Promise.race([
+        bot.dig(b),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 12_000)),
+      ]);
+    } catch {
+      bot.stopDigging();
+    }
+  }
+}
+
 export async function buildNetherPortal(bot: Bot): Promise<string> {
   const names = bot.inventory.items().map((i) => i.name);
   let { ready, missing } = readinessOf(names);
@@ -234,13 +269,21 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // ground, so the interior begins a block higher.
     const here = bot.entity.position;
     const centre: Vec3Like = { x: Math.floor(here.x) + 2, y: Math.floor(here.y) + 1, z: Math.floor(here.z) };
-    const site = findSiteFlexible(centre, probe, 16);
+    let site = findSiteFlexible(centre, probe, 16);
+    if (!site) {
+      // No natural void beside the pool — carve one out of the rock and
+      // re-probe. Stone is free and the pickaxe is already in the pack.
+      console.log(`[Portal] ${bot.username}: no natural site — carving one at ${centre.x},${centre.y},${centre.z}`);
+      await carveSite(bot, centre, axis);
+      site = findSiteFlexible(centre, probe, 16);
+    }
     if (site) {
       ({ origin, axis } = site);
       plannedSites.set(bot.username, { origin, axis });
     }
   }
-  if (!origin) return "No clear 4x5 space for a portal within 16 blocks. Move somewhere open and retry.";
+  if (!origin)
+    return "No clear 4x5 space for a portal within 16 blocks even after carving. Move somewhere open and retry.";
 
   const frame = framePositions(origin, axis);
   const got = await acquireObsidian(bot, frame);
