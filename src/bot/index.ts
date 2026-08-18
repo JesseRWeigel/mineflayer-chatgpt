@@ -8,7 +8,7 @@ import { config } from "../config.js";
 import { registerBot as registerViewerBot, isUnifiedViewerStarted } from "../stream/unified-viewer.js";
 import { startViewer } from "../stream/viewer.js";
 import { addChatMessage, setCurrentBot } from "../stream/overlay.js";
-import { abortActiveSkill } from "../skills/executor.js";
+import { abortActiveSkill, getActiveSkillName } from "../skills/executor.js";
 import { registerBotMemory } from "./memory-registry.js";
 import { skillRegistry } from "../skills/registry.js";
 import { BotMemoryStore } from "./memory.js";
@@ -619,6 +619,23 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // One-time setup on first spawn
   bot.once("spawn", () => {
     console.log("[Bot] Spawned! Starting event-driven brain...");
+
+    // KIT-DELTA LOGGER. Forge assembled a full Nether kit at 00:15 and an hour
+    // later held one lump of coal — with keepInventory on, the keep-rule live,
+    // and no deposit in sight. Three ground-truth sweeps this week contradicted
+    // three inferences about where kit items were; this ends the guessing:
+    // every gain/loss of a kit-relevant item logs the moment, the place, and
+    // what the bot was doing when it happened.
+    const KIT_ITEMS = new Set(["bucket", "water_bucket", "lava_bucket", "flint_and_steel", "iron_ingot", "flint"]);
+    bot.inventory.on("updateSlot", (slot: number, oldItem: any, newItem: any) => {
+      const was = oldItem && KIT_ITEMS.has(oldItem.name) ? `${oldItem.count}x ${oldItem.name}` : null;
+      const now = newItem && KIT_ITEMS.has(newItem.name) ? `${newItem.count}x ${newItem.name}` : null;
+      if (!was && !now) return;
+      if (was === now) return;
+      const p = bot.entity?.position?.floored();
+      const doing = getActiveSkillName(bot) ?? "no-skill";
+      console.log(`[Kit] ${roleConfig.name} slot ${slot}: ${was ?? "(empty)"} -> ${now ?? "(empty)"} at ${p?.x},${p?.y},${p?.z} during ${doing}`);
+    });
 
     // Start browser viewer — use unified viewer if available, fall back to per-bot viewer
     if (isUnifiedViewerStarted()) {
