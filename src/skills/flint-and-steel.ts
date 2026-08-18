@@ -78,7 +78,24 @@ async function obtainOneIron(bot: Bot): Promise<string> {
     try {
       await safeGoto(bot, new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 2), 45_000);
     } catch {
-      /* reach-checked by the dig below */
+      /* measured below */
+    }
+    // Same pattern as the scoop: the first approach can end just out of the
+    // ~4.5 dig reach — step in once before giving up, and report the actual
+    // distance so a repeat failure is arithmetic, not mystery. Two bots
+    // reported bare "could not mine" on the same ore with no way to tell
+    // whether the problem was reach, line of sight, or the dig itself.
+    let d = bot.entity.position.distanceTo(ore.position);
+    if (d > 4.5) {
+      try {
+        await safeGoto(bot, new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 1), 15_000);
+      } catch {
+        /* measured below */
+      }
+      d = bot.entity.position.distanceTo(ore.position);
+      if (d > 4.5) {
+        return `ore at ${ore.position.x},${ore.position.y},${ore.position.z} unreachable (${d.toFixed(1)} away)`;
+      }
     }
     await bot.equip(pick, "hand").catch(() => {});
     try {
@@ -88,7 +105,7 @@ async function obtainOneIron(bot: Bot): Promise<string> {
       ]);
     } catch {
       bot.stopDigging();
-      return `could not mine the ore at ${ore.position.x},${ore.position.y},${ore.position.z}`;
+      return `could not mine the ore at ${ore.position.x},${ore.position.y},${ore.position.z} (standing ${d.toFixed(1)} away)`;
     }
     await new Promise((r) => setTimeout(r, 1500)); // let the drop land and get picked up
   }
@@ -189,7 +206,12 @@ export async function craftFlintAndSteel(bot: Bot): Promise<string> {
   const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
   const mcData = mcDataLoader(bot.version);
   const recipe = bot.recipesFor(mcData.itemsByName.flint_and_steel.id, null, 1, table ?? null)[0];
-  if (!recipe) return "No flint_and_steel recipe available with the materials on hand.";
+  if (!recipe) {
+    // Seen live with the plan claiming both materials present — log the
+    // actual counts so the contradiction is inspectable instead of a shrug.
+    const t = tally(bot);
+    return `No flint_and_steel recipe available (holding flint=${t.flint ?? 0}, iron_ingot=${t.iron_ingot ?? 0}, table=${!!table}).`;
+  }
 
   await bot.craft(recipe, 1, table ?? undefined);
   return bot.inventory.items().some((i) => i.name === "flint_and_steel")
