@@ -64,6 +64,21 @@ export async function craftBucket(bot: Bot): Promise<string> {
   const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
   if (!table) return "No crafting_table within 32 blocks. Place one, then retry.";
 
+  // Walk to it. Flora stood with seven ingots and got "craft did not produce
+  // a bucket": findBlock accepts a table 32 blocks out, but bot.craft needs
+  // the table in interaction reach and fails silently from farther away.
+  const { baseMoves, safeGoto } = await import("../bot/navigation.js");
+  const pkg = (await import("mineflayer-pathfinder")).default;
+  bot.pathfinder.setMovements(baseMoves(bot));
+  try {
+    await safeGoto(bot, new pkg.goals.GoalNear(table.position.x, table.position.y, table.position.z, 2), 30_000);
+  } catch {
+    /* measured below */
+  }
+  if (bot.entity.position.distanceTo(table.position) > 4.5) {
+    return `Crafting table at ${table.position.x},${table.position.y},${table.position.z} is out of reach — path blocked. Move closer and retry.`;
+  }
+
   const mcData = mcDataLoader(bot.version);
   const recipe = bot.recipesFor(mcData.itemsByName.bucket.id, null, 1, table)[0];
   if (!recipe) return "No bucket recipe available with the materials on hand.";

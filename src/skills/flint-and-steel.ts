@@ -221,9 +221,14 @@ export async function craftFlintAndSteel(bot: Bot): Promise<string> {
   // Flint and steel fits in the 2x2 player crafting grid, so a table is a
   // bonus, not a requirement -- pass null when none is nearby rather than
   // blocking on one the way craft_bucket does for its 3-wide recipe.
-  const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
+  // The 2x2 pocket grid is enough for this recipe, so only involve a table
+  // when it is actually in interaction reach — bot.craft with a table that
+  // findBlock returned from 30 blocks away fails silently (the bucket craft
+  // proved it with seven ingots in hand).
+  const nearTable = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 4 });
+  const table = nearTable && bot.entity.position.distanceTo(nearTable.position) <= 4.5 ? nearTable : null;
   const mcData = mcDataLoader(bot.version);
-  const recipe = bot.recipesFor(mcData.itemsByName.flint_and_steel.id, null, 1, table ?? null)[0];
+  const recipe = bot.recipesFor(mcData.itemsByName.flint_and_steel.id, null, 1, table)[0];
   if (!recipe) {
     // Seen live with the plan claiming both materials present — log the
     // actual counts so the contradiction is inspectable instead of a shrug.
