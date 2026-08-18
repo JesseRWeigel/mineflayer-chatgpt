@@ -51,6 +51,10 @@ for (const a of ALL_ADVANCEMENTS) {
   CHILDREN.set(a.parent, list);
 }
 
+/** gate advancement -> the dimension root it opens (inverse of ROOT_GATES). */
+const GATE_CREDIT = new Map<string, string>();
+for (const [root, gate] of Object.entries(ROOT_GATES)) GATE_CREDIT.set(gate, root);
+
 /**
  * How many advancements this one eventually unlocks.
  *
@@ -58,9 +62,18 @@ for (const a of ALL_ADVANCEMENTS) {
  * dead end) beats story/lava_bucket (5 descendants, and the only route to the
  * nether's 24). Picking by id would have sent the swarm to enchanting while the
  * portal stayed unbuilt.
+ *
+ * Dimension gates count their wing. The extractor's per-category parentage
+ * makes nether/root a floating root, so story/enter_the_nether scored 3 — the
+ * same as a crossbow trinket — and routing sent Atlas to "Ol' Betsy" while
+ * the portal chain sat under-valued. The tree already knows the gates
+ * (ROOT_GATES); the unlock count now credits them: entering the nether IS
+ * worth the nether category.
  */
 export function descendantCount(id: string): number {
   let total = 0;
+  const opened = GATE_CREDIT.get(id);
+  if (opened) total += 1 + descendantCount(opened);
   for (const child of CHILDREN.get(id) ?? []) total += 1 + descendantCount(child);
   return total;
 }

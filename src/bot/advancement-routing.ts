@@ -57,6 +57,10 @@ function pick(role: string, candidates: AdvancementNode[]): AdvancementNode | nu
  * the trial chamber, Forge and Mason both on lava_bucket. The tree is 122 wide
  * and the entire point of routing by role was to walk it in parallel.
  */
+/** A gateway is worth abandoning category taste for. */
+const GATEWAY_MIN_UNLOCKS = 10;
+const GATEWAY_DOMINANCE = 3;
+
 export function assignFor(
   role: string,
   frontier: AdvancementNode[],
@@ -67,5 +71,25 @@ export function assignFor(
   const free = frontier.filter((a) => !claimed.has(a.id) || a.id === ownClaim);
   // Doubling up beats idling: if every reachable advancement is spoken for, the
   // bot joins the nearest effort rather than standing still.
-  return pick(role, free) ?? pick(role, frontier);
+  const preferred = pick(role, free) ?? pick(role, frontier);
+
+  // GATEWAY OVERRIDE. Category taste exists to walk the tree in parallel,
+  // not to ignore a door that opens a whole wing. Measured live 2026-08-18:
+  // Atlas was routed to "Ol' Betsy" (a crossbow he does not own, 0 unlocks)
+  // while story/form_obsidian -> enter_the_nether, 24 downstream unlocks,
+  // sat on the frontier assigned only to Forge — and the prompt tells every
+  // bot its advancement line IS the objective, so the line was actively
+  // fighting the team mission. When one reachable node unlocks an order of
+  // magnitude more than the role's pick, everyone routes through the door;
+  // claims are ignored on purpose — doubling up on a gateway is correct
+  // economics, and duty differentiation lives in the mission text.
+  const gateway = [...frontier].sort(byUnlockValue)[0];
+  if (
+    gateway &&
+    descendantCount(gateway.id) >= GATEWAY_MIN_UNLOCKS &&
+    (!preferred || descendantCount(gateway.id) >= GATEWAY_DOMINANCE * Math.max(1, descendantCount(preferred.id)))
+  ) {
+    return gateway;
+  }
+  return preferred;
 }

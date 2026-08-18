@@ -67,9 +67,12 @@ test("the dimension roots are gated behind actually going there", () => {
 });
 
 test("descendantCount measures how much an advancement unlocks", () => {
-  // The numbers that make lava_bucket beat enchant_item.
+  // The numbers that make lava_bucket beat enchant_item. Dimension gates
+  // credit their wing (nether = 24 via enter_the_nether), so the portal
+  // chain outranks every trinket on the frontier.
   assert.equal(descendantCount("story/enchant_item"), 0);
-  assert.equal(descendantCount("story/lava_bucket"), 5);
+  assert.equal(descendantCount("story/lava_bucket"), 38);
+  assert.equal(descendantCount("story/enter_the_nether"), 36);
   assert.equal(descendantCount("adventure/root"), 43);
 });
 

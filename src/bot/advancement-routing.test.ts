@@ -90,11 +90,13 @@ test("a parent outranks its own child so the chain is walked in order", () => {
 // routing by role was to walk it in parallel.
 
 test("a claimed advancement is not handed to a second bot", () => {
-  const f = [node("story/lava_bucket"), node("story/enchant_item")];
+  // Non-gateway work: claims spread the bots. (Gateways override claims on
+  // purpose — that case is pinned further down.)
+  const f = [node("adventure/ol_betsy"), node("story/enchant_item")];
   const first = assignFor("Miner / Smelter", f, new Set());
-  assert.equal(first?.id, "story/lava_bucket");
-  const second = assignFor("Builder", f, new Set([first!.id]));
-  assert.equal(second?.id, "story/enchant_item", "the second bot must take the next best, not the same one");
+  assert.equal(first?.id, "story/enchant_item");
+  const second = assignFor("Miner / Smelter", f, new Set([first!.id]));
+  assert.equal(second?.id, "adventure/ol_betsy", "the second bot must take the next best, not the same one");
 });
 
 test("a bot still gets its own claim back rather than being starved", () => {
@@ -112,8 +114,28 @@ test("when everything is claimed a bot doubles up rather than idling", () => {
 });
 
 test("claims do not disturb ordering among what is left", () => {
-  const f = [node("story/enchant_item"), node("story/lava_bucket"), node("story/shiny_gear")];
-  const second = assignFor("Miner / Smelter", f, new Set(["story/lava_bucket"]));
-  // Of what remains, both have 0 descendants, so id order decides.
+  const f = [node("story/enchant_item"), node("adventure/ol_betsy"), node("story/shiny_gear")];
+  const second = assignFor("Miner / Smelter", f, new Set(["adventure/ol_betsy"]));
+  // Of the remaining story pair, both have 0 descendants, so id order decides.
   assert.equal(second?.id, "story/enchant_item");
+});
+
+test("a wing-opening gateway overrides category taste for every role", () => {
+  // Live 2026-08-18: Atlas (adventure-first) was routed to ol_betsy — a
+  // crossbow he did not own, zero unlocks — while form_obsidian, the door to
+  // the nether's 24 advancements, sat on the frontier assigned only to Forge.
+  const f = [node("adventure/ol_betsy"), node("story/form_obsidian")];
+  assert.equal(assignFor("Explorer / Miner", f)?.id, "story/form_obsidian");
+  assert.equal(assignFor("Combat / Guard", f)?.id, "story/form_obsidian");
+});
+
+test("the gateway override ignores claims — doubling up on a door is correct", () => {
+  const f = [node("adventure/ol_betsy"), node("story/form_obsidian")];
+  const claimed = new Set(["story/form_obsidian"]);
+  assert.equal(assignFor("Explorer / Miner", f, claimed)?.id, "story/form_obsidian");
+});
+
+test("no gateway means category taste still rules", () => {
+  const f = [node("adventure/ol_betsy"), node("husbandry/tame_an_animal")];
+  assert.equal(assignFor("Explorer / Miner", f)?.id, "adventure/ol_betsy");
 });
