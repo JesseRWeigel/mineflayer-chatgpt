@@ -634,7 +634,9 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       if (was === now) return;
       const p = bot.entity?.position?.floored();
       const doing = getActiveSkillName(bot) ?? "no-skill";
-      console.log(`[Kit] ${roleConfig.name} slot ${slot}: ${was ?? "(empty)"} -> ${now ?? "(empty)"} at ${p?.x},${p?.y},${p?.z} during ${doing}`);
+      console.log(
+        `[Kit] ${roleConfig.name} slot ${slot}: ${was ?? "(empty)"} -> ${now ?? "(empty)"} at ${p?.x},${p?.y},${p?.z} during ${doing}`,
+      );
     });
 
     // Start browser viewer — use unified viewer if available, fall back to per-bot viewer
