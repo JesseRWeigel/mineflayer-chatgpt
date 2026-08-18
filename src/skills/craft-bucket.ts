@@ -1,6 +1,7 @@
 import type { Bot } from "mineflayer";
 import type { Skill, SkillResult } from "./types.js";
 import mcDataLoader from "minecraft-data";
+import { Vec3 as Vec3Ctor } from "vec3";
 
 // A bucket is 3 iron ingots and the first rung of the nether chain.
 //
@@ -61,22 +62,65 @@ export async function craftBucket(bot: Bot): Promise<string> {
     return `Have raw_iron but only ${have.iron_ingot} ingots. Run smelt_ores first, then retry craft_bucket.`;
   }
 
-  const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
-  if (!table) return "No crafting_table within 32 blocks. Place one, then retry.";
+  let table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
 
   // Walk to it. Flora stood with seven ingots and got "craft did not produce
   // a bucket": findBlock accepts a table 32 blocks out, but bot.craft needs
   // the table in interaction reach and fails silently from farther away.
-  const { baseMoves, safeGoto } = await import("../bot/navigation.js");
-  const pkg = (await import("mineflayer-pathfinder")).default;
-  bot.pathfinder.setMovements(baseMoves(bot));
-  try {
-    await safeGoto(bot, new pkg.goals.GoalNear(table.position.x, table.position.y, table.position.z, 2), 30_000);
-  } catch {
-    /* measured below */
+  if (table) {
+    const { baseMoves, safeGoto } = await import("../bot/navigation.js");
+    const pkg = (await import("mineflayer-pathfinder")).default;
+    bot.pathfinder.setMovements(baseMoves(bot));
+    try {
+      await safeGoto(bot, new pkg.goals.GoalNear(table.position.x, table.position.y, table.position.z, 2), 30_000);
+    } catch {
+      /* measured below */
+    }
+    if (bot.entity.position.distanceTo(table.position) > 4.5) table = null;
   }
-  if (bot.entity.position.distanceTo(table.position) > 4.5) {
-    return `Crafting table at ${table.position.x},${table.position.y},${table.position.z} is out of reach — path blocked. Move closer and retry.`;
+
+  // No reachable table — make one. The village tables live inside Mason's
+  // houses where the pathfinder cannot always follow (Flora banked six ingots
+  // and bounced off a roof-top table). Four planks fit the pocket grid, and
+  // planks come from any log the same way.
+  const mcData0 = mcDataLoader(bot.version);
+  if (!table) {
+    const planksHeld = () =>
+      bot.inventory
+        .items()
+        .filter((i) => i.name.endsWith("_planks"))
+        .reduce((n, i) => n + i.count, 0);
+    if (planksHeld() < 4) {
+      const log = bot.inventory.items().find((i) => i.name.endsWith("_log"));
+      if (log) {
+        const plankName = log.name.replace("_log", "_planks");
+        const pr = mcData0.itemsByName[plankName]
+          ? bot.recipesFor(mcData0.itemsByName[plankName].id, null, 1, null)[0]
+          : null;
+        if (pr) await bot.craft(pr, 1, undefined).catch(() => {});
+      }
+    }
+    if (!bot.inventory.items().some((i) => i.name === "crafting_table")) {
+      const tr = bot.recipesFor(mcData0.itemsByName.crafting_table.id, null, 1, null)[0];
+      if (tr) await bot.craft(tr, 1, undefined).catch(() => {});
+    }
+    const tableItem = bot.inventory.items().find((i) => i.name === "crafting_table");
+    if (tableItem) {
+      const feet = bot.entity.position.floored();
+      const below = bot.blockAt(feet.offset(1, -1, 0));
+      if (below && below.name !== "air") {
+        try {
+          await bot.equip(tableItem, "hand");
+          await bot.placeBlock(below, new Vec3Ctor(0, 1, 0));
+        } catch {
+          /* re-checked below */
+        }
+      }
+      table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 4 });
+    }
+  }
+  if (!table || bot.entity.position.distanceTo(table.position) > 4.5) {
+    return "No reachable crafting_table and could not place one (need 4 planks or a log). Gather wood, then retry.";
   }
 
   const mcData = mcDataLoader(bot.version);
