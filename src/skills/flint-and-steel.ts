@@ -188,6 +188,50 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
 }
 
 /**
+ * Break carried gravel until a flint drops. The plan counts ten gravel as
+ * flint-equivalent, and for days nothing converted one into the other —
+ * Forge stood holding gravel and two ingots while the recipe lookup shrugged
+ * "no recipe" for want of an actual flint. Place a block at the feet, dig it,
+ * pick up whatever falls, repeat; roughly one in ten breaks pays out.
+ */
+async function flintFromGravel(bot: Bot): Promise<string> {
+  const deadline = Date.now() + 60_000;
+  let breaks = 0;
+  while (count(bot, "flint") === 0 && count(bot, "gravel") > 0 && Date.now() < deadline) {
+    const feet = bot.entity.position.floored();
+    const below = bot.blockAt(new Vec3(feet.x + 1, feet.y - 1, feet.z));
+    const cell = bot.blockAt(new Vec3(feet.x + 1, feet.y, feet.z));
+    if (!below || below.name === "air" || !cell || cell.name !== "air") {
+      return `flint spot blocked after ${breaks} breaks — move to open ground and retry`;
+    }
+    const gravelItem = bot.inventory.items().find((i) => i.name === "gravel");
+    if (!gravelItem) break;
+    try {
+      await bot.equip(gravelItem, "hand");
+      await bot.placeBlock(below, new Vec3(0, 1, 0));
+    } catch {
+      /* re-checked below */
+    }
+    await new Promise((r) => setTimeout(r, 400)); // gravel may settle
+    const placed = bot.blockAt(new Vec3(feet.x + 1, feet.y, feet.z));
+    if (!placed || placed.name !== "gravel") continue;
+    try {
+      await Promise.race([
+        bot.dig(placed),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 8_000)),
+      ]);
+      breaks++;
+    } catch {
+      bot.stopDigging();
+    }
+    await new Promise((r) => setTimeout(r, 900)); // let the drop land and get picked up
+  }
+  return count(bot, "flint") > 0
+    ? `broke gravel ${breaks} times and got a flint`
+    : `broke gravel ${breaks} times, no flint yet (${count(bot, "gravel")} gravel left)`;
+}
+
+/**
  * Craft flint_and_steel from flint + iron already on hand. Returns a plain
  * status string; craftFlintAndSteelSkill below derives `success` from whether
  * a flint_and_steel actually ended up in the inventory, so this never needs
@@ -216,6 +260,16 @@ export async function craftFlintAndSteel(bot: Bot): Promise<string> {
   }
   if (plan.needGravel > 0) {
     return `Need about ${plan.needGravel} more gravel to get flint. Mine gravel, then retry.`;
+  }
+
+  // Enough gravel, no flint yet — convert it here.
+  if ((tally(bot).flint ?? 0) === 0) {
+    const broke = await flintFromGravel(bot);
+    console.log(`[Igniter] ${bot.username} flint: ${broke}`);
+    plan = igniterPlan(tally(bot));
+    if (!plan.have && (tally(bot).flint ?? 0) === 0) {
+      return `Have gravel but no flint yet: ${broke}. Retry to keep breaking gravel.`;
+    }
   }
 
   // Flint and steel fits in the 2x2 player crafting grid, so a table is a
