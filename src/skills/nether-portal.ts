@@ -94,6 +94,18 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   // until its goal named it, fill_bucket ran from the surface after strip_mine
   // had already descended, and craft_flint_and_steel is registered, in Forge's
   // menu, and named by nothing. A skill that needs a thing should make it.
+  // The stash first: before the kit-retention rule (2545cec) every deposit
+  // trip donated buckets and igniters to the chest, so the cheapest kit is
+  // usually sitting there already — withdrawing beats re-grinding four iron.
+  if (!ready) {
+    const { withdrawStash } = await import("./stash.js");
+    const { STASH_POS } = await import("../bot/role.js");
+    for (const item of missing) {
+      await withdrawStash(bot, STASH_POS, item, 1).catch(() => {});
+    }
+    ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
+  }
+
   if (!ready && missing.includes("flint_and_steel")) {
     const igniter = await craftFlintAndSteel(bot);
     ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
