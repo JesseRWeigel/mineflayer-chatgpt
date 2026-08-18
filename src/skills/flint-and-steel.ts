@@ -45,6 +45,15 @@ const count = (bot: Bot, name: string) =>
     .reduce((n, i) => n + i.count, 0);
 
 /**
+ * Ore positions that defeated a dig. The block at (297,43,-313) sits under
+ * water — underwater digs run 5-25x slower than the timeout — and because
+ * findBlock always returns the NEAREST ore, every bot elected the same trap
+ * block for hours. A failed ore is remembered and the next search skips it.
+ */
+const badOres = new Set<string>();
+const oreKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}`;
+
+/**
  * One iron ingot, by any honest means: stash withdrawal, then mine a nearby
  * ore and smelt one raw iron. Every call is bounded; failure returns a reason
  * and leaves the inventory as evidence.
@@ -68,7 +77,7 @@ async function obtainOneIron(bot: Bot): Promise<string> {
   // 2. Mine one ore if no raw iron yet.
   if (count(bot, "raw_iron") === 0 && count(bot, "iron_ingot") === 0) {
     const ore = bot.findBlock({
-      matching: (b) => b.name === "iron_ore" || b.name === "deepslate_iron_ore",
+      matching: (b) => (b.name === "iron_ore" || b.name === "deepslate_iron_ore") && !badOres.has(oreKey(b.position)),
       maxDistance: 64,
     });
     if (!ore) return "no iron ore within 64 blocks — strip_mine would find some";
@@ -99,13 +108,16 @@ async function obtainOneIron(bot: Bot): Promise<string> {
     }
     await bot.equip(pick, "hand").catch(() => {});
     try {
+      // 30s, not 15: an ore under water digs 5-25x slower, and the trap block
+      // that ate five attempts was exactly that — in reach, real, just slow.
       await Promise.race([
         bot.dig(ore),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 15_000)),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 30_000)),
       ]);
     } catch {
       bot.stopDigging();
-      return `could not mine the ore at ${ore.position.x},${ore.position.y},${ore.position.z} (standing ${d.toFixed(1)} away)`;
+      badOres.add(oreKey(ore.position));
+      return `could not mine the ore at ${ore.position.x},${ore.position.y},${ore.position.z} (standing ${d.toFixed(1)} away) — will try a different ore next time`;
     }
     await new Promise((r) => setTimeout(r, 1500)); // let the drop land and get picked up
   }
