@@ -157,12 +157,38 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
   }
 
+  // The bucket, self-supplied too. "Missing bucket. Craft those first." has
+  // been the igniter-holders' wall for three cycles — craft_bucket refuses
+  // without three ingots on hand, and nobody delivers them. The igniter's
+  // proven one-ingot chain runs up to twice per attempt; ingots persist in
+  // the inventory, so successive runs accumulate to three and then craft.
+  if (!ready && missing.includes("bucket")) {
+    const { craftBucket } = await import("./craft-bucket.js");
+    const { obtainOneIron } = await import("./flint-and-steel.js");
+    const ingots = () =>
+      bot.inventory
+        .items()
+        .filter((i) => i.name === "iron_ingot")
+        .reduce((n, i) => n + i.count, 0);
+    for (let round = 0; round < 2 && ingots() < 3; round++) {
+      const got = await obtainOneIron(bot);
+      console.log(`[Bucket] ${bot.username} iron (${ingots()}/3): ${got}`);
+      if (!/withdrew|mined and smelted|already had/.test(got)) break; // no progress — stop burning budget
+    }
+    if (ingots() >= 3) {
+      const bucketMsg = await craftBucket(bot);
+      console.log(`[Bucket] ${bot.username}: ${bucketMsg}`);
+    }
+    ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
+  }
+
   if (!ready && missing.includes("flint_and_steel")) {
     const igniter = await craftFlintAndSteel(bot);
     ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
     if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. ${igniter}`;
   }
-  if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. Craft those first.`;
+  if (!ready)
+    return `Not ready for a portal: missing ${missing.join(", ")}. Keep re-invoking — each run banks iron toward the bucket.`;
 
   const p = bot.entity.position;
   let axis: "x" | "z" = "x";

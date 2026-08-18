@@ -58,7 +58,7 @@ const oreKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}
  * ore and smelt one raw iron. Every call is bounded; failure returns a reason
  * and leaves the inventory as evidence.
  */
-async function obtainOneIron(bot: Bot): Promise<string> {
+export async function obtainOneIron(bot: Bot): Promise<string> {
   const { goals } = pkg;
 
   // 1. The stash may hold ingots or raw iron.
