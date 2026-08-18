@@ -125,10 +125,26 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
     const below = bot.blockAt(feet.offset(0, -1, 0));
     if (!below) return `Dug down ${dug} to y=${Math.floor(bot.entity.position.y)}, then lost sight of the floor.`;
 
-    try {
-      await bot.dig(below);
-    } catch (err) {
-      return `Dug down ${dug} to y=${Math.floor(bot.entity.position.y)}, then could not break ${below.name}: ${(err as Error).message}`;
+    // "Digging aborted" is usually not this block's fault: a survival reflex
+    // (flee, eat) calls stopDigging mid-swing, and treating that one aborted
+    // swing as fatal ended four vertical sinks at "Dug down 0". An interrupt
+    // costs one retry, not the descent. Re-equip too — the reflex may have
+    // swapped the pickaxe for a sword.
+    let broke = false;
+    let lastErr = "";
+    for (let swing = 0; swing < 3 && !broke; swing++) {
+      try {
+        if (pick && bot.heldItem?.name !== pick.name) await bot.equip(pick, "hand").catch(() => {});
+        await bot.dig(below);
+        broke = true;
+      } catch (err) {
+        lastErr = (err as Error).message;
+        if (!/aborted/i.test(lastErr)) break; // a real failure, not an interrupt
+        await new Promise((r) => setTimeout(r, 800)); // let the reflex finish
+      }
+    }
+    if (!broke) {
+      return `Dug down ${dug} to y=${Math.floor(bot.entity.position.y)}, then could not break ${below.name}: ${lastErr}`;
     }
     dug++;
     // Let the fall land before probing again, or the next lookahead reads the
