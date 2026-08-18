@@ -44,6 +44,22 @@ const portals = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>();
 const plannedSites = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>();
 const RESUME_RANGE = 48;
 
+/**
+ * Lava pools the march keeps failing to reach. Atlas burned three runs at a
+ * pool guarded by a cavern his sink refused to cross and his walk could not
+ * route around — the same nearest-first trap as the drowned ore. Three
+ * fell-short endings for the same pool and the next search looks elsewhere.
+ */
+const lavaFails = new Map<string, number>();
+const badLava = new Set<string>();
+const lavaKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}`;
+function recordLavaFellShort(p: { x: number; y: number; z: number }): void {
+  const k = lavaKey(p);
+  const n = (lavaFails.get(k) ?? 0) + 1;
+  lavaFails.set(k, n);
+  if (n >= 3) badLava.add(k);
+}
+
 export function recordPortal(bot: Bot, origin: Vec3Like, axis: "x" | "z"): void {
   portals.set(bot.username, { origin, axis });
 }
@@ -199,7 +215,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // becoming the refill station for the cast's water half.
     const findLava = () =>
       bot.findBlock({
-        matching: (b) => b.name === "lava" && isSourceBlock(b),
+        matching: (b) => b.name === "lava" && isSourceBlock(b) && !badLava.has(lavaKey(b.position)),
         maxDistance: 96,
       });
     let lava = findLava();
@@ -273,6 +289,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // invocation continues from here.
     const lavaGap = bot.entity.position.distanceTo(lava.position);
     if (lavaGap > 15) {
+      recordLavaFellShort(lava.position);
       console.log(`[Portal] ${bot.username}: walk fell short — ${lavaGap.toFixed(0)} blocks from lava`);
       return `Walking to lava at ${lava.position.x},${lava.position.y},${lava.position.z} — still ${lavaGap.toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
     }

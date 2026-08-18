@@ -196,7 +196,10 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   if (filled) return `Filled a bucket with ${fluid}.`;
   const q = bot.entity.position;
   const dNow = Math.hypot(q.x - sp.x, q.y - sp.y, q.z - sp.z);
-  return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}).`;
+  // held= is the tell: RCON confirmed the fourth same-coords failure targeted
+  // a genuine level-0 source with the bot in range — if the hand shows food
+  // or a sword here, something still swaps items despite the latch.
+  return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}, held=${bot.heldItem?.name ?? "nothing"}).`;
 }
 
 /** Pour a full bucket so the fluid lands at `at`. Returns a result sentence. */
