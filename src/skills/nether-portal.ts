@@ -8,7 +8,7 @@
 
 import type { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
-import { findSiteFlexible, type BlockKind } from "./portal-siting.js";
+import { findSiteFlexible, firstObstacle, type BlockKind } from "./portal-siting.js";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import type { Skill, SkillResult } from "./types.js";
@@ -288,6 +288,11 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       console.log(`[Portal] ${bot.username}: no natural site — carving one at ${centre.x},${centre.y},${centre.z}`);
       await carveSite(bot, centre, axis);
       site = findSiteFlexible(centre, probe, 16);
+      if (!site) {
+        console.log(
+          `[Portal] ${bot.username} carve left: ${firstObstacle(centre, axis, probe) ?? "no obstacle at centre?"}`,
+        );
+      }
     }
     if (site) {
       ({ origin, axis } = site);

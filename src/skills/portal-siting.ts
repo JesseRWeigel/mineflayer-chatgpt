@@ -67,6 +67,29 @@ export function findSite(centre: Vec3Like, axis: "x" | "z", probe: BlockProbe, r
 }
 
 /**
+ * Why is this origin not buildable? The first offending cell, named — the
+ * carve fallback ran once in the wild and the re-probe still failed with no
+ * way to tell whether the digger ran out of budget, the floor lacks support,
+ * or a chunk read came back unknown.
+ */
+export function firstObstacle(origin: Vec3Like, axis: "x" | "z", probe: BlockProbe): string | null {
+  for (const p of framePositions(origin, axis)) {
+    const k = probe(p);
+    if (k !== "air" && k !== "obsidian") return `frame cell ${p.x},${p.y},${p.z} is ${k}`;
+  }
+  for (const p of interiorPositions(origin, axis)) {
+    const k = probe(p);
+    if (k !== "air") return `interior cell ${p.x},${p.y},${p.z} is ${k}`;
+  }
+  for (const p of framePositions(origin, axis)) {
+    if (p.y !== origin.y - 1) continue;
+    const k = probe({ x: p.x, y: p.y - 1, z: p.z });
+    if (k !== "solid") return `floor support under ${p.x},${p.y},${p.z} is ${k}`;
+  }
+  return null;
+}
+
+/**
  * findSite, but willing to bend: either frame orientation, and a step up or
  * down from the centre's level. One axis at exactly the bot's Y needs a flat
  * 4-block shelf with five clear above it in a specific direction — around the

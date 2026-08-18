@@ -31,6 +31,16 @@ export function handsBusy(bot: Bot): boolean {
 }
 function holdHands(bot: Bot, ms: number): void {
   handsBusyMap.set(bot, Date.now() + ms);
+  // The reactive brain defers while the latch is fresh — but mineflayer-auto-eat
+  // swaps the held item on its own timer, outside the brain entirely. A third
+  // point-blank scoop failure (standing 1.8, dy=0) survived the latch; a bot
+  // whose hunger dips mid-scoop equips food instead of the bucket. Pause it
+  // for the same window.
+  const ae = (bot as { autoEat?: { disableAuto?: () => void; enableAuto?: () => void } }).autoEat;
+  if (ae?.disableAuto) {
+    ae.disableAuto();
+    setTimeout(() => ae.enableAuto?.(), ms);
+  }
 }
 
 const FLUIDS = new Set(["water", "lava", "flowing_water", "flowing_lava"]);
