@@ -164,7 +164,18 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
           }
           return `Skill '${name}' not found. Try generate_skill to create it.`;
         }
-        const skillResult = await runSkill(bot, skill, params);
+        let skillResult = await runSkill(bot, skill, params);
+        // AUTO-CONTINUE. Skills that bank progress return "…again to continue"
+        // and depend on the model re-invoking promptly. It doesn't: Forge
+        // closed 75→50 blocks toward the lava, then wandered onto a mountain
+        // for an hour. When a skill explicitly asks for its own continuation,
+        // granting it is the bot following its own plan — the same class as
+        // the deterministic overrides in brain.ts, not a decision taken away
+        // from the model. Bounded, and only while the skill keeps asking.
+        for (let cont = 0; cont < 3 && /again to continue|retry to continue/i.test(skillResult); cont++) {
+          console.log(`[Skill] auto-continue ${cont + 1}/3 for "${name}"`);
+          skillResult = await runSkill(bot, skill, params);
+        }
         // Voyager-style refinement: a dynamic skill that failed with a CODE
         // error (not a precondition) gets its source + error fed back to the
         // LLM for a fix. Fire-and-forget — the bot keeps playing meanwhile.
