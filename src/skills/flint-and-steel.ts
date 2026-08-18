@@ -169,6 +169,12 @@ async function obtainOneIron(bot: Bot): Promise<string> {
       new Promise((_, rej) => setTimeout(() => rej(new Error("furnace GUI timeout")), 10_000)),
     ]);
     const mcData = mcDataLoader(bot.version);
+    // Clear leftovers first: three smelts failed "destination full" because
+    // earlier runs left output (or a different fuel/input) sitting in the
+    // slots, and mineflayer's transfer refuses a mismatched occupied slot.
+    await f.takeOutput().catch(() => {});
+    await f.takeInput().catch(() => {});
+    await f.takeFuel().catch(() => {});
     await f.putFuel(mcData.itemsByName[fuel.name].id, null, 1);
     await f.putInput(mcData.itemsByName.raw_iron.id, null, 1);
     // ~10s per smelt; wait, then take.
