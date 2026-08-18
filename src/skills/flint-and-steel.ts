@@ -1,6 +1,9 @@
 import type { Bot } from "mineflayer";
 import type { Skill, SkillResult } from "./types.js";
 import mcDataLoader from "minecraft-data";
+import { Vec3 } from "vec3";
+import pkg from "mineflayer-pathfinder";
+import { baseMoves, safeGoto } from "../bot/navigation.js";
 
 // Something to light the portal with.
 //
@@ -35,6 +38,120 @@ function tally(bot: Bot): Record<string, number> {
   return t;
 }
 
+const count = (bot: Bot, name: string) =>
+  bot.inventory
+    .items()
+    .filter((i) => i.name === name)
+    .reduce((n, i) => n + i.count, 0);
+
+/**
+ * One iron ingot, by any honest means: stash withdrawal, then mine a nearby
+ * ore and smelt one raw iron. Every call is bounded; failure returns a reason
+ * and leaves the inventory as evidence.
+ */
+async function obtainOneIron(bot: Bot): Promise<string> {
+  const { goals } = pkg;
+
+  // 1. The stash may hold ingots or raw iron.
+  try {
+    const { withdrawStash } = await import("./stash.js");
+    const { STASH_POS } = await import("../bot/role.js");
+    if (bot.entity.position.distanceTo(new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z)) < 64) {
+      await withdrawStash(bot, STASH_POS, "iron_ingot", 1).catch(() => {});
+      if (count(bot, "iron_ingot") > 0) return "withdrew an ingot from the stash";
+      await withdrawStash(bot, STASH_POS, "raw_iron", 1).catch(() => {});
+    }
+  } catch {
+    /* stash unavailable — mine instead */
+  }
+
+  // 2. Mine one ore if no raw iron yet.
+  if (count(bot, "raw_iron") === 0 && count(bot, "iron_ingot") === 0) {
+    const ore = bot.findBlock({
+      matching: (b) => b.name === "iron_ore" || b.name === "deepslate_iron_ore",
+      maxDistance: 64,
+    });
+    if (!ore) return "no iron ore within 64 blocks — strip_mine would find some";
+    const pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+    if (!pick) return "no pickaxe to mine the ore";
+    bot.pathfinder.setMovements(baseMoves(bot));
+    try {
+      await safeGoto(bot, new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 2), 45_000);
+    } catch {
+      /* reach-checked by the dig below */
+    }
+    await bot.equip(pick, "hand").catch(() => {});
+    try {
+      await Promise.race([
+        bot.dig(ore),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 15_000)),
+      ]);
+    } catch {
+      bot.stopDigging();
+      return `could not mine the ore at ${ore.position.x},${ore.position.y},${ore.position.z}`;
+    }
+    await new Promise((r) => setTimeout(r, 1500)); // let the drop land and get picked up
+  }
+  if (count(bot, "iron_ingot") > 0) return "already had an ingot after all";
+  if (count(bot, "raw_iron") === 0) return "mined but no raw_iron landed in the pack";
+
+  // 3. Smelt one raw iron. A furnace from earlier smelt runs is usually
+  //    nearby; otherwise place one from the pack if we carry it.
+  let furnace = bot.findBlock({ matching: (b) => b.name === "furnace", maxDistance: 32 });
+  if (!furnace) {
+    const item = bot.inventory.items().find((i) => i.name === "furnace");
+    if (!item) return "raw_iron in hand but no furnace within 32 and none in the pack";
+    const below = bot.blockAt(bot.entity.position.floored().offset(1, -1, 0));
+    if (below && below.name !== "air") {
+      try {
+        await bot.equip(item, "hand");
+        await bot.placeBlock(below, new Vec3(0, 1, 0));
+      } catch {
+        /* re-checked below */
+      }
+      furnace = bot.findBlock({ matching: (b) => b.name === "furnace", maxDistance: 8 });
+    }
+    if (!furnace) return "could not place a furnace";
+  }
+  bot.pathfinder.setMovements(baseMoves(bot));
+  try {
+    await safeGoto(bot, new goals.GoalNear(furnace.position.x, furnace.position.y, furnace.position.z, 2), 30_000);
+  } catch {
+    /* openFurnace below is bounded and will tell */
+  }
+  const fuel = bot.inventory
+    .items()
+    .find((i) =>
+      [
+        "coal",
+        "charcoal",
+        "oak_planks",
+        "spruce_planks",
+        "birch_planks",
+        "oak_log",
+        "spruce_log",
+        "birch_log",
+      ].includes(i.name),
+    );
+  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) in the pack";
+  try {
+    const f: any = await Promise.race([
+      bot.openFurnace(furnace),
+      new Promise((_, rej) => setTimeout(() => rej(new Error("furnace GUI timeout")), 10_000)),
+    ]);
+    const mcData = mcDataLoader(bot.version);
+    await f.putFuel(mcData.itemsByName[fuel.name].id, null, 1);
+    await f.putInput(mcData.itemsByName.raw_iron.id, null, 1);
+    // ~10s per smelt; wait, then take.
+    await new Promise((r) => setTimeout(r, 12_000));
+    await f.takeOutput().catch(() => {});
+    f.close();
+  } catch (e: any) {
+    return `smelt failed: ${e?.message ?? e}`;
+  }
+  return count(bot, "iron_ingot") > 0 ? "mined and smelted one" : "smelted but no ingot appeared";
+}
+
 /**
  * Craft flint_and_steel from flint + iron already on hand. Returns a plain
  * status string; craftFlintAndSteelSkill below derives `success` from whether
@@ -42,8 +159,20 @@ function tally(bot: Bot): Record<string, number> {
  * to lie about outcomes.
  */
 export async function craftFlintAndSteel(bot: Bot): Promise<string> {
-  const plan = igniterPlan(tally(bot));
+  let plan = igniterPlan(tally(bot));
   if (plan.have) return "Already have flint_and_steel.";
+
+  // Obtain the single iron ingot ourselves. "Smelt raw_iron first" depended
+  // on someone mining iron — and once the gateway compass pointed every bot
+  // at the portal, nobody did: five runs in one hour all stopped on this one
+  // ingot. Stash first, then mine a nearby ore and smelt one raw iron in a
+  // found (or pocket) furnace with pocket fuel. All bounded, all best-effort;
+  // an honest shortage still falls through to the message below.
+  if (plan.needIron > 0) {
+    const got = await obtainOneIron(bot);
+    console.log(`[Igniter] ${bot.username} iron: ${got}`);
+    plan = igniterPlan(tally(bot));
+  }
   if (plan.needIron > 0) {
     // A precondition, not a bug: say so in wording that does NOT start with
     // "<name> failed:", so the reliability layer treats it as an environment
