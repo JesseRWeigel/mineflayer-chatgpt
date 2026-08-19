@@ -143,9 +143,21 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
   // where sealCell has no wall to build from. When the feet are wet, walk to
   // the nearest dry cell first; if there is no shore in range, say so
   // honestly instead of spending the whole budget swimming in place.
+  // Kelp, seagrass and bubble columns are water wearing a costume: the block
+  // name is not "water", so the wet check waved Atlas through, and he broke
+  // eighty instantly-regrowing plants beneath a swimmer who never sank.
+  const WATERY = new Set([
+    "water",
+    "flowing_water",
+    "kelp",
+    "kelp_plant",
+    "seagrass",
+    "tall_seagrass",
+    "bubble_column",
+  ]);
   const wet = (p: Vec3) => {
     const b = bot.blockAt(p);
-    return !!b && (b.name === "water" || b.name === "flowing_water");
+    return !!b && WATERY.has(b.name);
   };
   const feet0 = bot.entity.position.floored();
   if (wet(feet0) || wet(feet0.offset(0, 1, 0))) {
@@ -248,6 +260,17 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
     // Let the fall land before probing again, or the next lookahead reads the
     // block the bot is still falling through.
     await new Promise((r) => setTimeout(r, 350));
+
+    // Breaking blocks without descending is a budget shredder, whatever the
+    // cause — Atlas twice burned a full 80-block allowance ending at the exact
+    // y he started. Every 10 digs the shaft must have gained at least 3 blocks
+    // of depth, or the run stops and NAMES what it kept breaking so the next
+    // costume water wears gets added to the wet list instead of guessed at.
+    const yNow = Math.floor(bot.entity.position.y);
+    if (dug % 10 === 0 && startY - yNow < dug / 3) {
+      const under = bot.blockAt(bot.entity.position.floored().offset(0, -1, 0));
+      return `Broke ${dug} blocks but only descended ${startY - yNow} (y=${startY} to y=${yNow}) — kept breaking ${under?.name ?? "unknown"}; this ground cannot be dug through here.`;
+    }
   }
 
   const endY = Math.floor(bot.entity.position.y);
