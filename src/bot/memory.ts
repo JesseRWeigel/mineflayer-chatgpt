@@ -90,8 +90,22 @@ export function isSkillCrash(notes: string): boolean {
  * per-bot broken-skill list here and the team-wide retirement stats in
  * skills/reliability.ts, which had drifted into two copies of this rule.
  */
+/**
+ * The resumable-run protocol. A skill that banks progress and hands the run
+ * back ends its message with "…again to continue" / "…retry to continue";
+ * actions.ts grants those continuations automatically. The reliability layer
+ * must honor the SAME protocol: build_nether_portal re-retired itself on its
+ * own honest "Walking to lava — still 19 blocks away" hand-backs, and the
+ * gate then blocked forty invocations from a fully kitted bot. This is a
+ * structural marker shared with the auto-continue loop — the fourth round of
+ * failure-keyword whack-a-mole is the wrong tool (see PRECONDITION_KEYWORDS
+ * history).
+ */
+export const RESUMABLE_PROTOCOL = /again to continue|retry to continue/i;
+
 export function isPreconditionFailure(notes: string): boolean {
   if (isSkillCrash(notes)) return false;
+  if (RESUMABLE_PROTOCOL.test(notes || "")) return true;
   const lower = (notes || "").toLowerCase();
   return PRECONDITION_KEYWORDS.some((k) => lower.includes(k.toLowerCase()));
 }

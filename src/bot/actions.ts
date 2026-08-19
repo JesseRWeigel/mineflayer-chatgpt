@@ -172,7 +172,7 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
         // granting it is the bot following its own plan — the same class as
         // the deterministic overrides in brain.ts, not a decision taken away
         // from the model. Bounded, and only while the skill keeps asking.
-        for (let cont = 0; cont < 3 && /again to continue|retry to continue/i.test(skillResult); cont++) {
+        for (let cont = 0; cont < 3 && RESUMABLE_PROTOCOL.test(skillResult); cont++) {
           console.log(`[Skill] auto-continue ${cont + 1}/3 for "${name}"`);
           skillResult = await runSkill(bot, skill, params);
         }

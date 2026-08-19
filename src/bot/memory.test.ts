@@ -463,3 +463,22 @@ test("memory: healBrokenSkillsFromRegistry removes registered skills", () => {
     cleanup();
   }
 });
+
+test("a resumable hand-back is progress banked, never a failure", () => {
+  // build_nether_portal re-retired itself on its own honest walking messages
+  // and the gate then blocked forty invocations from a fully kitted bot. The
+  // "again to continue" marker is the same protocol the auto-continue loop
+  // grants — the classifier must honor it too.
+  assert.equal(
+    isPreconditionFailure(
+      'Walking to lava at 350,-4,-308 — still 19 blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.',
+    ),
+    true,
+  );
+  assert.equal(
+    isPreconditionFailure("Frame unfinished so far (Cast 3 of 10) — retry to continue this same frame."),
+    true,
+  );
+  // A crash stays a crash even if the message somehow carries the marker.
+  assert.equal(isPreconditionFailure("Crashed: boom again to continue"), false);
+});
