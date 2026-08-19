@@ -15,7 +15,11 @@
 
 import type { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
-import { holdHands } from "./fluid.js";
+import pkg from "mineflayer-pathfinder";
+import { baseMoves, safeGoto } from "../bot/navigation.js";
+import { holdHands, findDumpCell, type DumpProbe } from "./fluid.js";
+
+const { goals } = pkg;
 
 export type BlockKind = "solid" | "air" | "lava" | "water" | "unknown";
 
@@ -133,6 +137,35 @@ async function sealCell(bot: Bot, cell: Vec3): Promise<boolean> {
 }
 
 export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budgetMs = 90_000): Promise<string> {
+  // A shaft cannot start in a lake. Blade "dug down 80 blocks" from y=69 and
+  // ended at y=69 — floating on water, breaking lakebed blocks below him
+  // without ever sinking — and Atlas burned three runs at "water 1 below"
+  // where sealCell has no wall to build from. When the feet are wet, walk to
+  // the nearest dry cell first; if there is no shore in range, say so
+  // honestly instead of spending the whole budget swimming in place.
+  const wet = (p: Vec3) => {
+    const b = bot.blockAt(p);
+    return !!b && (b.name === "water" || b.name === "flowing_water");
+  };
+  const feet0 = bot.entity.position.floored();
+  if (wet(feet0) || wet(feet0.offset(0, 1, 0))) {
+    const probe: DumpProbe = (p) => {
+      const k = kindOf(bot, new Vec3(p.x, p.y, p.z));
+      if (k === "lava" || k === "water") return "liquid";
+      return k;
+    };
+    const shore = findDumpCell(feet0, probe, 1, 12);
+    if (shore) {
+      bot.pathfinder.setMovements(baseMoves(bot));
+      await safeGoto(bot, new goals.GoalNear(shore.x, shore.y, shore.z, 1), 30_000).catch(() => {});
+    }
+    const now = bot.entity.position.floored();
+    if (wet(now) || wet(now.offset(0, 1, 0))) {
+      return `Standing in open water at ${now.x},${now.y},${now.z} with no shore within 12 — a shaft cannot start here; move to dry ground and retry.`;
+    }
+    console.log(`[Portal] descent moved to dry ground at ${now.x},${now.y},${now.z} before digging`);
+  }
+
   const startY = Math.floor(bot.entity.position.y);
   const deadline = Date.now() + budgetMs;
   let dug = 0;
@@ -149,6 +182,11 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
   let seals = 0;
   while (Math.floor(bot.entity.position.y) > targetY && shouldKeepDigging(deadline - Date.now(), dug, maxBlocks)) {
     const feet = bot.entity.position.floored();
+    // Wet feet mid-descent means a breached aquifer or a flooded cave: digging
+    // on just breaks blocks under a swimmer and never gains a block of depth.
+    if (wet(feet)) {
+      return `Dug down ${dug} to y=${feet.y}, then the shaft flooded — standing in water; retry from dry ground.`;
+    }
     const verdict = safeToDigDown((d) => kindOf(bot, feet.offset(0, -d, 0)));
     if (!verdict.safe) {
       // A blanket aquifer defeats both the refusal and the sidestep: Atlas
