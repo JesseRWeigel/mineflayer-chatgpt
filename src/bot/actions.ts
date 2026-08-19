@@ -13,6 +13,7 @@ import { getDynamicSkillNames } from "../skills/dynamic-loader.js";
 import { runNeuralCombat } from "../neural/combat.js";
 import { LOG_TYPES } from "../skills/materials.js";
 import { depositStash, withdrawStash } from "../skills/stash.js";
+import { RESUMABLE_PROTOCOL } from "./memory.js";
 import { config } from "../config.js";
 
 import { STASH_POS } from "./role.js";

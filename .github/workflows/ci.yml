@@ -29,6 +29,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # tsup is esbuild-based and never typechecks; tests only import what
+      # they test. An undefined name in actions.ts shipped and broke every
+      # skill invocation at runtime for an hour before a log line caught it.
+      - name: Typecheck
+        run: npm run typecheck
+
       - name: Format check
         run: npm run format:check
 
