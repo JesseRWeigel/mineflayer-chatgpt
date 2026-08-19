@@ -216,6 +216,10 @@ export async function runSkill(bot: Bot, skill: Skill, params: Record<string, an
       recordSkillAttempt(skill.name, false, durationSeconds, `Crashed: ${err.message}`);
     }
 
+    // The message alone hid a null-pointer for an hour — six identical
+    // "reading 'x'" crashes with no line number. The stack goes to the log;
+    // the model still gets the short form.
+    console.error(`[Skill] "${skill.name}" crash stack:\n${err.stack ?? err.message}`);
     progress({ skillName: skill.name, phase: "Crashed", progress: 0, message: err.message, active: false });
     return `Skill ${skill.name} crashed: ${err.message}`;
   } finally {
