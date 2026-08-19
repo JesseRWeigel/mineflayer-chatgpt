@@ -125,6 +125,16 @@ async function carveSite(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<v
     const b = bot.blockAt(new Vec3(cell.x, cell.y, cell.z));
     if (!b || b.name === "air" || b.name === "cave_air" || b.name === "water" || b.name === "lava") continue;
     if (b.name === "obsidian" || b.name === "bedrock") continue;
+    // Step toward cells outside the ~4.5 dig reach. The first wild carve left
+    // a floor cell solid ("carve left: frame cell ... is solid") because the
+    // digger swung from one standing spot and far cells failed silently.
+    if (bot.entity.position.distanceTo(b.position) > 4.3) {
+      try {
+        await safeGoto(bot, new goals.GoalNear(cell.x, cell.y, cell.z, 2), 10_000);
+      } catch {
+        /* the dig below will fail fast if still out of reach */
+      }
+    }
     try {
       await Promise.race([
         bot.dig(b),
