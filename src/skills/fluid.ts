@@ -86,6 +86,36 @@ export function withinReach(bx: number, by: number, bz: number, tx: number, ty: 
   return Math.hypot(bx - tx, by - ty, bz - tz) <= REACH_BLOCKS;
 }
 
+export type DumpProbe = (p: Vec3Like) => "air" | "solid" | "liquid" | "unknown";
+
+/**
+ * Where can a wrong-fluid dump actually land?
+ *
+ * The dump used to aim at a fixed cell three east of the feet. Atlas stood at
+ * a lake edge with water east of him, so that cell had no solid support, the
+ * pour was refused, and fillBucket reported "No empty bucket" while a full
+ * water bucket sat in the pack — the cast died at 0/10 one step from the pool
+ * it needed. A dump target must be found the way the cast finds its water
+ * station: an air cell over solid ground, searched outward. `minR` keeps lava
+ * dumps off the caster's own feet; water is harmless at any distance.
+ */
+export function findDumpCell(feet: Vec3Like, probe: DumpProbe, minR: number, maxR = 4): Vec3Like | null {
+  for (let r = minR; r <= maxR; r++) {
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        for (const dy of [0, 1, -1]) {
+          const cell = { x: feet.x + dx, y: feet.y + dy, z: feet.z + dz };
+          if (probe(cell) !== "air") continue;
+          if (probe({ x: cell.x, y: cell.y - 1, z: cell.z }) !== "solid") continue;
+          return cell;
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * What to do when there is no source in range.
  *
@@ -115,15 +145,30 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   // A bucket full of the WRONG fluid is not "no bucket": the portal's
   // readiness check accepts any bucket, so a bot arriving with water could
   // never start the lava-first cast — 29 of the hour's 53 portal failures
-  // were this exact dead end. Dump it where we stand and carry on.
+  // were this exact dead end. Dump it nearby and carry on. The dump cell is
+  // SEARCHED, and lava keeps 3 blocks of clearance so the bot never pours
+  // lava on itself to free up its own bucket.
   let bucket = bot.inventory.items().find((i) => i.name === "bucket");
   if (!bucket) {
     const wrong = bot.inventory.items().find((i) => i.name === "water_bucket" || i.name === "lava_bucket");
     if (wrong) {
-      // Three blocks aside, not at the feet — the wrong fluid can be lava,
-      // and a bot must not pour lava on itself to free up its own bucket.
       const feet = bot.entity.position.floored();
-      await emptyBucket(bot, { x: feet.x + 3, y: feet.y, z: feet.z });
+      const probe: DumpProbe = (p) => {
+        const b = bot.blockAt(new Vec3(p.x, p.y, p.z));
+        if (!b) return "unknown";
+        if (b.name === "air" || b.name === "cave_air") return "air";
+        if (FLUIDS.has(b.name)) return "liquid";
+        return "solid";
+      };
+      const spot = findDumpCell(feet, probe, wrong.name === "lava_bucket" ? 3 : 1);
+      if (spot) {
+        const dumped = await emptyBucket(bot, spot);
+        if (!dumped.startsWith("Poured")) {
+          console.log(`[Bucket] dump of ${wrong.name} at ${spot.x},${spot.y},${spot.z} failed: ${dumped}`);
+        }
+      } else {
+        console.log(`[Bucket] no dumpable cell within 4 of ${feet.x},${feet.y},${feet.z} to free ${wrong.name}`);
+      }
       bucket = bot.inventory.items().find((i) => i.name === "bucket");
     }
   }

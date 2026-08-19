@@ -110,3 +110,41 @@ test("the fluid search reaches beyond a single cave chamber", () => {
 test("the no-source message reports the radius actually searched", () => {
   assert.match(noSourceAdvice("lava", 70), new RegExp(String(FLUID_SEARCH_BLOCKS)));
 });
+
+// ── findDumpCell: freeing a bucket that holds the wrong fluid ───────────────
+//
+// The dump used to aim at a fixed cell three east of the feet. Atlas stood at
+// a lake edge with water to the east; the fixed cell had no solid support, the
+// pour was refused, and the cast reported "No empty bucket" with a full water
+// bucket in the pack.
+
+import { findDumpCell, type DumpProbe } from "./fluid.js";
+
+/** Solid ground below y=64, open air above — a flat shore. */
+const shore: DumpProbe = (p) => (p.y < 64 ? "solid" : "air");
+
+test("a dump cell on open ground is found beside the feet", () => {
+  const cell = findDumpCell({ x: 0, y: 64, z: 0 }, shore, 1);
+  assert.ok(cell, "flat ground must offer a dump cell");
+  assert.equal(Math.max(Math.abs(cell.x), Math.abs(cell.z)), 1);
+});
+
+test("a lake to the east does not block the dump — the search walks the ring", () => {
+  // Everything at x >= 1 is water: the exact lake-edge stance that broke the
+  // fixed feet+3 target. The shore behind the bot must be chosen instead.
+  const lakeEast: DumpProbe = (p) => (p.x >= 1 ? "liquid" : shore(p));
+  const cell = findDumpCell({ x: 0, y: 64, z: 0 }, lakeEast, 1);
+  assert.ok(cell, "the west shore must be found");
+  assert.ok(cell.x <= 0, `dump at x=${cell.x} should avoid the lake`);
+});
+
+test("a lava dump keeps its distance from the feet", () => {
+  const cell = findDumpCell({ x: 0, y: 64, z: 0 }, shore, 3);
+  assert.ok(cell, "open ground must offer a lava dump cell");
+  assert.ok(Math.max(Math.abs(cell.x), Math.abs(cell.z)) >= 3, "lava must land 3+ blocks away");
+});
+
+test("surrounded by liquid on all sides, the dump reports null rather than pouring blind", () => {
+  const openWater: DumpProbe = () => "liquid";
+  assert.equal(findDumpCell({ x: 0, y: 64, z: 0 }, openWater, 1), null);
+});
