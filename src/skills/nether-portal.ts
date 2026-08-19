@@ -315,6 +315,15 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         if (now > 15 && drop > 15) {
           const dug = await digDownTo(bot, Math.floor(lava.position.y) + 2, 80, 90_000);
           console.log(`[Portal] ${bot.username} vertical closure: ${dug}`);
+          // A shaft refused at its very first swing (water/void below, open
+          // water underfoot) will be refused identically from the same cell
+          // forever — Atlas logged nine "water 3 block(s) below" from one
+          // spot across three legs and three encores. Sidestep before the
+          // next attempt, the same medicine the initial descent takes.
+          if (/Dug down 0|cannot start here|kept breaking/.test(dug)) {
+            const p = bot.entity.position;
+            await safeGoto(bot, new goals.GoalNear(p.x + 6, p.y, p.z + 6, 2), 15_000).catch(() => {});
+          }
           continue;
         }
         break; // genuinely blocked laterally
