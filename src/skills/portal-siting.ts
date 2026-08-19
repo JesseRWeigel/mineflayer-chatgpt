@@ -24,11 +24,14 @@ export type BlockProbe = (p: Vec3Like) => BlockKind;
 export function siteIsBuildable(origin: Vec3Like, axis: "x" | "z", probe: BlockProbe): boolean {
   const frame = framePositions(origin, axis);
 
-  // Frame slots may be empty or already obsidian — the latter is a resumed
-  // build, which should not be treated as an obstruction.
+  // Frame slots may be empty, already obsidian (a resumed build), or LAVA —
+  // a lava-filled frame cell is a gift, since wetting it casts the obsidian
+  // in place. Blade carved a site at a pool's edge and the validator refused
+  // it over exactly such a cell. Water still disqualifies: wetting cannot
+  // turn water to obsidian, only displace the frame.
   for (const p of frame) {
     const k = probe(p);
-    if (k !== "air" && k !== "obsidian") return false;
+    if (k !== "air" && k !== "obsidian" && k !== "liquid") return false;
   }
 
   // The interior must be genuinely clear; the portal fills it.
@@ -75,7 +78,7 @@ export function findSite(centre: Vec3Like, axis: "x" | "z", probe: BlockProbe, r
 export function firstObstacle(origin: Vec3Like, axis: "x" | "z", probe: BlockProbe): string | null {
   for (const p of framePositions(origin, axis)) {
     const k = probe(p);
-    if (k !== "air" && k !== "obsidian") return `frame cell ${p.x},${p.y},${p.z} is ${k}`;
+    if (k !== "air" && k !== "obsidian" && k !== "liquid") return `frame cell ${p.x},${p.y},${p.z} is ${k}`;
   }
   for (const p of interiorPositions(origin, axis)) {
     const k = probe(p);

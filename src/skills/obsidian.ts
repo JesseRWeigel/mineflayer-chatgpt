@@ -88,6 +88,15 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[]): Promise<stri
       cast++;
       continue;
     }
+    // A slot already holding a lava SOURCE (pool-edge sites have them) only
+    // needs wetting — skip the fill-and-pour and convert what is there.
+    if (existing?.name === "lava" && touchesWater(bot, pos)) {
+      await new Promise((r) => setTimeout(r, 600));
+      if (bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian") {
+        cast++;
+        continue;
+      }
+    }
 
     // Solid support first — a source cannot rest on air, and the pour ray
     // needs the support block to hit. Bottom-up order means the cell below is
@@ -136,6 +145,14 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[]): Promise<stri
       const pouredWater = await emptyBucket(bot, station ?? pos);
       if (!pouredWater.startsWith("Poured")) return `Stopped after ${cast}/${total}: ${pouredWater}`;
       await new Promise((r) => setTimeout(r, 600)); // let the flow reach the slot
+    }
+
+    // A slot that already held a lava source needs no pour — the station's
+    // flow converts it where it lies. Only empty slots get lava fetched.
+    if (existing?.name === "lava") {
+      await new Promise((r) => setTimeout(r, 800));
+      if (bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian") cast++;
+      continue;
     }
 
     const lava = await fillBucket(bot, "lava");

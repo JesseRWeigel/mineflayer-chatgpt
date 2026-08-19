@@ -49,9 +49,9 @@ test("one intruding block anywhere in the volume is enough to reject", () => {
   assert.equal(siteIsBuildable(origin, "x", oneBoulder), false);
 });
 
-test("lava or water in the volume is rejected, not treated as air", () => {
-  const frame = framePositions(origin, "x")[0];
-  const puddle: BlockProbe = (p) => (p.x === frame.x && p.y === frame.y && p.z === frame.z ? "liquid" : flatGround(p));
+test("liquid in the INTERIOR is a veto — the portal cannot form in a puddle", () => {
+  const inner = interiorPositions(origin, "x")[0];
+  const puddle: BlockProbe = (p) => (p.x === inner.x && p.y === inner.y && p.z === inner.z ? "liquid" : flatGround(p));
   assert.equal(siteIsBuildable(origin, "x", puddle), false);
 });
 
@@ -125,4 +125,13 @@ test("flexible siting falls back to the z axis when x is walled off", () => {
 test("flexible siting still reports null when nothing fits", () => {
   const allSolid: BlockProbe = () => "solid";
   assert.equal(findSiteFlexible({ x: 0, y: 65, z: 0 }, allSolid, 3), null);
+});
+
+test("a lava-filled FRAME cell is an asset", () => {
+  // Blade carved a site at a pool's edge and the validator refused it over a
+  // lava cell — the one block that casts itself once wet.
+  const cell = framePositions(origin, "x")[0];
+  const lavaInFrame: BlockProbe = (p) =>
+    p.x === cell.x && p.y === cell.y && p.z === cell.z ? "liquid" : flatGround(p);
+  assert.equal(siteIsBuildable(origin, "x", lavaInFrame), true);
 });
