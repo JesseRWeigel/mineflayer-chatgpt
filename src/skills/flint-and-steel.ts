@@ -205,8 +205,19 @@ async function flintFromGravel(bot: Bot): Promise<string> {
   let lastPlaceErr = "";
   while (count(bot, "flint") === 0 && count(bot, "gravel") > 0 && Date.now() < deadline) {
     // Any of the four neighbouring cells will do: air with solid footing
-    // under it. The first version checked exactly one cell and gave up when
-    // Forge happened to stand beside a wall.
+    // under it — and NOBODY standing in it. Ten placements in a row died on
+    // "blockUpdate did not fire": the server refuses to place a block into a
+    // cell an entity occupies, and Forge kept choosing spots inside the
+    // stash-side bot huddle.
+    const occupied = (cx: number, cy: number, cz: number) =>
+      Object.values(bot.entities).some(
+        (e) =>
+          e !== bot.entity &&
+          e?.position &&
+          Math.abs(e.position.x - (cx + 0.5)) < 0.9 &&
+          Math.abs(e.position.z - (cz + 0.5)) < 0.9 &&
+          Math.abs(e.position.y - cy) < 1.8,
+      );
     const feet = bot.entity.position.floored();
     let below: ReturnType<typeof bot.blockAt> = null;
     let spot: Vec3 | null = null;
@@ -218,7 +229,7 @@ async function flintFromGravel(bot: Bot): Promise<string> {
     ]) {
       const b = bot.blockAt(new Vec3(feet.x + dx, feet.y - 1, feet.z + dz));
       const c = bot.blockAt(new Vec3(feet.x + dx, feet.y, feet.z + dz));
-      if (b && b.name !== "air" && c && c.name === "air") {
+      if (b && b.name !== "air" && c && c.name === "air" && !occupied(feet.x + dx, feet.y, feet.z + dz)) {
         below = b;
         spot = new Vec3(feet.x + dx, feet.y, feet.z + dz);
         break;
