@@ -166,6 +166,15 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
     console.log(`[Portal] descent moved to dry ground at ${now.x},${now.y},${now.z} before digging`);
   }
 
+  // The walk leg that precedes a closure can time out with the pathfinder
+  // still holding its goal — pathfinder.stop() is a polite request, and a
+  // pathfinder that still owns a goal cancels every dig instantly so it can
+  // keep walking. Atlas logged nine straight "Dug down 0 ... Digging aborted"
+  // inside four seconds with no reflex anywhere near him: the retries and the
+  // hands-busy latch only guard against the brain, and this saboteur is the
+  // navigator. Drop the goal outright before the first swing.
+  bot.pathfinder.setGoal(null);
+
   const startY = Math.floor(bot.entity.position.y);
   const deadline = Date.now() + budgetMs;
   let dug = 0;
