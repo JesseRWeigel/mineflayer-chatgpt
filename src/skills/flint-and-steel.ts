@@ -198,10 +198,27 @@ async function flintFromGravel(bot: Bot): Promise<string> {
   const deadline = Date.now() + 60_000;
   let breaks = 0;
   while (count(bot, "flint") === 0 && count(bot, "gravel") > 0 && Date.now() < deadline) {
+    // Any of the four neighbouring cells will do: air with solid footing
+    // under it. The first version checked exactly one cell and gave up when
+    // Forge happened to stand beside a wall.
     const feet = bot.entity.position.floored();
-    const below = bot.blockAt(new Vec3(feet.x + 1, feet.y - 1, feet.z));
-    const cell = bot.blockAt(new Vec3(feet.x + 1, feet.y, feet.z));
-    if (!below || below.name === "air" || !cell || cell.name !== "air") {
+    let below: ReturnType<typeof bot.blockAt> = null;
+    let spot: Vec3 | null = null;
+    for (const [dx, dz] of [
+      [1, 0],
+      [-1, 0],
+      [0, 1],
+      [0, -1],
+    ]) {
+      const b = bot.blockAt(new Vec3(feet.x + dx, feet.y - 1, feet.z + dz));
+      const c = bot.blockAt(new Vec3(feet.x + dx, feet.y, feet.z + dz));
+      if (b && b.name !== "air" && c && c.name === "air") {
+        below = b;
+        spot = new Vec3(feet.x + dx, feet.y, feet.z + dz);
+        break;
+      }
+    }
+    if (!below || !spot) {
       return `flint spot blocked after ${breaks} breaks — move to open ground and retry`;
     }
     const gravelItem = bot.inventory.items().find((i) => i.name === "gravel");
@@ -213,7 +230,7 @@ async function flintFromGravel(bot: Bot): Promise<string> {
       /* re-checked below */
     }
     await new Promise((r) => setTimeout(r, 400)); // gravel may settle
-    const placed = bot.blockAt(new Vec3(feet.x + 1, feet.y, feet.z));
+    const placed = bot.blockAt(spot);
     if (!placed || placed.name !== "gravel") continue;
     try {
       await Promise.race([
