@@ -241,7 +241,10 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // becoming the refill station for the cast's water half.
     const findLava = () =>
       bot.findBlock({
-        matching: (b) => b.name === "lava" && isSourceBlock(b) && !badLava.has(lavaKey(b.position)),
+        // b.position is NULL for section-scanned blocks inside findBlock's
+        // matching callback — six runs crashed on it. Judge the blacklist only
+        // when a position exists (the trap the playbook warned about, form 2).
+        matching: (b) => b.name === "lava" && isSourceBlock(b) && (!b.position || !badLava.has(lavaKey(b.position))),
         maxDistance: 96,
       });
     let lava = findLava();

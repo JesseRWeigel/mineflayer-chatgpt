@@ -77,7 +77,8 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   // 2. Mine one ore if no raw iron yet.
   if (count(bot, "raw_iron") === 0 && count(bot, "iron_ingot") === 0) {
     const ore = bot.findBlock({
-      matching: (b) => (b.name === "iron_ore" || b.name === "deepslate_iron_ore") && !badOres.has(oreKey(b.position)),
+      matching: (b) =>
+        (b.name === "iron_ore" || b.name === "deepslate_iron_ore") && (!b.position || !badOres.has(oreKey(b.position))),
       maxDistance: 64,
     });
     if (!ore) return "no iron ore within 64 blocks — strip_mine would find some";
