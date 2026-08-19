@@ -61,18 +61,20 @@ const oreKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}
 export async function obtainOneIron(bot: Bot): Promise<string> {
   const { goals } = pkg;
 
+  // The contract is one MORE iron than the caller already holds. Every check
+  // below is a delta against this baseline: absolute ">0" checks let the one
+  // ingot Mason walked in with satisfy the function forever — eight no-op
+  // "withdrew an ingot" reports in one hour, then eight "already had an
+  // ingot after all", while his 3-ingot bucket tally never left 1/3.
+  const startIngots = count(bot, "iron_ingot");
+
   // 1. The stash may hold ingots or raw iron.
   try {
     const { withdrawStash } = await import("./stash.js");
     const { STASH_POS } = await import("../bot/role.js");
     if (bot.entity.position.distanceTo(new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z)) < 64) {
-      // Compare against the count BEFORE the withdrawal. Checking ">0" let a
-      // bot already carrying one ingot report "withdrew an ingot" eight times
-      // in an hour while the stash gave nothing and the bucket tally sat at
-      // 1/3 forever — the same ingot re-detected as fresh income each run.
-      const before = count(bot, "iron_ingot");
       await withdrawStash(bot, STASH_POS, "iron_ingot", 1).catch(() => {});
-      if (count(bot, "iron_ingot") > before) return "withdrew an ingot from the stash";
+      if (count(bot, "iron_ingot") > startIngots) return "withdrew an ingot from the stash";
       await withdrawStash(bot, STASH_POS, "raw_iron", 1).catch(() => {});
     }
   } catch {
@@ -80,7 +82,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   }
 
   // 2. Mine one ore if no raw iron yet.
-  if (count(bot, "raw_iron") === 0 && count(bot, "iron_ingot") === 0) {
+  if (count(bot, "raw_iron") === 0) {
     const ore = bot.findBlock({
       matching: (b) =>
         (b.name === "iron_ore" || b.name === "deepslate_iron_ore") && (!b.position || !badOres.has(oreKey(b.position))),
@@ -127,7 +129,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
     }
     await new Promise((r) => setTimeout(r, 1500)); // let the drop land and get picked up
   }
-  if (count(bot, "iron_ingot") > 0) return "already had an ingot after all";
+  if (count(bot, "iron_ingot") > startIngots) return "picked up an ingot along the way";
   if (count(bot, "raw_iron") === 0) return "mined but no raw_iron landed in the pack";
 
   // 3. Smelt one raw iron. A furnace from earlier smelt runs is usually
@@ -190,7 +192,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   } catch (e: any) {
     return `smelt failed: ${e?.message ?? e}`;
   }
-  return count(bot, "iron_ingot") > 0 ? "mined and smelted one" : "smelted but no ingot appeared";
+  return count(bot, "iron_ingot") > startIngots ? "mined and smelted one" : "smelted but no ingot appeared";
 }
 
 /**
