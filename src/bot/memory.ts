@@ -122,6 +122,11 @@ export const PRECONDITION_KEYWORDS = [
   "Need more",
   "not enough",
   "missing materials",
+  // build_nether_portal invoked where the world has no lava nearby — the
+  // same environment shortage as "No trees found". Seven of these plus three
+  // long-fixed crashes were the entire 0/10 that kept the skill retired
+  // while a kitted bot stood 19 blocks from a pool.
+  "No lava source within",
   // build_farm environment failures (not skill bugs — just wrong location)
   "No water found",
   "No tillable dirt",

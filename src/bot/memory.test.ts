@@ -482,3 +482,12 @@ test("a resumable hand-back is progress banked, never a failure", () => {
   // A crash stays a crash even if the message somehow carries the marker.
   assert.equal(isPreconditionFailure("Crashed: boom again to continue"), false);
 });
+
+test("no lava nearby is the world's shortage, never the skill's defect", () => {
+  assert.equal(
+    isPreconditionFailure(
+      'No lava source within 96 blocks even at y=67. Explore sideways through caves, then invoke_skill {"skill":"build_nether_portal"} again.',
+    ),
+    true,
+  );
+});
