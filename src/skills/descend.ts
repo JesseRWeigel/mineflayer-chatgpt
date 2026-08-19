@@ -15,6 +15,7 @@
 
 import type { Bot } from "mineflayer";
 import { Vec3 } from "vec3";
+import { holdHands } from "./fluid.js";
 
 export type BlockKind = "solid" | "air" | "lava" | "water" | "unknown";
 
@@ -178,6 +179,12 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
     let lastErr = "";
     for (let swing = 0; swing < 3 && !broke; swing++) {
       try {
+        // Five sinks in one hour died at swing zero with every retry also
+        // aborted: in mob-dense caves the reactive brain interrupts every
+        // few seconds, faster than three retries can absorb. Each swing now
+        // raises the same latch the pours use, so the reflex defers for the
+        // couple of seconds the pickaxe needs.
+        holdHands(bot, 3_000);
         if (pick && bot.heldItem?.name !== pick.name) await bot.equip(pick, "hand").catch(() => {});
         await bot.dig(below);
         broke = true;

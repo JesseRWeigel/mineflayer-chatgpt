@@ -29,7 +29,7 @@ const handsBusyMap = new WeakMap<Bot, number>();
 export function handsBusy(bot: Bot): boolean {
   return (handsBusyMap.get(bot) ?? 0) > Date.now();
 }
-function holdHands(bot: Bot, ms: number): void {
+export function holdHands(bot: Bot, ms: number): void {
   handsBusyMap.set(bot, Date.now() + ms);
   // The reactive brain defers while the latch is fresh — but mineflayer-auto-eat
   // swaps the held item on its own timer, outside the brain entirely. A third
