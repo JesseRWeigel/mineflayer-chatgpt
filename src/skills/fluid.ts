@@ -254,7 +254,13 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   // held= is the tell: RCON confirmed the fourth same-coords failure targeted
   // a genuine level-0 source with the bot in range — if the hand shows food
   // or a sword here, something still swaps items despite the latch.
-  return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}, held=${bot.heldItem?.name ?? "nothing"}).`;
+  // What is the eye-ray actually hitting? Three point-blank failures with
+  // held=bucket at RCON-verified sources leave occlusion as the live suspect:
+  // at dy=0 the ray from the eyes skims the pool rim, and a rim block between
+  // eye and source swallows the use-item trace. Name the block under the
+  // crosshair so the next failure identifies its own occluder.
+  const cursor = (bot as unknown as { blockAtCursor?: (d: number) => { name: string } | null }).blockAtCursor?.(5);
+  return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}, held=${bot.heldItem?.name ?? "nothing"}, cursor=${cursor?.name ?? "nothing"}).`;
 }
 
 /** Pour a full bucket so the fluid lands at `at`. Returns a result sentence. */

@@ -66,8 +66,13 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
     const { withdrawStash } = await import("./stash.js");
     const { STASH_POS } = await import("../bot/role.js");
     if (bot.entity.position.distanceTo(new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z)) < 64) {
+      // Compare against the count BEFORE the withdrawal. Checking ">0" let a
+      // bot already carrying one ingot report "withdrew an ingot" eight times
+      // in an hour while the stash gave nothing and the bucket tally sat at
+      // 1/3 forever — the same ingot re-detected as fresh income each run.
+      const before = count(bot, "iron_ingot");
       await withdrawStash(bot, STASH_POS, "iron_ingot", 1).catch(() => {});
-      if (count(bot, "iron_ingot") > 0) return "withdrew an ingot from the stash";
+      if (count(bot, "iron_ingot") > before) return "withdrew an ingot from the stash";
       await withdrawStash(bot, STASH_POS, "raw_iron", 1).catch(() => {});
     }
   } catch {
