@@ -219,7 +219,38 @@ async function flintFromGravel(bot: Bot): Promise<string> {
       }
     }
     if (!below || !spot) {
-      return `flint spot blocked after ${breaks} breaks — move to open ground and retry`;
+      // All four neighbours are walls — Forge triggers this from the bottom
+      // of his own one-by-one shafts. He carries a pickaxe; a niche is one
+      // dig away.
+      const wall = [
+        [1, 0],
+        [-1, 0],
+        [0, 1],
+        [0, -1],
+      ]
+        .map(([dx, dz]) => bot.blockAt(new Vec3(feet.x + dx, feet.y, feet.z + dz)))
+        .find(
+          (b) =>
+            b &&
+            b.name !== "bedrock" &&
+            b.name !== "obsidian" &&
+            b.name !== "air" &&
+            !b.name.includes("lava") &&
+            !b.name.includes("water"),
+        );
+      if (!wall) return `flint spot blocked after ${breaks} breaks — move to open ground and retry`;
+      const pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+      if (pick) await bot.equip(pick, "hand").catch(() => {});
+      try {
+        await Promise.race([
+          bot.dig(wall),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 10_000)),
+        ]);
+      } catch {
+        bot.stopDigging();
+        return `flint spot blocked after ${breaks} breaks and the niche dig failed — move and retry`;
+      }
+      continue; // niche opened — re-scan the neighbours
     }
     const gravelItem = bot.inventory.items().find((i) => i.name === "gravel");
     if (!gravelItem) break;
