@@ -362,6 +362,20 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   const got = await acquireObsidian(bot, frame);
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
   if (!got.startsWith("Cast") && !got.startsWith("Mined") && !got.startsWith("Already")) {
+    // A site whose lava cannot be reached is a trap, not an asset: the
+    // planned-site resume walked Atlas back to the same doomed frame twice in
+    // an hour ("could not get closer than 13/25 blocks"). If NOTHING has been
+    // banked in the frame yet, abandon it and let the next run site fresh
+    // beside lava it can actually drink from. A frame holding any obsidian
+    // stays — banked blocks are worth walking back to.
+    const banked = frame.filter((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian").length;
+    if (banked === 0 && /could not get closer|Cannot find a lava source/i.test(got)) {
+      plannedSites.delete(bot.username);
+      console.log(
+        `[Portal] ${bot.username} abandoned empty site at ${origin.x},${origin.y},${origin.z} — lava unreachable from it`,
+      );
+      return `Portal stalled getting obsidian: ${got} Site abandoned; the next attempt sites a fresh frame beside reachable lava.`;
+    }
     return `Portal stalled getting obsidian: ${got}`;
   }
 
