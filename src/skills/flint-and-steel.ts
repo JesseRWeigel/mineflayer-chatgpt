@@ -198,6 +198,11 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
 async function flintFromGravel(bot: Bot): Promise<string> {
   const deadline = Date.now() + 60_000;
   let breaks = 0;
+  // A full minute of silent placement failures produced "broke gravel 0
+  // times" with 58 gravel in hand and no clue why — count the misses and
+  // keep the last error so the summary can say what actually went wrong.
+  let failedPlacements = 0;
+  let lastPlaceErr = "";
   while (count(bot, "flint") === 0 && count(bot, "gravel") > 0 && Date.now() < deadline) {
     // Any of the four neighbouring cells will do: air with solid footing
     // under it. The first version checked exactly one cell and gave up when
@@ -258,12 +263,15 @@ async function flintFromGravel(bot: Bot): Promise<string> {
     try {
       await bot.equip(gravelItem, "hand");
       await bot.placeBlock(below, new Vec3(0, 1, 0));
-    } catch {
-      /* re-checked below */
+    } catch (e) {
+      lastPlaceErr = (e as Error).message;
     }
     await new Promise((r) => setTimeout(r, 400)); // gravel may settle
     const placed = bot.blockAt(spot);
-    if (!placed || placed.name !== "gravel") continue;
+    if (!placed || placed.name !== "gravel") {
+      failedPlacements++;
+      continue;
+    }
     try {
       await Promise.race([
         bot.dig(placed),
@@ -275,9 +283,12 @@ async function flintFromGravel(bot: Bot): Promise<string> {
     }
     await new Promise((r) => setTimeout(r, 900)); // let the drop land and get picked up
   }
-  return count(bot, "flint") > 0
-    ? `broke gravel ${breaks} times and got a flint`
-    : `broke gravel ${breaks} times, no flint yet (${count(bot, "gravel")} gravel left)`;
+  if (count(bot, "flint") > 0) return `broke gravel ${breaks} times and got a flint`;
+  const placeNote =
+    failedPlacements > 0
+      ? `; ${failedPlacements} placements failed (last: ${lastPlaceErr || "block did not appear"})`
+      : "";
+  return `broke gravel ${breaks} times, no flint yet (${count(bot, "gravel")} gravel left)${placeNote}`;
 }
 
 /**
