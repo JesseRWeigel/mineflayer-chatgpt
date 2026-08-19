@@ -101,6 +101,36 @@ function kindOf(bot: Bot, pos: Vec3): BlockKind {
  * Dig straight down toward `targetY`, one block at a time, stopping at the first
  * unsafe lookahead. Returns a sentence describing where it ended up and why.
  */
+const SEAL_BLOCKS = ["cobblestone", "dirt", "stone", "netherrack", "andesite", "diorite", "granite", "deepslate"];
+
+/** Place a throwaway block into a water cell so the shaft can pass it. */
+async function sealCell(bot: Bot, cell: Vec3): Promise<boolean> {
+  const item = bot.inventory.items().find((i) => SEAL_BLOCKS.includes(i.name));
+  if (!item) return false;
+  await bot.equip(item, "hand").catch(() => {});
+  // A reference face adjacent to the cell: prefer the block underneath (the
+  // aquifer floor), then the four side walls of the shaft.
+  const options: Array<[Vec3, Vec3]> = [
+    [cell.offset(0, -1, 0), new Vec3(0, 1, 0)],
+    [cell.offset(1, 0, 0), new Vec3(-1, 0, 0)],
+    [cell.offset(-1, 0, 0), new Vec3(1, 0, 0)],
+    [cell.offset(0, 0, 1), new Vec3(0, 0, -1)],
+    [cell.offset(0, 0, -1), new Vec3(0, 0, 1)],
+  ];
+  for (const [refPos, face] of options) {
+    const ref = bot.blockAt(refPos);
+    if (!ref || ref.name === "air" || ref.name.includes("water") || ref.name.includes("lava")) continue;
+    try {
+      await bot.placeBlock(ref, face);
+    } catch {
+      continue;
+    }
+    const now = bot.blockAt(cell);
+    if (now && now.name !== "water" && now.name !== "flowing_water" && now.name !== "air") return true;
+  }
+  return false;
+}
+
 export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budgetMs = 90_000): Promise<string> {
   const startY = Math.floor(bot.entity.position.y);
   const deadline = Date.now() + budgetMs;
@@ -115,10 +145,24 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
     .sort((a, b) => rank(b.name) - rank(a.name))[0];
   if (pick) await bot.equip(pick, "hand").catch(() => {});
 
+  let seals = 0;
   while (Math.floor(bot.entity.position.y) > targetY && shouldKeepDigging(deadline - Date.now(), dug, maxBlocks)) {
     const feet = bot.entity.position.floored();
     const verdict = safeToDigDown((d) => kindOf(bot, feet.offset(0, -d, 0)));
     if (!verdict.safe) {
+      // A blanket aquifer defeats both the refusal and the sidestep: Atlas
+      // circled at y=62 for an hour, 25 blocks above his pool, hitting
+      // "water 1 block(s) below" from every fresh shaft. Seal the water
+      // with a throwaway block and dig on through — aquifers are a few
+      // blocks thick and the pack always carries cobble.
+      const water = /^water (\d+) block\(s\) below/.exec(verdict.reason);
+      if (water && seals < 6) {
+        const cell = feet.offset(0, -parseInt(water[1], 10), 0);
+        if (await sealCell(bot, cell)) {
+          seals++;
+          continue;
+        }
+      }
       return `Dug down ${dug} to y=${Math.floor(bot.entity.position.y)}, then stopped: ${verdict.reason}.`;
     }
 
