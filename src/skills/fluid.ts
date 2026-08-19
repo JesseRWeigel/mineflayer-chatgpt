@@ -161,7 +161,14 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   }
 
   holdHands(bot, 2_500);
-  await bot.equip(bucket, "hand");
+  // Fresh item, unconditional equip, and a beat for the server to register
+  // it: "held=cobblestone" at the moment of a failed scoop revealed a THIRD
+  // item-swapper — the pathfinder equips blocks while bridging and digging —
+  // and a stale heldItem read let the old conditional re-equip skip.
+  const b1 = bot.inventory.items().find((i) => i.name === "bucket");
+  if (!b1) return `Bucket vanished on the way to the ${fluid}.`;
+  await bot.equip(b1, "hand");
+  await new Promise((r) => setTimeout(r, 150));
 
   // Fluids have NO interaction shape, so bot.activateBlock does nothing to them
   // — there is no block face to click. Filling a bucket is "look at the fluid,
@@ -187,7 +194,10 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
       /* retry from wherever we got */
     }
     holdHands(bot, 2_500);
-    if (bot.heldItem?.name !== "bucket") await bot.equip(bucket, "hand");
+    const b2 = bot.inventory.items().find((i) => i.name === "bucket");
+    if (!b2) return `Bucket vanished on the way to the ${fluid}.`;
+    await bot.equip(b2, "hand");
+    await new Promise((r) => setTimeout(r, 150));
     await bot.lookAt(source.position.offset(0.5, 0.5, 0.5), true);
     bot.activateItem();
     await new Promise((r) => setTimeout(r, 500));
@@ -241,7 +251,10 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
   }
 
   holdHands(bot, 2_500);
-  await bot.equip(full, "hand");
+  const fullNow = bot.inventory.items().find((i) => i.name === "water_bucket" || i.name === "lava_bucket");
+  if (!fullNow) return "No full bucket to empty.";
+  await bot.equip(fullNow, "hand");
+  await new Promise((r) => setTimeout(r, 150));
   await bot.lookAt(new Vec3(at.x + 0.5, at.y - 0.5, at.z + 0.5), true);
   bot.activateItem();
   await new Promise((r) => setTimeout(r, 500)); // let the inventory packet land
