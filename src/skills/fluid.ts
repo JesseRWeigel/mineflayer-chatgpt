@@ -262,13 +262,23 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
         if (FLUIDS.has(b.name)) return "liquid";
         return "solid";
       };
-      const stand = findDumpCell({ x: sp.x, y: sp.y, z: sp.z }, probe, 1, 2);
+      // maxR 3: Mason abandoned a good site 5.3 blocks from the pool — rim
+      // shelves are often wider than two cells. And NARRATE: three abandons
+      // in an hour with only a final distance left the failing half (the
+      // search or the walk) unidentified.
+      const stand = findDumpCell({ x: sp.x, y: sp.y, z: sp.z }, probe, 1, 3);
       if (stand) {
         try {
           await safeGoto(bot, new goals.GoalBlock(stand.x, stand.y, stand.z), 15_000);
         } catch {
           /* measured below */
         }
+        const q = bot.entity.position;
+        console.log(
+          `[Bucket] ${bot.username} lava step-in: stand cell ${stand.x},${stand.y},${stand.z}, ended ${q.distanceTo(new Vec3(sp.x + 0.5, sp.y + 0.5, sp.z + 0.5)).toFixed(1)} from source`,
+        );
+      } else {
+        console.log(`[Bucket] ${bot.username} lava step-in: no safe stand cell within 3 of ${sp.x},${sp.y},${sp.z}`);
       }
     } else {
       try {
