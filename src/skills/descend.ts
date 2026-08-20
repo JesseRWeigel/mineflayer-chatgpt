@@ -166,14 +166,14 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
       if (k === "lava" || k === "water") return "liquid";
       return k;
     };
-    const shore = findDumpCell(feet0, probe, 1, 12, true);
+    const shore = findDumpCell(feet0, probe, 1, 24, true);
     if (shore) {
       bot.pathfinder.setMovements(baseMoves(bot));
       await safeGoto(bot, new goals.GoalNear(shore.x, shore.y, shore.z, 1), 30_000).catch(() => {});
     }
     const now = bot.entity.position.floored();
     if (wet(now) || wet(now.offset(0, 1, 0))) {
-      return `Standing in open water at ${now.x},${now.y},${now.z} with no shore within 12 — a shaft cannot start here; move to dry ground and retry.`;
+      return `Standing in open water at ${now.x},${now.y},${now.z} with no shore within 24 — a shaft cannot start here; move to dry ground and retry.`;
     }
     console.log(`[Portal] descent moved to dry ground at ${now.x},${now.y},${now.z} before digging`);
   }

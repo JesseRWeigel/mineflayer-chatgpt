@@ -167,13 +167,21 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   let fuel = findFuel();
   if (!fuel) {
     // Fuel is part of the contract too — a skill that needs a thing should
-    // make it. Flora sat on raw iron for eight straight runs reporting "no
-    // fuel" while the stash held the team's coal and the village has trees.
-    // Stash first, then chop one log: a single log smelts one iron easily.
+    // make it. Stash first, then chop one log: a single log smelts one iron
+    // easily. The stash trip WALKS HOME if needed: past 64 blocks the old
+    // gate silently skipped the withdrawal while the failure message still
+    // claimed "none in the stash" — Flora spent two hours fuel-starved in a
+    // treeless cave with home never actually tried. The village has both
+    // the chest and trees, so one bounded walk fixes fuel either way.
     try {
       const { withdrawStash } = await import("./stash.js");
       const { STASH_POS } = await import("../bot/role.js");
-      if (bot.entity.position.distanceTo(new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z)) < 64) {
+      const stashV = new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z);
+      if (bot.entity.position.distanceTo(stashV) < 200) {
+        if (bot.entity.position.distanceTo(stashV) > 8) {
+          bot.pathfinder.setMovements(baseMoves(bot));
+          await safeGoto(bot, new goals.GoalNear(STASH_POS.x, STASH_POS.y, STASH_POS.z, 3), 60_000).catch(() => {});
+        }
         await withdrawStash(bot, STASH_POS, "coal", 2).catch(() => {});
         if (!findFuel()) await withdrawStash(bot, STASH_POS, "oak_log", 2).catch(() => {});
       }
