@@ -105,13 +105,16 @@ export function getWorldContext(bot: Bot, role?: string): string {
 }
 
 function getNearbyEntities(bot: Bot, range: number): Entity[] {
+  if (!bot.entity?.position) return [];
   return Object.values(bot.entities).filter((e) => {
     if (e === bot.entity) return false;
+    if (!e.position) return false;
     return distTo(bot, e) <= range;
   });
 }
 
 function distTo(bot: Bot, entity: Entity): number {
+  if (!bot.entity?.position || !entity.position) return Infinity;
   return bot.entity.position.distanceTo(entity.position);
 }
 

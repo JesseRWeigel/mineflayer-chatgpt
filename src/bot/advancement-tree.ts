@@ -55,6 +55,9 @@ for (const a of ALL_ADVANCEMENTS) {
 const GATE_CREDIT = new Map<string, string>();
 for (const [root, gate] of Object.entries(ROOT_GATES)) GATE_CREDIT.set(gate, root);
 
+/** Memo for descendantCount — the tree is static, so counts never change. */
+const DESCENDANT_COUNTS = new Map<string, number>();
+
 /**
  * How many advancements this one eventually unlocks.
  *
@@ -71,10 +74,13 @@ for (const [root, gate] of Object.entries(ROOT_GATES)) GATE_CREDIT.set(gate, roo
  * worth the nether category.
  */
 export function descendantCount(id: string): number {
+  const cached = DESCENDANT_COUNTS.get(id);
+  if (cached !== undefined) return cached;
   let total = 0;
   const opened = GATE_CREDIT.get(id);
   if (opened) total += 1 + descendantCount(opened);
   for (const child of CHILDREN.get(id) ?? []) total += 1 + descendantCount(child);
+  DESCENDANT_COUNTS.set(id, total);
   return total;
 }
 

@@ -72,7 +72,7 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
       case "gather_wood":
         return await gatherWood(bot, params.count || 5);
       case "mine_block":
-        return await mineBlock(bot, params.blockType || DEFAULT_MINE_TARGET, params.protectPos);
+        return await mineBlock(bot, params.blockType || params.block || params.item || DEFAULT_MINE_TARGET, params.protectPos);
       case "go_to":
       case "navigate":
       case "navigate_to":
@@ -104,7 +104,7 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
       case "build_shelter":
         return await buildShelter(bot);
       case "place_block":
-        return await placeBlock(bot, params.blockType);
+        return await placeBlock(bot, params.blockType || params.block || params.item);
       case "sleep":
       case "sleep_in_bed": // common LLM aliases for sleep
       case "use_bed":
@@ -1370,7 +1370,7 @@ async function attackNearest(bot: Bot): Promise<string> {
   if (!target) {
     // Last resort: any living mob nearby (exclude players, dropped items, projectiles)
     target = bot.nearestEntity(
-      (e) => e !== bot.entity && e.type === "mob" && e.position.distanceTo(bot.entity.position) < 8,
+      (e) => e !== bot.entity && !!e.position && e.type === "mob" && e.position.distanceTo(myPos) < 8,
     );
     if (!target) return "No hostiles or food animals to hunt nearby. Explore to find some.";
   }
@@ -1481,8 +1481,10 @@ async function huntAnimal(bot: Bot, animal: import("prismarine-entity").Entity):
 }
 
 async function flee(bot: Bot): Promise<string> {
+  const myPos = bot.entity?.position;
+  if (!myPos) return "Can't flee right now — still respawning.";
   // Use same hostile detection as perception system
-  const hostile = bot.nearestEntity((e) => isHostile(e) && e.position.distanceTo(bot.entity.position) < 16);
+  const hostile = bot.nearestEntity((e) => !!e.position && isHostile(e) && e.position.distanceTo(myPos) < 16);
 
   if (!hostile) {
     // No hostile found — just move somewhere random to break the loop

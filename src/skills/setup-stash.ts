@@ -94,7 +94,10 @@ export const setupStashSkill: Skill = {
       // fall through and place an additional chest (stash expansion).
       let hasRoom = true;
       try {
-        const chest = await bot.openContainer(existingChest);
+        const chest = (await Promise.race([
+          bot.openContainer(existingChest),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("openContainer timeout")), 10000)),
+        ])) as Awaited<ReturnType<typeof bot.openContainer>>;
         const containerSlots = chest.inventoryStart;
         const used = chest.containerItems().length;
         hasRoom = used < containerSlots;

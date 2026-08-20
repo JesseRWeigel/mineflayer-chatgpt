@@ -52,6 +52,7 @@ const FURNITURE = [
 export const FURNITURE_MAX_ABOVE_BASE = 16;
 
 export function isFurniture(blockType: string): boolean {
+  if (!blockType || typeof blockType !== "string") return false;
   return FURNITURE.some((f) => blockType === f || blockType.endsWith(`_${f}`));
 }
 

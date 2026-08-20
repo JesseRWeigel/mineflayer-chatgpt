@@ -75,7 +75,18 @@ function discardTTS(): void {
   ttsInstance = null;
 }
 
-let audioCounter = 0;
+let audioCounter = (() => {
+  try {
+    const existing = fs
+      .readdirSync(AUDIO_DIR)
+      .filter((f) => f.startsWith("thought-") && f.endsWith(".mp3"))
+      .map((f) => parseInt(f.replace(/\D/g, ""), 10))
+      .filter((n) => !isNaN(n));
+    return existing.length ? Math.max(...existing) : 0;
+  } catch {
+    return 0;
+  }
+})();
 
 /**
  * Only one synthesis runs at a time.
@@ -150,7 +161,11 @@ export async function generateSpeech(text: string): Promise<string | null> {
     const files = fs
       .readdirSync(AUDIO_DIR)
       .filter((f) => f.startsWith("thought-") && f.endsWith(".mp3"))
-      .sort();
+      .sort((a, b) => {
+        const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
+        const numB = parseInt(b.replace(/\D/g, ""), 10) || 0;
+        return numA - numB;
+      });
     while (files.length > 10) {
       const old = files.shift()!;
       fs.unlinkSync(path.join(AUDIO_DIR, old));

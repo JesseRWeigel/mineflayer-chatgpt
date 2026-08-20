@@ -102,8 +102,8 @@ export const fillBucketSkill: Skill = {
     fluid: { type: "string", description: '"lava" or "water" — defaults to lava' },
   },
 
-  estimateMaterials() {
-    return { bucket: 1 };
+  estimateMaterials(_bot, _params) {
+    return {};
   },
 
   async execute(bot, params): Promise<SkillResult> {

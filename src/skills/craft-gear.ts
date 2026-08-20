@@ -188,7 +188,10 @@ export const craftGearSkill: Skill = {
         .items()
         .filter((i) => i.name === "iron_ingot")
         .reduce((sum, i) => sum + i.count, 0);
-      const owned = bot.inventory.items().map((i) => i.name);
+      // ALL slots, worn armor included: inventory.items() skips equipment
+      // slots 5-8, so a bot wearing an iron_chestplate read as not owning
+      // one and crafted duplicates instead of the next piece (PR #25).
+      const owned = bot.inventory.slots.filter((i): i is NonNullable<typeof i> => i !== null).map((i) => i.name);
       const piece = affordableArmourPiece(ingots, owned);
       if (piece) {
         console.log(`[GearDebug] armour: ${ingots} ingots -> attempting ${piece}`);

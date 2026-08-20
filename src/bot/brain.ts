@@ -477,11 +477,14 @@ export class BotBrain {
     if (this.processing || this.stopped) return;
     if (isSkillRunning(this.bot)) return; // Don't interrupt skills
 
+    const myPos = this.bot.entity?.position;
+    if (!myPos) return;
+
     const now = Date.now();
     if (now - this.lastReactiveMs < this.REACTIVE_COOLDOWN_MS) return;
 
     const hostiles = Object.values(this.bot.entities).filter(
-      (e) => e !== this.bot.entity && isHostile(e) && e.position.distanceTo(this.bot.entity.position) < 16,
+      (e) => e !== this.bot.entity && !!e.position && isHostile(e) && e.position.distanceTo(myPos) < 16,
     );
 
     if (hostiles.length === 0) return;
