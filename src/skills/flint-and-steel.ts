@@ -94,8 +94,26 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
       maxDistance: 64,
     });
     if (!ore) return "no iron ore within 64 blocks — strip_mine would find some";
-    const pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
-    if (!pick) return "no pickaxe to mine the ore";
+    let pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+    if (!pick) {
+      // Flora reported "no pickaxe" five times in an hour and the chain just
+      // stopped — while the stash holds the team's surplus tools. Ask it
+      // before giving up; the shortage message survives if it too is empty.
+      try {
+        const { withdrawStash } = await import("./stash.js");
+        const { STASH_POS } = await import("../bot/role.js");
+        if (bot.entity.position.distanceTo(new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z)) < 64) {
+          for (const tier of ["iron_pickaxe", "stone_pickaxe", "wooden_pickaxe"]) {
+            await withdrawStash(bot, STASH_POS, tier, 1).catch(() => {});
+            pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+            if (pick) break;
+          }
+        }
+      } catch {
+        /* no stash reachable */
+      }
+      if (!pick) return "no pickaxe to mine the ore, and none in the stash";
+    }
     bot.pathfinder.setMovements(baseMoves(bot));
     try {
       await safeGoto(bot, new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 2), 45_000);
