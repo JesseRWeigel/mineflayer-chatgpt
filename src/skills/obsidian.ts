@@ -77,12 +77,19 @@ function touchesWater(bot: Bot, pos: Vec3Like): boolean {
  * One block per lava trip, because a bucket holds one fluid. The frame site
  * is chosen beside a lava pool, so trips are hops.
  */
-export async function castInPlace(bot: Bot, positions: Vec3Like[]): Promise<string> {
+export async function castInPlace(bot: Bot, positions: Vec3Like[], deadline?: number): Promise<string> {
   const sorted = [...positions].sort((a, b) => a.y - b.y);
   const total = positions.length;
   let cast = 0;
 
   for (const pos of sorted) {
+    // Ten slots of fills, walks and pours can outrun any caller's window —
+    // the cast had no clock of its own and was the last uncovered stage when
+    // twenty watchdog kills hit one hour. Banked blocks survive: a resumed
+    // cast counts existing obsidian and continues from where this stopped.
+    if (deadline && Date.now() > deadline) {
+      return `Stopped after ${cast}/${total}: out of time this run — retry to continue this same frame.`;
+    }
     const existing = bot.blockAt(new Vec3(pos.x, pos.y, pos.z));
     if (existing?.name === "obsidian") {
       cast++;
@@ -185,7 +192,7 @@ export async function mineObsidian(bot: Bot, count: number): Promise<string> {
   return mined > 0 ? `Mined ${mined} obsidian.` : "Cannot find obsidian within 32 blocks.";
 }
 
-export async function acquireObsidian(bot: Bot, positions: Vec3Like[]): Promise<string> {
+export async function acquireObsidian(bot: Bot, positions: Vec3Like[], deadline?: number): Promise<string> {
   const names = bot.inventory.items().map((i) => i.name);
   if (chooseStrategy(names) === "mine") {
     const held = bot.inventory
@@ -197,5 +204,5 @@ export async function acquireObsidian(bot: Bot, positions: Vec3Like[]): Promise<
     // Mining can come up short if no obsidian is nearby; fall back rather than stall.
     if (res.startsWith("Mined")) return res;
   }
-  return castInPlace(bot, positions);
+  return castInPlace(bot, positions, deadline);
 }

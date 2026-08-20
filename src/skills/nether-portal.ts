@@ -192,10 +192,10 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         .items()
         .filter((i) => i.name === "iron_ingot")
         .reduce((n, i) => n + i.count, 0);
-    for (let round = 0; round < 2 && ingots() < 3; round++) {
+    for (let round = 0; round < 2 && ingots() < 3 && timeLeft() > 60_000; round++) {
       const got = await obtainOneIron(bot);
       console.log(`[Bucket] ${bot.username} iron (${ingots()}/3): ${got}`);
-      if (!/withdrew|mined and smelted|already had/.test(got)) break; // no progress — stop burning budget
+      if (!/withdrew|mined and smelted|picked up/.test(got)) break; // no progress — stop burning budget
     }
     if (ingots() >= 3) {
       const bucketMsg = await craftBucket(bot);
@@ -205,6 +205,10 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   }
 
   if (!ready && missing.includes("flint_and_steel")) {
+    // The igniter chain (ore walk, dig, smelt, fuel hunt) is the single
+    // longest readiness stage; twenty watchdog kills in one hour traced to
+    // pre-clock stages like this one running the window dry.
+    if (timeLeft() < 60_000) return outOfTime("assembling the igniter");
     const igniter = await craftFlintAndSteel(bot);
     ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
     if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. ${igniter}`;
@@ -390,7 +394,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
 
   if (timeLeft() < 60_000) return outOfTime("reaching the casting step");
   const frame = framePositions(origin, axis);
-  const got = await acquireObsidian(bot, frame);
+  const got = await acquireObsidian(bot, frame, runDeadline - 15_000);
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
   if (!got.startsWith("Cast") && !got.startsWith("Mined") && !got.startsWith("Already")) {
     // A site whose lava cannot be reached is a trap, not an asset: the
