@@ -160,21 +160,51 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   } catch {
     /* openFurnace below is bounded and will tell */
   }
-  const fuel = bot.inventory
-    .items()
-    .find((i) =>
-      [
-        "coal",
-        "charcoal",
-        "oak_planks",
-        "spruce_planks",
-        "birch_planks",
-        "oak_log",
-        "spruce_log",
-        "birch_log",
-      ].includes(i.name),
-    );
-  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) in the pack";
+  const FUELS = [
+    "coal",
+    "charcoal",
+    "oak_planks",
+    "spruce_planks",
+    "birch_planks",
+    "oak_log",
+    "spruce_log",
+    "birch_log",
+  ];
+  const findFuel = () => bot.inventory.items().find((i) => FUELS.includes(i.name));
+  let fuel = findFuel();
+  if (!fuel) {
+    // Fuel is part of the contract too — a skill that needs a thing should
+    // make it. Flora sat on raw iron for eight straight runs reporting "no
+    // fuel" while the stash held the team's coal and the village has trees.
+    // Stash first, then chop one log: a single log smelts one iron easily.
+    try {
+      const { withdrawStash } = await import("./stash.js");
+      const { STASH_POS } = await import("../bot/role.js");
+      if (bot.entity.position.distanceTo(new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z)) < 64) {
+        await withdrawStash(bot, STASH_POS, "coal", 2).catch(() => {});
+        if (!findFuel()) await withdrawStash(bot, STASH_POS, "oak_log", 2).catch(() => {});
+      }
+    } catch {
+      /* no stash — try a tree */
+    }
+    if (!findFuel()) {
+      const log = bot.findBlock({ matching: (b) => b.name.endsWith("_log"), maxDistance: 24 });
+      if (log) {
+        try {
+          await safeGoto(bot, new goals.GoalNear(log.position.x, log.position.y, log.position.z, 2), 20_000);
+          await Promise.race([
+            bot.dig(log),
+            new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 12_000)),
+          ]);
+          await new Promise((r) => setTimeout(r, 1200)); // let the drop land
+        } catch {
+          bot.stopDigging();
+        }
+      }
+    }
+    fuel = findFuel();
+  }
+  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) — none in the stash and no tree within 24";
   try {
     const f: any = await Promise.race([
       bot.openFurnace(furnace),
