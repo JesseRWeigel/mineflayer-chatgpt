@@ -18,7 +18,7 @@ import { craftFlintAndSteel } from "./flint-and-steel.js";
 import { fillBucket, isSourceBlock, LAVA_DEPTH, type Vec3Like } from "./fluid.js";
 import { digDownTo } from "./descend.js";
 import { baseMoves, safeGoto } from "../bot/navigation.js";
-import { persistentSet, persistBlacklist } from "./blacklists.js";
+import { persistentSet, persistBlacklist, persistentRecord, persistRecord } from "./blacklists.js";
 
 const REQUIRED = ["bucket", "flint_and_steel"] as const;
 
@@ -42,7 +42,10 @@ const portals = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>();
  * never individually finish. Casting resumes on a remembered site because
  * castInPlace counts already-obsidian positions as done.
  */
-const plannedSites = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>();
+const plannedSites = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>(
+  Object.entries(persistentRecord<{ origin: Vec3Like; axis: "x" | "z" }>("plannedSites")),
+);
+const savePlannedSites = () => persistRecord("plannedSites", Object.fromEntries(plannedSites));
 const RESUME_RANGE = 48;
 
 /**
@@ -197,7 +200,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         .filter((i) => i.name === "iron_ingot")
         .reduce((n, i) => n + i.count, 0);
     for (let round = 0; round < 2 && ingots() < 3 && timeLeft() > 60_000; round++) {
-      const got = await obtainOneIron(bot);
+      const got = await obtainOneIron(bot, Math.min(120_000, timeLeft() - 50_000));
       console.log(`[Bucket] ${bot.username} iron (${ingots()}/3): ${got}`);
       if (!/withdrew|mined and smelted|picked up/.test(got)) break; // no progress — stop burning budget
     }
@@ -213,7 +216,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // longest readiness stage; twenty watchdog kills in one hour traced to
     // pre-clock stages like this one running the window dry.
     if (timeLeft() < 60_000) return outOfTime("assembling the igniter");
-    const igniter = await craftFlintAndSteel(bot);
+    const igniter = await craftFlintAndSteel(bot, timeLeft() - 45_000);
     ({ ready, missing } = readinessOf(bot.inventory.items().map((i) => i.name)));
     if (!ready) return `Not ready for a portal: missing ${missing.join(", ")}. ${igniter}`;
   }
@@ -391,6 +394,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     if (site) {
       ({ origin, axis } = site);
       plannedSites.set(bot.username, { origin, axis });
+      savePlannedSites();
     }
   }
   if (!origin)
@@ -410,6 +414,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     const banked = frame.filter((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian").length;
     if (banked === 0 && /could not get closer|Cannot find a lava source/i.test(got)) {
       plannedSites.delete(bot.username);
+      savePlannedSites();
       // Strike the POOL, not just the site: Atlas abandoned a frame and then
       // re-sited two blocks away against the same unreachable lava, carving
       // and abandoning again. The fell-short counter already retires pools
@@ -458,6 +463,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
 
   recordPortal(bot, origin, axis);
   plannedSites.delete(bot.username);
+  savePlannedSites();
   return `Portal built and lit at ${origin.x},${origin.y},${origin.z}.`;
 }
 

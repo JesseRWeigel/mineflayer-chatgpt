@@ -17,7 +17,7 @@ import path from "path";
 
 const FILE = path.join("logs", "blacklists.json");
 
-type Store = Record<string, string[]>;
+type Store = Record<string, unknown>;
 
 function load(): Store {
   try {
@@ -30,17 +30,38 @@ function load(): Store {
 
 const store: Store = load();
 
-/** A Set seeded from disk. Pair with persistBlacklist() after every add. */
-export function persistentSet(name: string): Set<string> {
-  return new Set(store[name] ?? []);
-}
-
-export function persistBlacklist(name: string, s: Set<string>): void {
-  store[name] = [...s];
+function save(): void {
   try {
     fs.mkdirSync(path.dirname(FILE), { recursive: true });
     fs.writeFileSync(FILE, JSON.stringify(store));
   } catch {
-    /* best effort — the in-memory set still protects this process */
+    /* best effort — the in-memory state still protects this process */
   }
+}
+
+/** A Set seeded from disk. Pair with persistBlacklist() after every add. */
+export function persistentSet(name: string): Set<string> {
+  const v = store[name];
+  return new Set(Array.isArray(v) ? (v as string[]) : []);
+}
+
+export function persistBlacklist(name: string, s: Set<string>): void {
+  store[name] = [...s];
+  save();
+}
+
+/**
+ * A keyed record seeded from disk — same contract as persistentSet, for
+ * structured values. Added when a restart stranded Atlas's first-ever banked
+ * obsidian: the 1/10 frame's location lived in a per-process Map, so the
+ * block stayed in the world while every memory of it died with the deploy.
+ */
+export function persistentRecord<T>(name: string): Record<string, T> {
+  const v = store[name];
+  return typeof v === "object" && v !== null && !Array.isArray(v) ? { ...(v as Record<string, T>) } : {};
+}
+
+export function persistRecord(name: string, value: Record<string, unknown>): void {
+  store[name] = value;
+  save();
 }

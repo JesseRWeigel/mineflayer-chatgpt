@@ -63,8 +63,15 @@ const rememberBadOre = (p: { x: number; y: number; z: number }) => {
  * ore and smelt one raw iron. Every call is bounded; failure returns a reason
  * and leaves the inventory as evidence.
  */
-export async function obtainOneIron(bot: Bot): Promise<string> {
+export async function obtainOneIron(bot: Bot, budgetMs = 150_000): Promise<string> {
   const { goals } = pkg;
+
+  // The chain has grown arms — stash trips, a pickaxe withdrawal, a fuel
+  // hunt with a walk home and plank salvage — and one uncapped call blew
+  // whole 240s watchdog windows (28 kills in Flora's hour). Each expensive
+  // phase checks this clock and stops honestly.
+  const ironDeadline = Date.now() + budgetMs;
+  const ironLeft = () => ironDeadline - Date.now();
 
   // The contract is one MORE iron than the caller already holds. Every check
   // below is a delta against this baseline: absolute ">0" checks let the one
@@ -94,6 +101,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
       maxDistance: 64,
     });
     if (!ore) return "no iron ore within 64 blocks — strip_mine would find some";
+    if (ironLeft() < 90_000) return "out of time this run before mining — the next run continues";
     let pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
     if (!pick) {
       // Flora reported "no pickaxe" five times in an hour and the chain just
@@ -104,6 +112,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
         const { STASH_POS } = await import("../bot/role.js");
         if (bot.entity.position.distanceTo(new Vec3(STASH_POS.x, STASH_POS.y, STASH_POS.z)) < 64) {
           for (const tier of ["iron_pickaxe", "stone_pickaxe", "wooden_pickaxe"]) {
+            if (ironLeft() < 100_000) break; // each tier is a full stash trip
             await withdrawStash(bot, STASH_POS, tier, 1).catch(() => {});
             pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
             if (pick) break;
@@ -189,6 +198,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   const findFuel = () => bot.inventory.items().find((i) => isFuel(i.name));
   let fuel = findFuel();
   let salvageNote = "";
+  if (!fuel && ironLeft() < 100_000) return "out of time this run before the fuel hunt — the next run continues";
   if (!fuel) {
     // Fuel is part of the contract too — a skill that needs a thing should
     // make it. Stash first, then chop one log: a single log smelts one iron
@@ -409,7 +419,7 @@ async function flintFromGravel(bot: Bot): Promise<string> {
  * a flint_and_steel actually ended up in the inventory, so this never needs
  * to lie about outcomes.
  */
-export async function craftFlintAndSteel(bot: Bot): Promise<string> {
+export async function craftFlintAndSteel(bot: Bot, budgetMs = 150_000): Promise<string> {
   let plan = igniterPlan(tally(bot));
   if (plan.have) return "Already have flint_and_steel.";
 
@@ -420,7 +430,7 @@ export async function craftFlintAndSteel(bot: Bot): Promise<string> {
   // found (or pocket) furnace with pocket fuel. All bounded, all best-effort;
   // an honest shortage still falls through to the message below.
   if (plan.needIron > 0) {
-    const got = await obtainOneIron(bot);
+    const got = await obtainOneIron(bot, Math.max(30_000, budgetMs - 30_000));
     console.log(`[Igniter] ${bot.username} iron: ${got}`);
     plan = igniterPlan(tally(bot));
   }
