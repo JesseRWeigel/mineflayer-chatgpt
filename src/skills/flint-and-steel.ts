@@ -160,17 +160,10 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   } catch {
     /* openFurnace below is bounded and will tell */
   }
-  const FUELS = [
-    "coal",
-    "charcoal",
-    "oak_planks",
-    "spruce_planks",
-    "birch_planks",
-    "oak_log",
-    "spruce_log",
-    "birch_log",
-  ];
-  const findFuel = () => bot.inventory.items().find((i) => FUELS.includes(i.name));
+  // Recognize fuel by FAMILY: the explicit list knew oak/spruce/birch, so a
+  // chopped cherry or acacia log sat in the pack unrecognized as fuel.
+  const isFuel = (n: string) => n === "coal" || n === "charcoal" || n.endsWith("_log") || n.endsWith("_planks");
+  const findFuel = () => bot.inventory.items().find((i) => isFuel(i.name));
   let fuel = findFuel();
   if (!fuel) {
     // Fuel is part of the contract too — a skill that needs a thing should
@@ -188,7 +181,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
       /* no stash — try a tree */
     }
     if (!findFuel()) {
-      const log = bot.findBlock({ matching: (b) => b.name.endsWith("_log"), maxDistance: 24 });
+      const log = bot.findBlock({ matching: (b) => b.name.endsWith("_log"), maxDistance: 48 });
       if (log) {
         try {
           await safeGoto(bot, new goals.GoalNear(log.position.x, log.position.y, log.position.z, 2), 20_000);
@@ -204,7 +197,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
     }
     fuel = findFuel();
   }
-  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) — none in the stash and no tree within 24";
+  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) — none in the stash and no tree within 48";
   try {
     const f: any = await Promise.race([
       bot.openFurnace(furnace),

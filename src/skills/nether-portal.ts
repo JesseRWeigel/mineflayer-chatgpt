@@ -247,6 +247,11 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // cast pours it on a neighbour cell and re-scoops it), so fill BEFORE
     // descending, while water is cheap. Best effort: a failed surface fill
     // just falls back to hunting water at depth like before.
+    // Four watchdog kills came back within a day of the run clock landing:
+    // readiness (stash trips, the iron accumulator, fuel gathering) is not
+    // clock-checked and can eat most of the window before the first check in
+    // the march loop ever runs. Guard the expensive early stages too.
+    if (timeLeft() < 70_000) return outOfTime("after gathering the kit");
     const hasFluid = () => bot.inventory.items().some((i) => i.name === "water_bucket" || i.name === "lava_bucket");
     if (!hasFluid() && bot.entity.position.y > LAVA_DEPTH) {
       const surfaceWater = await fillBucket(bot, "water");
@@ -283,7 +288,8 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       // no way down — two runs in a row ended at the same y=67 ledge. Step
       // aside and sink a fresh hole, all inside one budget so the executor's
       // watchdog never kills the descent mid-dig.
-      const deadline = Date.now() + 100_000;
+      if (timeLeft() < 60_000) return outOfTime("before the descent");
+      const deadline = Date.now() + Math.min(100_000, timeLeft() - 30_000);
       for (let attempt = 0; attempt < 2 && !lava; attempt++) {
         const left = deadline - Date.now();
         if (left < 15_000) break;
