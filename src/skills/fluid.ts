@@ -13,6 +13,7 @@ import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import { baseMoves, safeGoto } from "../bot/navigation.js";
+import { persistentSet, persistBlacklist } from "./blacklists.js";
 
 export type Vec3Like = { x: number; y: number; z: number };
 
@@ -169,7 +170,7 @@ export function noSourceAdvice(fluid: "water" | "lava", y: number): string {
  * cells; remember the deaf ones and let the next attempt aim at a neighbour.
  * Per-process, like badOres — restarts relearn, which is acceptable.
  */
-const badScoops = new Set<string>();
+const badScoops = persistentSet("badScoops");
 const scoopKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}`;
 
 /** Equip a bucket, walk to a safe approach square, and scoop. Returns a result sentence. */
@@ -351,6 +352,7 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   const cursor = (bot as unknown as { blockAtCursor?: (d: number) => { name: string } | null }).blockAtCursor?.(5);
   // A held-bucket, in-range miss means THIS cell is deaf to us; stop asking it.
   badScoops.add(scoopKey(sp));
+  persistBlacklist("badScoops", badScoops);
   return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}, held=${bot.heldItem?.name ?? "nothing"}, cursor=${cursor?.name ?? "nothing"}) — that cell is now blacklisted; retry aims at a different source.`;
 }
 

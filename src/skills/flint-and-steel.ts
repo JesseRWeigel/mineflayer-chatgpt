@@ -4,6 +4,7 @@ import mcDataLoader from "minecraft-data";
 import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 import { baseMoves, safeGoto } from "../bot/navigation.js";
+import { persistentSet, persistBlacklist } from "./blacklists.js";
 
 // Something to light the portal with.
 //
@@ -50,8 +51,12 @@ const count = (bot: Bot, name: string) =>
  * findBlock always returns the NEAREST ore, every bot elected the same trap
  * block for hours. A failed ore is remembered and the next search skips it.
  */
-const badOres = new Set<string>();
+const badOres = persistentSet("badOres");
 const oreKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}`;
+const rememberBadOre = (p: { x: number; y: number; z: number }) => {
+  badOres.add(oreKey(p));
+  persistBlacklist("badOres", badOres);
+};
 
 /**
  * One iron ingot, by any honest means: stash withdrawal, then mine a nearby
@@ -114,7 +119,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
         // Remember it, or the next run finds the same ore again: only the
         // dig-timeout path blacklisted, so Flora asked the drowned village
         // vein three times in an hour and Mason for days before her.
-        badOres.add(oreKey(ore.position));
+        rememberBadOre(ore.position);
         return `ore at ${ore.position.x},${ore.position.y},${ore.position.z} unreachable (${d.toFixed(1)} away) — blacklisted; next run tries a different ore`;
       }
     }
@@ -128,7 +133,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
       ]);
     } catch {
       bot.stopDigging();
-      badOres.add(oreKey(ore.position));
+      rememberBadOre(ore.position);
       return `could not mine the ore at ${ore.position.x},${ore.position.y},${ore.position.z} (standing ${d.toFixed(1)} away) — will try a different ore next time`;
     }
     await new Promise((r) => setTimeout(r, 1500)); // let the drop land and get picked up

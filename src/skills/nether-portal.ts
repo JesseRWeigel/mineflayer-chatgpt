@@ -18,6 +18,7 @@ import { craftFlintAndSteel } from "./flint-and-steel.js";
 import { fillBucket, isSourceBlock, LAVA_DEPTH, type Vec3Like } from "./fluid.js";
 import { digDownTo } from "./descend.js";
 import { baseMoves, safeGoto } from "../bot/navigation.js";
+import { persistentSet, persistBlacklist } from "./blacklists.js";
 
 const REQUIRED = ["bucket", "flint_and_steel"] as const;
 
@@ -51,13 +52,16 @@ const RESUME_RANGE = 48;
  * fell-short endings for the same pool and the next search looks elsewhere.
  */
 const lavaFails = new Map<string, number>();
-const badLava = new Set<string>();
+const badLava = persistentSet("badLava");
 const lavaKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}`;
 function recordLavaFellShort(p: { x: number; y: number; z: number }): void {
   const k = lavaKey(p);
   const n = (lavaFails.get(k) ?? 0) + 1;
   lavaFails.set(k, n);
-  if (n >= 3) badLava.add(k);
+  if (n >= 3) {
+    badLava.add(k);
+    persistBlacklist("badLava", badLava);
+  }
 }
 
 export function recordPortal(bot: Bot, origin: Vec3Like, axis: "x" | "z"): void {
