@@ -135,6 +135,19 @@ export function noSourceAdvice(fluid: "water" | "lava", y: number): string {
   return `${base} You are deep enough — explore sideways through caves to find a pool.`;
 }
 
+/**
+ * Source cells that refused a point-blank, held-bucket, in-range scoop.
+ *
+ * The cursor diagnostic settled a two-day mystery: at the stubborn sources
+ * the crosshair reads deepslate/andesite — the use-item trace to THAT cell is
+ * blocked (a rim block, or a flowing cell the server refuses to scoop), while
+ * the identical code fills from other cells all day. A pool has many source
+ * cells; remember the deaf ones and let the next attempt aim at a neighbour.
+ * Per-process, like badOres — restarts relearn, which is acceptable.
+ */
+const badScoops = new Set<string>();
+const scoopKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}`;
+
 /** Equip a bucket, walk to a safe approach square, and scoop. Returns a result sentence. */
 export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<string> {
   // Already carrying the goods — filling would be a wasted round trip.
@@ -174,8 +187,11 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   }
   if (!bucket) return `No empty bucket to fill with ${fluid}.`;
 
+  // The null-position guard is load-bearing: section-scanned blocks reach
+  // matching callbacks with b.position === null (findblock-predicate-trap,
+  // Form 2 — six anonymous crashes).
   const source = bot.findBlock({
-    matching: (b) => b.name === fluid && isSourceBlock(b),
+    matching: (b) => b.name === fluid && isSourceBlock(b) && (!b.position || !badScoops.has(scoopKey(b.position))),
     maxDistance: FLUID_SEARCH_BLOCKS,
   });
   if (!source) return noSourceAdvice(fluid, Math.floor(bot.entity.position.y));
@@ -260,7 +276,9 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   // eye and source swallows the use-item trace. Name the block under the
   // crosshair so the next failure identifies its own occluder.
   const cursor = (bot as unknown as { blockAtCursor?: (d: number) => { name: string } | null }).blockAtCursor?.(5);
-  return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}, held=${bot.heldItem?.name ?? "nothing"}, cursor=${cursor?.name ?? "nothing"}).`;
+  // A held-bucket, in-range miss means THIS cell is deaf to us; stop asking it.
+  badScoops.add(scoopKey(sp));
+  return `Bucket did not fill from the ${fluid} source at ${sp.x},${sp.y},${sp.z} (standing ${dNow.toFixed(1)} away, dy=${(q.y - sp.y).toFixed(0)}, held=${bot.heldItem?.name ?? "nothing"}, cursor=${cursor?.name ?? "nothing"}) — that cell is now blacklisted; retry aims at a different source.`;
 }
 
 /** Pour a full bucket so the fluid lands at `at`. Returns a result sentence. */
