@@ -147,6 +147,18 @@ async function carveSite(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<v
 }
 
 export async function buildNetherPortal(bot: Bot): Promise<string> {
+  // Own the clock. The executor's 240s watchdog killed eight runs in one
+  // hour once the chain grew to water-charge + descent + closures + carve +
+  // cast — and a watchdog kill returns no resumable hand-back, so the
+  // auto-continue never fires and the model has to rediscover the plan. A
+  // run that ends ITSELF ends with progress banked and the protocol marker.
+  const runDeadline = Date.now() + 200_000;
+  const timeLeft = () => runDeadline - Date.now();
+  const outOfTime = (doing: string) => {
+    const p = bot.entity.position.floored();
+    return `Out of run time while ${doing} (at ${p.x},${p.y},${p.z}) — progress is banked. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+  };
+
   const names = bot.inventory.items().map((i) => i.name);
   let { ready, missing } = readinessOf(names);
 
@@ -297,6 +309,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // fit comfortably under the 240s watchdog even after a 100s descent.
     bot.pathfinder.setMovements(baseMoves(bot));
     for (let leg = 0; leg < 3; leg++) {
+      if (timeLeft() < 55_000) return outOfTime("marching to lava");
       const gap = bot.entity.position.distanceTo(lava.position);
       if (gap <= 10) break;
       try {
@@ -313,7 +326,8 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         // walk again from depth.
         const drop = bot.entity.position.y - lava.position.y;
         if (now > 15 && drop > 15) {
-          const dug = await digDownTo(bot, Math.floor(lava.position.y) + 2, 80, 90_000);
+          if (timeLeft() < 45_000) return outOfTime("sinking toward the pool");
+          const dug = await digDownTo(bot, Math.floor(lava.position.y) + 2, 80, Math.min(90_000, timeLeft() - 25_000));
           console.log(`[Portal] ${bot.username} vertical closure: ${dug}`);
           // A shaft refused at its very first swing (water/void below, open
           // water underfoot) will be refused identically from the same cell
@@ -351,6 +365,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       // No natural void beside the pool — carve one out of the rock and
       // re-probe. Stone is free and the pickaxe is already in the pack.
       console.log(`[Portal] ${bot.username}: no natural site — carving one at ${centre.x},${centre.y},${centre.z}`);
+      if (timeLeft() < 40_000) return outOfTime("about to carve a site");
       await carveSite(bot, centre, axis);
       site = findSiteFlexible(centre, probe, 16);
       if (!site) {
@@ -367,6 +382,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   if (!origin)
     return "No clear 4x5 space for a portal within 16 blocks even after carving. Move somewhere open and retry.";
 
+  if (timeLeft() < 60_000) return outOfTime("reaching the casting step");
   const frame = framePositions(origin, axis);
   const got = await acquireObsidian(bot, frame);
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
