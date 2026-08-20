@@ -226,10 +226,32 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     return withinReach(q.x, q.y, q.z, sp.x + 0.5, sp.y + 0.5, sp.z + 0.5);
   };
   if (!inReach()) {
-    try {
-      await safeGoto(bot, new goals.GoalNear(sp.x, sp.y, sp.z, 1), 15_000);
-    } catch {
-      /* measured below */
+    if (fluid === "lava") {
+      // GoalNear radius 1 of a LAVA block is an order to stand in the pool:
+      // Atlas swam in lava and burned to death within minutes of this branch
+      // going live. For lava, step in by naming a SAFE cell — air over solid,
+      // adjacent to the source — and walking to exactly that.
+      const probe: DumpProbe = (c) => {
+        const b = bot.blockAt(new Vec3(c.x, c.y, c.z));
+        if (!b) return "unknown";
+        if (b.name === "air" || b.name === "cave_air") return "air";
+        if (FLUIDS.has(b.name)) return "liquid";
+        return "solid";
+      };
+      const stand = findDumpCell({ x: sp.x, y: sp.y, z: sp.z }, probe, 1, 2);
+      if (stand) {
+        try {
+          await safeGoto(bot, new goals.GoalBlock(stand.x, stand.y, stand.z), 15_000);
+        } catch {
+          /* measured below */
+        }
+      }
+    } else {
+      try {
+        await safeGoto(bot, new goals.GoalNear(sp.x, sp.y, sp.z, 1), 15_000);
+      } catch {
+        /* measured below */
+      }
     }
   }
   if (!inReach()) {
