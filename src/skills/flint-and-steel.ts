@@ -111,7 +111,11 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
       }
       d = bot.entity.position.distanceTo(ore.position);
       if (d > 4.5) {
-        return `ore at ${ore.position.x},${ore.position.y},${ore.position.z} unreachable (${d.toFixed(1)} away)`;
+        // Remember it, or the next run finds the same ore again: only the
+        // dig-timeout path blacklisted, so Flora asked the drowned village
+        // vein three times in an hour and Mason for days before her.
+        badOres.add(oreKey(ore.position));
+        return `ore at ${ore.position.x},${ore.position.y},${ore.position.z} unreachable (${d.toFixed(1)} away) — blacklisted; next run tries a different ore`;
       }
     }
     await bot.equip(pick, "hand").catch(() => {});
