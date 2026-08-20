@@ -87,7 +87,12 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[], deadline?: nu
     // the cast had no clock of its own and was the last uncovered stage when
     // twenty watchdog kills hit one hour. Banked blocks survive: a resumed
     // cast counts existing obsidian and continues from where this stopped.
-    if (deadline && Date.now() > deadline) {
+    // Require a real slot's worth of headroom, not a heartbeat: a full
+    // scoop-pour round trip (walk, step-in, scoop, walk back, pour) runs up
+    // to two minutes, so a check that passes with seconds left still dies on
+    // the executor watchdog — five hard kills in the hour of the first wild
+    // cast, and zero polite hand-backs among them.
+    if (deadline && Date.now() > deadline - 60_000) {
       return `Stopped after ${cast}/${total}: out of time this run — retry to continue this same frame.`;
     }
     const existing = bot.blockAt(new Vec3(pos.x, pos.y, pos.z));
