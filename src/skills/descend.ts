@@ -226,6 +226,20 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
       return `Dug down ${dug} to y=${Math.floor(bot.entity.position.y)}, then stopped: ${verdict.reason}.`;
     }
 
+    // Centre on the cell before swinging. A bot straddling a cell edge digs
+    // its FLOORED cell while standing on the neighbour and never falls in —
+    // six "Broke N blocks but only descended 0 — kept breaking air" runs.
+    // A sneak-nudge toward the cell centre makes the feet and the shaft agree.
+    const c = bot.entity.position;
+    if (Math.abs(feet.x + 0.5 - c.x) > 0.3 || Math.abs(feet.z + 0.5 - c.z) > 0.3) {
+      await bot.lookAt(new Vec3(feet.x + 0.5, c.y + 1.6, feet.z + 0.5), true);
+      bot.setControlState("sneak", true);
+      bot.setControlState("forward", true);
+      await new Promise((r) => setTimeout(r, 350));
+      bot.setControlState("forward", false);
+      bot.setControlState("sneak", false);
+    }
+
     const below = bot.blockAt(feet.offset(0, -1, 0));
     if (!below) return `Dug down ${dug} to y=${Math.floor(bot.entity.position.y)}, then lost sight of the floor.`;
 
