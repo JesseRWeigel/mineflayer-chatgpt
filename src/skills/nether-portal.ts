@@ -396,6 +396,13 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     const banked = frame.filter((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian").length;
     if (banked === 0 && /could not get closer|Cannot find a lava source/i.test(got)) {
       plannedSites.delete(bot.username);
+      // Strike the POOL, not just the site: Atlas abandoned a frame and then
+      // re-sited two blocks away against the same unreachable lava, carving
+      // and abandoning again. The fell-short counter already retires pools
+      // the walk cannot reach; a cast that proved the rim undrinkable is the
+      // same evidence, so it casts the same vote.
+      const src = /at (-?\d+),(-?\d+),(-?\d+)/.exec(got);
+      if (src) recordLavaFellShort({ x: +src[1], y: +src[2], z: +src[3] });
       console.log(
         `[Portal] ${bot.username} abandoned empty site at ${origin.x},${origin.y},${origin.z} — lava unreachable from it`,
       );
