@@ -189,7 +189,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
       /* no stash — try a tree */
     }
     if (!findFuel()) {
-      const log = bot.findBlock({ matching: (b) => b.name.endsWith("_log"), maxDistance: 48 });
+      const log = bot.findBlock({ matching: (b) => b.name.endsWith("_log"), maxDistance: 96 });
       if (log) {
         try {
           await safeGoto(bot, new goals.GoalNear(log.position.x, log.position.y, log.position.z, 2), 20_000);
@@ -205,7 +205,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
     }
     fuel = findFuel();
   }
-  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) — none in the stash and no tree within 48";
+  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) — none in the stash and no tree within 96";
   try {
     const f: any = await Promise.race([
       bot.openFurnace(furnace),
