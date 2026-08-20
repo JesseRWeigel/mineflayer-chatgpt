@@ -214,11 +214,28 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   // may still be nowhere near the lava. activateItem does nothing outside the
   // ~4.5 block reach, which produced "Bucket did not fill from the lava source"
   // — a mechanics-sounding failure for what was really a distance problem.
-  const p = bot.entity.position;
   const sp = source.position;
-  if (!withinReach(p.x, p.y, p.z, sp.x + 0.5, sp.y + 0.5, sp.z + 0.5)) {
-    const d = Math.hypot(p.x - sp.x, p.y - sp.y, p.z - sp.z);
-    return `Found ${fluid} at ${sp.x},${sp.y},${sp.z} but could not get closer than ${d.toFixed(0)} blocks — the path there is blocked. Try approaching from another side.`;
+  // The pathfinder parks shy of lava (danger cost), so radius-2 walks often
+  // end 4-5 blocks from the source's centre — just outside the server's
+  // ~4.5 use-item reach. Atlas failed three fetches in one hour from "4
+  // blocks away". The failed-scoop branch below has had a step-in retry for
+  // days; the out-of-reach branch returned immediately. Step in once here
+  // too before declaring the path blocked.
+  const inReach = () => {
+    const q = bot.entity.position;
+    return withinReach(q.x, q.y, q.z, sp.x + 0.5, sp.y + 0.5, sp.z + 0.5);
+  };
+  if (!inReach()) {
+    try {
+      await safeGoto(bot, new goals.GoalNear(sp.x, sp.y, sp.z, 1), 15_000);
+    } catch {
+      /* measured below */
+    }
+  }
+  if (!inReach()) {
+    const q = bot.entity.position;
+    const d = Math.hypot(q.x - (sp.x + 0.5), q.y - (sp.y + 0.5), q.z - (sp.z + 0.5));
+    return `Found ${fluid} at ${sp.x},${sp.y},${sp.z} but could not get closer than ${d.toFixed(1)} blocks — the path there is blocked. Try approaching from another side.`;
   }
 
   holdHands(bot, 2_500);
