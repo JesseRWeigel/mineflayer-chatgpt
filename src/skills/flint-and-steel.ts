@@ -203,6 +203,32 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
         }
       }
     }
+    if (!findFuel()) {
+      // Last resort: salvage two planks from nearby structures. The village
+      // is deforested for 96 blocks (and findBlock cannot see past loaded
+      // chunks anyway) but it is built OF wood — the walls are the team's
+      // own construction, and two plank blocks smelt an iron with room to
+      // spare. Two, because one plank is only 0.75 of a smelt.
+      const planks = () =>
+        bot.inventory
+          .items()
+          .filter((i) => i.name.endsWith("_planks"))
+          .reduce((n, i) => n + i.count, 0);
+      for (let salvage = 0; salvage < 3 && planks() < 2; salvage++) {
+        const plank = bot.findBlock({ matching: (b) => b.name.endsWith("_planks"), maxDistance: 32 });
+        if (!plank) break;
+        try {
+          await safeGoto(bot, new goals.GoalNear(plank.position.x, plank.position.y, plank.position.z, 2), 20_000);
+          await Promise.race([
+            bot.dig(plank),
+            new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 12_000)),
+          ]);
+          await new Promise((r) => setTimeout(r, 1200));
+        } catch {
+          bot.stopDigging();
+        }
+      }
+    }
     fuel = findFuel();
   }
   if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) — none in the stash and no tree within 96";
@@ -218,7 +244,9 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
     await f.takeOutput().catch(() => {});
     await f.takeInput().catch(() => {});
     await f.takeFuel().catch(() => {});
-    await f.putFuel(mcData.itemsByName[fuel.name].id, null, 1);
+    // Planks burn 0.75 of a smelt each — one plank in the fuel slot leaves
+    // the iron forever almost-done. Two planks; everything else needs one.
+    await f.putFuel(mcData.itemsByName[fuel.name].id, null, fuel.name.endsWith("_planks") ? 2 : 1);
     await f.putInput(mcData.itemsByName.raw_iron.id, null, 1);
     // ~10s per smelt; wait, then take.
     await new Promise((r) => setTimeout(r, 12_000));
