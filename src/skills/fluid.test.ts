@@ -148,3 +148,16 @@ test("surrounded by liquid on all sides, the dump reports null rather than pouri
   const openWater: DumpProbe = () => "liquid";
   assert.equal(findDumpCell({ x: 0, y: 64, z: 0 }, openWater, 1), null);
 });
+
+test("dry-ground mode refuses shore cells that touch the lake", () => {
+  // Water fills x >= 3; land below y=64 elsewhere. The cell at x=2 is
+  // air-over-solid but touches the lake — dry in name only, the first dig
+  // floods sideways. The search must keep walking inland.
+  const lakeEdge: DumpProbe = (p) => {
+    if (p.x >= 3) return "liquid";
+    return p.y < 64 ? "solid" : "air";
+  };
+  const cell = findDumpCell({ x: 2, y: 64, z: 0 }, lakeEdge, 1, 12, true);
+  assert.ok(cell, "real dry land exists inland");
+  assert.ok(cell.x <= 1, `cell at x=${cell.x} should not touch the lake at x>=3`);
+});

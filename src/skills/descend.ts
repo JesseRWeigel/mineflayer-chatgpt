@@ -166,7 +166,7 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
       if (k === "lava" || k === "water") return "liquid";
       return k;
     };
-    const shore = findDumpCell(feet0, probe, 1, 12);
+    const shore = findDumpCell(feet0, probe, 1, 12, true);
     if (shore) {
       bot.pathfinder.setMovements(baseMoves(bot));
       await safeGoto(bot, new goals.GoalNear(shore.x, shore.y, shore.z, 1), 30_000).catch(() => {});

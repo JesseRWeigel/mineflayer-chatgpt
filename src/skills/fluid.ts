@@ -99,7 +99,13 @@ export type DumpProbe = (p: Vec3Like) => "air" | "solid" | "liquid" | "unknown";
  * station: an air cell over solid ground, searched outward. `minR` keeps lava
  * dumps off the caster's own feet; water is harmless at any distance.
  */
-export function findDumpCell(feet: Vec3Like, probe: DumpProbe, minR: number, maxR = 4): Vec3Like | null {
+export function findDumpCell(
+  feet: Vec3Like,
+  probe: DumpProbe,
+  minR: number,
+  maxR = 4,
+  dryNeighbors = false,
+): Vec3Like | null {
   for (let r = minR; r <= maxR; r++) {
     for (let dx = -r; dx <= r; dx++) {
       for (let dz = -r; dz <= r; dz++) {
@@ -108,6 +114,24 @@ export function findDumpCell(feet: Vec3Like, probe: DumpProbe, minR: number, max
           const cell = { x: feet.x + dx, y: feet.y + dy, z: feet.z + dz };
           if (probe(cell) !== "air") continue;
           if (probe({ x: cell.x, y: cell.y - 1, z: cell.z }) !== "solid") continue;
+          // A shore cell one block from the lake is dry in name only: the
+          // first dig floods sideways and the shaft dies at depth one. Atlas
+          // and Forge ping-ponged shore-walk → dig → flood a dozen times in
+          // an hour. When the caller asks for DRY ground, a qualifying cell
+          // must not touch liquid at its own level or the level below.
+          if (dryNeighbors) {
+            const wet = [
+              [1, 0],
+              [-1, 0],
+              [0, 1],
+              [0, -1],
+            ].some(
+              ([nx, nz]) =>
+                probe({ x: cell.x + nx, y: cell.y, z: cell.z + nz }) === "liquid" ||
+                probe({ x: cell.x + nx, y: cell.y - 1, z: cell.z + nz }) === "liquid",
+            );
+            if (wet) continue;
+          }
           return cell;
         }
       }
