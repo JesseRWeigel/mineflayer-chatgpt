@@ -72,7 +72,11 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
       case "gather_wood":
         return await gatherWood(bot, params.count || 5);
       case "mine_block":
-        return await mineBlock(bot, params.blockType || params.block || params.item || DEFAULT_MINE_TARGET, params.protectPos);
+        return await mineBlock(
+          bot,
+          params.blockType || params.block || params.item || DEFAULT_MINE_TARGET,
+          params.protectPos,
+        );
       case "go_to":
       case "navigate":
       case "navigate_to":
