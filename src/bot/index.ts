@@ -70,14 +70,21 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // progress, not a crash.
   if (!advancementSnapshotLogged) {
     advancementSnapshotLogged = true;
-    try {
-      appendSnapshot(
-        BOT_ROSTER.map((b) => b.name),
-        new Date(),
-      );
-    } catch (e) {
-      console.warn("[Bot] Advancement snapshot failed:", e);
-    }
+    // One row per start AND one per hour. The "hourly" history in the CSV was
+    // an artifact of hourly maintenance restarts; once runs started surviving
+    // multiple hours, the chart silently starved.
+    const snap = () => {
+      try {
+        appendSnapshot(
+          BOT_ROSTER.map((b) => b.name),
+          new Date(),
+        );
+      } catch (e) {
+        console.warn("[Bot] Advancement snapshot failed:", e);
+      }
+    };
+    snap();
+    setInterval(snap, 60 * 60 * 1000).unref();
   }
 
   // Load memory — register with executor so skill results go to this bot's file.
