@@ -170,6 +170,7 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
   const isFuel = (n: string) => n === "coal" || n === "charcoal" || n.endsWith("_log") || n.endsWith("_planks");
   const findFuel = () => bot.inventory.items().find((i) => isFuel(i.name));
   let fuel = findFuel();
+  let salvageNote = "";
   if (!fuel) {
     // Fuel is part of the contract too — a skill that needs a thing should
     // make it. Stash first, then chop one log: a single log smelts one iron
@@ -213,7 +214,9 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
       // is deforested for 96 blocks (and findBlock cannot see past loaded
       // chunks anyway) but it is built OF wood — the walls are the team's
       // own construction, and two plank blocks smelt an iron with room to
-      // spare. Two, because one plank is only 0.75 of a smelt.
+      // spare. Two, because one plank is only 0.75 of a smelt. The failure
+      // message reports what this branch actually saw: its first live hours
+      // were unreadable because the old message never mentioned salvage.
       const planks = () =>
         bot.inventory
           .items()
@@ -221,7 +224,10 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
           .reduce((n, i) => n + i.count, 0);
       for (let salvage = 0; salvage < 3 && planks() < 2; salvage++) {
         const plank = bot.findBlock({ matching: (b) => b.name.endsWith("_planks"), maxDistance: 32 });
-        if (!plank) break;
+        if (!plank) {
+          salvageNote = ", no plank blocks within 32 to salvage";
+          break;
+        }
         try {
           await safeGoto(bot, new goals.GoalNear(plank.position.x, plank.position.y, plank.position.z, 2), 20_000);
           await Promise.race([
@@ -233,10 +239,12 @@ export async function obtainOneIron(bot: Bot): Promise<string> {
           bot.stopDigging();
         }
       }
+      if (!salvageNote && planks() < 2) salvageNote = `, plank salvage got only ${planks()} of 2`;
     }
     fuel = findFuel();
   }
-  if (!fuel) return "raw_iron ready but no fuel (coal/planks/logs) — none in the stash and no tree within 96";
+  if (!fuel)
+    return `raw_iron ready but no fuel (coal/planks/logs) — none in the stash, no tree within 96${salvageNote}`;
   try {
     const f: any = await Promise.race([
       bot.openFurnace(furnace),
