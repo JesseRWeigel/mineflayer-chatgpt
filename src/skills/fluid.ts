@@ -171,6 +171,9 @@ export function noSourceAdvice(fluid: "water" | "lava", y: number): string {
  * Per-process, like badOres — restarts relearn, which is acceptable.
  */
 const badScoops = persistentSet("badScoops");
+// The march's pool blacklist, shared live: a cast-time fetch that ignores it
+// elects the same unreachable source the march already retired.
+const badLavaPools = persistentSet("badLava");
 const scoopKey = (p: { x: number; y: number; z: number }) => `${p.x},${p.y},${p.z}`;
 
 /** Equip a bucket, walk to a safe approach square, and scoop. Returns a result sentence. */
@@ -216,7 +219,11 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   // matching callbacks with b.position === null (findblock-predicate-trap,
   // Form 2 — six anonymous crashes).
   const source = bot.findBlock({
-    matching: (b) => b.name === fluid && isSourceBlock(b) && (!b.position || !badScoops.has(scoopKey(b.position))),
+    matching: (b) =>
+      b.name === fluid &&
+      isSourceBlock(b) &&
+      (!b.position ||
+        (!badScoops.has(scoopKey(b.position)) && (fluid !== "lava" || !badLavaPools.has(scoopKey(b.position))))),
     maxDistance: FLUID_SEARCH_BLOCKS,
   });
   if (!source) return noSourceAdvice(fluid, Math.floor(bot.entity.position.y));

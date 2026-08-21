@@ -39,10 +39,22 @@ function save(): void {
   }
 }
 
-/** A Set seeded from disk. Pair with persistBlacklist() after every add. */
+/**
+ * A Set seeded from disk — a live SINGLETON per name, so every module asking
+ * for "badLava" shares one object and sees each other's additions. The copy
+ * semantics bit once: the march retired a pool three times over while the
+ * cast-time fetch, holding its own copy, kept electing the same unreachable
+ * source five runs straight.
+ */
+const liveSets = new Map<string, Set<string>>();
 export function persistentSet(name: string): Set<string> {
-  const v = store[name];
-  return new Set(Array.isArray(v) ? (v as string[]) : []);
+  let s = liveSets.get(name);
+  if (!s) {
+    const v = store[name];
+    s = new Set(Array.isArray(v) ? (v as string[]) : []);
+    liveSets.set(name, s);
+  }
+  return s;
 }
 
 export function persistBlacklist(name: string, s: Set<string>): void {
