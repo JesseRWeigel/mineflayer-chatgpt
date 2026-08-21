@@ -302,6 +302,13 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     return `Found ${fluid} at ${sp.x},${sp.y},${sp.z} but could not get closer than ${d.toFixed(1)} blocks — the path there is blocked. Try approaching from another side.`;
   }
 
+  // Drop the pathfinder goal OUTRIGHT before hand work. pathfinder.stop() on
+  // safeGoto's timeout path is a polite request; a pathfinder that still owns
+  // its goal keeps pathing — and bridging equips cobblestone. Mason's scoop
+  // read held=cobblestone at 2.0 blocks with every other saboteur caged: the
+  // same navigator that cancelled descent swings until digDownTo learned
+  // setGoal(null).
+  bot.pathfinder.setGoal(null);
   holdHands(bot, 2_500);
   // Fresh item, unconditional equip, and a beat for the server to register
   // it: "held=cobblestone" at the moment of a failed scoop revealed a THIRD
@@ -335,6 +342,7 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     } catch {
       /* retry from wherever we got */
     }
+    bot.pathfinder.setGoal(null); // the navigator must not own a goal during the scoop
     holdHands(bot, 2_500);
     const b2 = bot.inventory.items().find((i) => i.name === "bucket");
     if (!b2) return `Bucket vanished on the way to the ${fluid}.`;
@@ -401,6 +409,7 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
     return `No solid support under ${at.x},${at.y},${at.z} to pour against.`;
   }
 
+  bot.pathfinder.setGoal(null); // same rule for the pour: no goal-owning navigator mid-use
   holdHands(bot, 2_500);
   const fullNow = bot.inventory.items().find((i) => i.name === "water_bucket" || i.name === "lava_bucket");
   if (!fullNow) return "No full bucket to empty.";
