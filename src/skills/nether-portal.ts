@@ -393,7 +393,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         // cell, spend one focused trip on exactly that cell instead of
         // hoping a future carve budget reaches it.
         const m = /cell (-?\d+),(-?\d+),(-?\d+) is (?:solid|unknown)/.exec(obstacle);
-        if (m && timeLeft() > 45_000) {
+        if (m && timeLeft() > 30_000) {
           const cellV = new Vec3(+m[1], +m[2], +m[3]);
           const b = bot.blockAt(cellV);
           if (b && b.name !== "bedrock" && b.name !== "obsidian" && b.name !== "air") {
