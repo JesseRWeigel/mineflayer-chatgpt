@@ -527,7 +527,10 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // beside lava it can actually drink from. A frame holding any obsidian
     // stays — banked blocks are worth walking back to.
     const banked = frame.filter((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian").length;
-    if (banked === 0 && /could not get closer|could not get within pouring range|Cannot find a lava source/i.test(got)) {
+    if (
+      banked === 0 &&
+      /could not get closer|could not get within pouring range|Cannot find a lava source/i.test(got)
+    ) {
       plannedSites.delete(bot.username);
       savePlannedSites();
       // Strike the POOL, not just the site: Atlas abandoned a frame and then
