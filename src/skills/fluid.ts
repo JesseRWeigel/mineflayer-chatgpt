@@ -299,7 +299,13 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   if (!inReach()) {
     const q = bot.entity.position;
     const d = Math.hypot(q.x - (sp.x + 0.5), q.y - (sp.y + 0.5), q.z - (sp.z + 0.5));
-    return `Found ${fluid} at ${sp.x},${sp.y},${sp.z} but could not get closer than ${d.toFixed(1)} blocks — the path there is blocked. Try approaching from another side.`;
+    // Strike the cell, or the next run elects it again: at a banked frame the
+    // abandon path (correctly) never fires, so nothing voted out unreachable
+    // sources — two pools each ate five identical elections in one hour. A
+    // pool has many cells; unreachable-from-here rotates like deaf-to-us.
+    badScoops.add(scoopKey(sp));
+    persistBlacklist("badScoops", badScoops);
+    return `Found ${fluid} at ${sp.x},${sp.y},${sp.z} but could not get closer than ${d.toFixed(1)} blocks — that cell is blacklisted; the retry aims at a different source.`;
   }
 
   // Drop the pathfinder goal OUTRIGHT before hand work. pathfinder.stop() on
