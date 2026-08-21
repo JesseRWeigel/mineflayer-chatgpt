@@ -46,6 +46,15 @@ const plannedSites = new Map<string, { origin: Vec3Like; axis: "x" | "z" }>(
   Object.entries(persistentRecord<{ origin: Vec3Like; axis: "x" | "z" }>("plannedSites")),
 );
 const savePlannedSites = () => persistRecord("plannedSites", Object.fromEntries(plannedSites));
+
+/**
+ * Frames that hold banked obsidian, keyed by origin, independent of which bot
+ * built them. Per-bot plannedSites dies with abandons, overwrites and role
+ * churn; the blocks stay in the world. Anyone passing within resume range
+ * adopts the nearest banked frame instead of prospecting fresh.
+ */
+const bankedFrames = persistentRecord<{ origin: Vec3Like; axis: "x" | "z" }>("bankedFrames");
+const saveBankedFrames = () => persistRecord("bankedFrames", bankedFrames);
 const RESUME_RANGE = 48;
 
 /**
@@ -240,7 +249,22 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   };
 
   // Resume a half-built frame before siting a new one.
-  const prior = plannedSites.get(bot.username);
+  let prior = plannedSites.get(bot.username);
+  // No site of our own in range? Adopt any TEAM frame that already banked
+  // obsidian. Two 1-block frames sat unvisited for days because per-bot site
+  // memory died with abandons and overwrites while the blocks stood in the
+  // world — the registry outlives both the bot's plans and the process.
+  if (!prior || Math.hypot(prior.origin.x - p.x, prior.origin.y - p.y, prior.origin.z - p.z) > RESUME_RANGE) {
+    for (const entry of Object.values(bankedFrames)) {
+      if (Math.hypot(entry.origin.x - p.x, entry.origin.y - p.y, entry.origin.z - p.z) <= RESUME_RANGE) {
+        console.log(
+          `[Portal] ${bot.username}: adopting team frame with banked obsidian at ${entry.origin.x},${entry.origin.y},${entry.origin.z}`,
+        );
+        prior = entry;
+        break;
+      }
+    }
+  }
   let origin: Vec3Like | null = null;
   if (prior && Math.hypot(prior.origin.x - p.x, prior.origin.y - p.y, prior.origin.z - p.z) <= RESUME_RANGE) {
     origin = prior.origin;
@@ -485,6 +509,16 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
 
   const got = await acquireObsidian(bot, frame, runDeadline - 15_000);
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
+
+  // Any obsidian in the frame makes it team property worth returning to.
+  {
+    const bankedNow = frame.filter((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian").length;
+    const frameKey = `${origin.x},${origin.y},${origin.z}`;
+    if (bankedNow > 0 && !bankedFrames[frameKey]) {
+      bankedFrames[frameKey] = { origin, axis };
+      saveBankedFrames();
+    }
+  }
   if (!got.startsWith("Cast") && !got.startsWith("Mined") && !got.startsWith("Already")) {
     // A site whose lava cannot be reached is a trap, not an asset: the
     // planned-site resume walked Atlas back to the same doomed frame twice in
