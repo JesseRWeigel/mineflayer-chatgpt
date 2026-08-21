@@ -1100,10 +1100,14 @@ export async function withdrawStash(
   if (categoryChest) chestsToTry.push(categoryChest);
 
   // Also check all nearby chests in case the item was overflow-deposited
+  // 20, not 10: the expansion row runs to stash+18, and a spare bucket sat
+  // in the chest at (298,70,-308) — 13 blocks out — invisible to every
+  // withdrawal while Mason ground iron for a bucket the team already owned.
+  // The same blind spot cost two RCON hunts before this made it durable.
   const allChests = bot.findBlocks({
     matching: (b) => b.name === "chest" || b.name === "trapped_chest",
-    maxDistance: 10,
-    count: 10,
+    maxDistance: 20,
+    count: 16,
   });
   for (const pos of allChests) {
     const block = bot.blockAt(pos);
