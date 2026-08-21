@@ -402,6 +402,59 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
 
   if (timeLeft() < 60_000) return outOfTime("reaching the casting step");
   const frame = framePositions(origin, axis);
+
+  // Scaffold for the cast, self-supplied: Blade reached a banked frame and
+  // stalled on "no scaffold blocks (carry cobblestone or dirt)" — sealing
+  // aquifers and capping shafts spend the cobble long before the lintel
+  // needs it. Stone and dirt are everywhere; dig up to four blocks nearby
+  // first, never touching the frame's own volume or its floor support.
+  if (timeLeft() > 90_000) {
+    const SCAFF = new Set([
+      "cobblestone",
+      "dirt",
+      "stone",
+      "andesite",
+      "diorite",
+      "granite",
+      "deepslate",
+      "netherrack",
+    ]);
+    const scaffCount = () =>
+      bot.inventory
+        .items()
+        .filter((i) => SCAFF.has(i.name))
+        .reduce((n, i) => n + i.count, 0);
+    const DIGGABLE = new Set(["stone", "dirt", "grass_block", "andesite", "diorite", "granite", "deepslate"]);
+    const protectedCells = new Set(
+      [...frame, ...interiorPositions(origin, axis)].flatMap((p) => [
+        `${p.x},${p.y},${p.z}`,
+        `${p.x},${p.y - 1},${p.z}`,
+      ]),
+    );
+    for (let s = 0; s < 4 && scaffCount() < 4; s++) {
+      const blk = bot.findBlock({
+        matching: (b) =>
+          DIGGABLE.has(b.name) &&
+          (!b.position || !protectedCells.has(`${b.position.x},${b.position.y},${b.position.z}`)),
+        maxDistance: 8,
+      });
+      if (!blk) break;
+      try {
+        await Promise.race([
+          bot.dig(blk),
+          new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 10_000)),
+        ]);
+        await new Promise((r) => setTimeout(r, 800));
+      } catch {
+        bot.stopDigging();
+        break;
+      }
+    }
+    if (scaffCount() < 4) {
+      console.log(`[Portal] ${bot.username}: scaffold short (${scaffCount()}/4) — the cast may stop at the lintel`);
+    }
+  }
+
   const got = await acquireObsidian(bot, frame, runDeadline - 15_000);
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
   if (!got.startsWith("Cast") && !got.startsWith("Mined") && !got.startsWith("Already")) {
