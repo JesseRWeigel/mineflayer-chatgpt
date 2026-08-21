@@ -386,9 +386,37 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       await carveSite(bot, centre, axis);
       site = findSiteFlexible(centre, probe, 16);
       if (!site) {
-        console.log(
-          `[Portal] ${bot.username} carve left: ${firstObstacle(centre, axis, probe) ?? "no obstacle at centre?"}`,
-        );
+        const obstacle = firstObstacle(centre, axis, probe) ?? "no obstacle at centre?";
+        console.log(`[Portal] ${bot.username} carve left: ${obstacle}`);
+        // The chronic ending — ten carves finished ONE cell short of a site
+        // and the run walked away. When the re-probe names a single solid
+        // cell, spend one focused trip on exactly that cell instead of
+        // hoping a future carve budget reaches it.
+        const m = /cell (-?\d+),(-?\d+),(-?\d+) is (?:solid|unknown)/.exec(obstacle);
+        if (m && timeLeft() > 45_000) {
+          const cellV = new Vec3(+m[1], +m[2], +m[3]);
+          const b = bot.blockAt(cellV);
+          if (b && b.name !== "bedrock" && b.name !== "obsidian" && b.name !== "air") {
+            try {
+              await safeGoto(bot, new goals.GoalNear(cellV.x, cellV.y, cellV.z, 2), 15_000);
+            } catch {
+              /* dig below fails fast if still out of reach */
+            }
+            bot.pathfinder.setGoal(null);
+            const pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+            if (pick) await bot.equip(pick, "hand").catch(() => {});
+            try {
+              await Promise.race([
+                bot.dig(b),
+                new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 12_000)),
+              ]);
+            } catch {
+              bot.stopDigging();
+            }
+            site = findSiteFlexible(centre, probe, 16);
+            if (site) console.log(`[Portal] ${bot.username}: focused dig finished the carve`);
+          }
+        }
       }
     }
     if (site) {
