@@ -200,8 +200,33 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
     .sort((a, b) => rank(b.name) - rank(a.name))[0];
   if (pick) await bot.equip(pick, "hand").catch(() => {});
 
+  const dumpProbe: DumpProbe = (p) => {
+    const k = kindOf(bot, new Vec3(p.x, p.y, p.z));
+    if (k === "lava" || k === "water") return "liquid";
+    return k;
+  };
+
   let seals = 0;
+  let perchEscapes = 0;
   while (Math.floor(bot.entity.position.y) > targetY && shouldKeepDigging(deadline - Date.now(), dug, maxBlocks)) {
+    // Perched ON a partial block: the instrumentation convicted feet=chest —
+    // Atlas parked on a village chest for six straight runs, digging the cell
+    // beneath it while the chest held him up. Never dig the perch itself (it
+    // can be the team stash); walk off it to open ground.
+    const feetNow = bot.entity.position.floored();
+    const atFeet = bot.blockAt(feetNow);
+    if (atFeet && atFeet.name !== "air" && atFeet.name !== "cave_air" && !WATERY.has(atFeet.name)) {
+      if (perchEscapes++ >= 2) {
+        return `Standing on a ${atFeet.name} at ${feetNow.x},${feetNow.y},${feetNow.z} — a shaft cannot start on a perch; move to open ground and retry.`;
+      }
+      const off = findDumpCell(feetNow, dumpProbe, 1, 4);
+      if (off) {
+        bot.pathfinder.setMovements(baseMoves(bot));
+        await safeGoto(bot, new goals.GoalBlock(off.x, off.y, off.z), 10_000).catch(() => {});
+        bot.pathfinder.setGoal(null);
+      }
+      continue;
+    }
     const feet = bot.entity.position.floored();
     // Wet feet mid-descent means a breached aquifer or a flooded cave: digging
     // on just breaks blocks under a swimmer and never gains a block of depth.
