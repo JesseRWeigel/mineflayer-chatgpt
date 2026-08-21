@@ -282,8 +282,17 @@ export async function digDownTo(bot: Bot, targetY: number, maxBlocks = 80, budge
     // costume water wears gets added to the wet list instead of guessed at.
     const yNow = Math.floor(bot.entity.position.y);
     if (dug % 10 === 0 && startY - yNow < dug / 3) {
-      const under = bot.blockAt(bot.entity.position.floored().offset(0, -1, 0));
-      return `Broke ${dug} blocks but only descended ${startY - yNow} (y=${startY} to y=${yNow}) — kept breaking ${under?.name ?? "unknown"}; this ground cannot be dug through here.`;
+      // Name the full stance geometry: six of these have survived the
+      // centering nudge, and "kept breaking air" alone cannot distinguish a
+      // partial-block perch from a falling-gravel refill from a straddle the
+      // nudge failed to close.
+      const pos = bot.entity.position;
+      const feetCell = pos.floored();
+      const under = bot.blockAt(feetCell.offset(0, -1, 0));
+      const at = bot.blockAt(feetCell);
+      const offX = (pos.x - (feetCell.x + 0.5)).toFixed(2);
+      const offZ = (pos.z - (feetCell.z + 0.5)).toFixed(2);
+      return `Broke ${dug} blocks but only descended ${startY - yNow} (y=${startY} to y=${yNow}) — kept breaking ${under?.name ?? "unknown"} (feet=${at?.name ?? "unknown"}, onGround=${bot.entity.onGround}, off=${offX},${offZ}); this ground cannot be dug through here.`;
     }
   }
 
