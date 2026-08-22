@@ -53,7 +53,7 @@ const savePlannedSites = () => persistRecord("plannedSites", Object.fromEntries(
  * churn; the blocks stay in the world. Anyone passing within resume range
  * adopts the nearest banked frame instead of prospecting fresh.
  */
-const bankedFrames = persistentRecord<{ origin: Vec3Like; axis: "x" | "z" }>("bankedFrames");
+const bankedFrames = persistentRecord<{ origin: Vec3Like; axis: "x" | "z"; banked?: number }>("bankedFrames");
 const saveBankedFrames = () => persistRecord("bankedFrames", bankedFrames);
 const RESUME_RANGE = 48;
 
@@ -322,10 +322,17 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // of runs to descents into terrain the refusals mapped out days ago.
     if (!lava) {
       const q0 = bot.entity.position;
-      let nearest: { origin: Vec3Like; d: number } | null = null;
+      // Most-built frame wins; distance only breaks ties. Nearest-first sent
+      // the whole swarm to a one-block frame with a jammed approach while the
+      // four-block frame at the proven pool got no visitors.
+      let nearest: { origin: Vec3Like; d: number; banked: number } | null = null;
       for (const e of Object.values(bankedFrames)) {
         const d = Math.hypot(e.origin.x - q0.x, e.origin.y - q0.y, e.origin.z - q0.z);
-        if (d <= 220 && (!nearest || d < nearest.d)) nearest = { origin: e.origin, d };
+        if (d > 220) continue;
+        const b = e.banked ?? 1;
+        if (!nearest || b > nearest.banked || (b === nearest.banked && d < nearest.d)) {
+          nearest = { origin: e.origin, d, banked: b };
+        }
       }
       if (nearest && nearest.d > RESUME_RANGE) {
         console.log(
@@ -551,8 +558,8 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   {
     const bankedNow = frame.filter((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian").length;
     const frameKey = `${origin.x},${origin.y},${origin.z}`;
-    if (bankedNow > 0 && !bankedFrames[frameKey]) {
-      bankedFrames[frameKey] = { origin, axis };
+    if (bankedNow > 0 && bankedFrames[frameKey]?.banked !== bankedNow) {
+      bankedFrames[frameKey] = { origin, axis, banked: bankedNow };
       saveBankedFrames();
     }
   }
