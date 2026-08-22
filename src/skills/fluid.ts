@@ -400,7 +400,28 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
       // fall through to the reach check below
     }
     if (bot.entity.position.distanceTo(new Vec3(at.x, at.y, at.z)) > 4.5) {
-      return `Could not get within pouring range of ${at.x},${at.y},${at.z} — the path back is blocked.`;
+      // A radius goal near a filling frame is asking the pathfinder to stand
+      // beside fresh lava, and it refuses — four pour walk-backs failed in
+      // one window at the two counting frames. Name a SAFE stand cell (air
+      // over solid, the scoop's own medicine) and walk to exactly that.
+      const probe: DumpProbe = (c) => {
+        const b = bot.blockAt(new Vec3(c.x, c.y, c.z));
+        if (!b) return "unknown";
+        if (b.name === "air" || b.name === "cave_air") return "air";
+        if (FLUIDS.has(b.name)) return "liquid";
+        return "solid";
+      };
+      const stand = findDumpCell({ x: at.x, y: at.y, z: at.z }, probe, 1, 3);
+      if (stand) {
+        try {
+          await safeGoto(bot, new goals.GoalBlock(stand.x, stand.y, stand.z), 20_000);
+        } catch {
+          /* measured below */
+        }
+      }
+      if (bot.entity.position.distanceTo(new Vec3(at.x, at.y, at.z)) > 4.5) {
+        return `Could not get within pouring range of ${at.x},${at.y},${at.z} — the path back is blocked.`;
+      }
     }
   }
 
