@@ -316,6 +316,43 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // plan across separate decisions — the same shape that stranded
     // craft_bucket and the igniter. The skill descends itself with the
     // proven bounded digger, then looks again.
+    // Known frames outrank blind prospecting. With banked obsidian standing
+    // in the world, "no lava within 96" at the deforested village means
+    // COMMUTE — and leaving that walk to model attention lost whole nights
+    // of runs to descents into terrain the refusals mapped out days ago.
+    if (!lava) {
+      const q0 = bot.entity.position;
+      let nearest: { origin: Vec3Like; d: number } | null = null;
+      for (const e of Object.values(bankedFrames)) {
+        const d = Math.hypot(e.origin.x - q0.x, e.origin.y - q0.y, e.origin.z - q0.z);
+        if (d <= 220 && (!nearest || d < nearest.d)) nearest = { origin: e.origin, d };
+      }
+      if (nearest && nearest.d > RESUME_RANGE) {
+        console.log(
+          `[Portal] ${bot.username}: no local lava — commuting to banked frame at ${nearest.origin.x},${nearest.origin.y},${nearest.origin.z} (${nearest.d.toFixed(0)} away)`,
+        );
+        bot.pathfinder.setMovements(baseMoves(bot));
+        for (let leg = 0; leg < 2; leg++) {
+          if (timeLeft() < 60_000) return outOfTime("commuting to the banked frame");
+          try {
+            await safeGoto(bot, new goals.GoalNear(nearest.origin.x, nearest.origin.y, nearest.origin.z, 8), 45_000);
+          } catch {
+            /* legs bank distance */
+          }
+          if (
+            bot.entity.position.distanceTo(new Vec3(nearest.origin.x, nearest.origin.y, nearest.origin.z)) <=
+            RESUME_RANGE
+          )
+            break;
+        }
+        lava = findLava();
+        const dNow = bot.entity.position.distanceTo(new Vec3(nearest.origin.x, nearest.origin.y, nearest.origin.z));
+        if (!lava && dNow > RESUME_RANGE) {
+          return `Commuting to the banked frame at ${nearest.origin.x},${nearest.origin.y},${nearest.origin.z} — still ${dNow.toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+        }
+      }
+    }
+
     if (!lava && bot.entity.position.y > LAVA_DEPTH) {
       console.log(`[Portal] ${bot.username}: no lava within 96 — descending first`);
       // fill_bucket's proven shape: a refused shaft ("open air below — a
