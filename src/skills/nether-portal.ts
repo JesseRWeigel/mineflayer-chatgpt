@@ -588,7 +588,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     }
   }
 
-  const got = await acquireObsidian(bot, frame, runDeadline - 15_000);
+  const got = await acquireObsidian(bot, frame, runDeadline - 15_000, interiorPositions(origin, axis));
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
 
   // Any obsidian in the frame makes it team property worth returning to.

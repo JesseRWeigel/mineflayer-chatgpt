@@ -83,7 +83,12 @@ function touchesWater(bot: Bot, pos: Vec3Like): boolean {
  * One block per lava trip, because a bucket holds one fluid. The frame site
  * is chosen beside a lava pool, so trips are hops.
  */
-export async function castInPlace(bot: Bot, positions: Vec3Like[], deadline?: number): Promise<string> {
+export async function castInPlace(
+  bot: Bot,
+  positions: Vec3Like[],
+  deadline?: number,
+  keepClear: Vec3Like[] = [],
+): Promise<string> {
   const sorted = [...positions].sort((a, b) => a.y - b.y);
   const total = positions.length;
   let cast = 0;
@@ -142,7 +147,13 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[], deadline?: nu
       // slot would replace the source, spending one full water round trip per
       // block (probe-observed). A source beside the slot wets it by flow,
       // survives the cast, and keeps wetting the rest of the row.
-      const isSlot = (c: Vec3Like) => positions.some((q) => q.x === c.x && q.y === c.y && q.z === c.z);
+      // Ring slots AND the doorway: a station poured inside the interior
+      // pools water there, a wide lava pour lands in it, and obsidian
+      // hardens INSIDE the portal opening — the 278 frame's doorway held
+      // two such blocks, unremovable below diamond tier.
+      const isSlot = (c: Vec3Like) =>
+        positions.some((q) => q.x === c.x && q.y === c.y && q.z === c.z) ||
+        keepClear.some((q) => q.x === c.x && q.y === c.y && q.z === c.z);
       const station = [
         [1, 0],
         [-1, 0],
@@ -220,7 +231,12 @@ export async function mineObsidian(bot: Bot, count: number): Promise<string> {
   return mined > 0 ? `Mined ${mined} obsidian.` : "Cannot find obsidian within 32 blocks.";
 }
 
-export async function acquireObsidian(bot: Bot, positions: Vec3Like[], deadline?: number): Promise<string> {
+export async function acquireObsidian(
+  bot: Bot,
+  positions: Vec3Like[],
+  deadline?: number,
+  keepClear: Vec3Like[] = [],
+): Promise<string> {
   const names = bot.inventory.items().map((i) => i.name);
   if (chooseStrategy(names) === "mine") {
     const held = bot.inventory
@@ -232,5 +248,5 @@ export async function acquireObsidian(bot: Bot, positions: Vec3Like[], deadline?
     // Mining can come up short if no obsidian is nearby; fall back rather than stall.
     if (res.startsWith("Mined")) return res;
   }
-  return castInPlace(bot, positions, deadline);
+  return castInPlace(bot, positions, deadline, keepClear);
 }
