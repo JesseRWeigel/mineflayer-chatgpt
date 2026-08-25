@@ -75,7 +75,12 @@ const LAVA_STRIKE_LIMIT = 3;
 // frame that banked a block in the last six hours has proven its lava
 // works; pathing noise cannot retire it. The lake-trap signature (days
 // without a single cast) still benches on schedule.
-const PROGRESS_SHIELD_MS = 6 * 60 * 60_000;
+// A day, widened from six hours after the third strike-system misfire: the
+// 9/10 frame re-accumulated strikes from failures logged 43 and 111 blocks
+// away and was three hours from benching itself. A frame with obsidian
+// this fresh is alive; only a full day of zero progress — the lake-trap
+// signature — may retire one.
+const PROGRESS_SHIELD_MS = 24 * 60 * 60_000;
 const frameLavaDead = (e: { lavaStrikes?: number; lastProgressAt?: number }) =>
   (e.lavaStrikes ?? 0) >= LAVA_STRIKE_LIMIT &&
   (!e.lastProgressAt || Date.now() - e.lastProgressAt > PROGRESS_SHIELD_MS);
