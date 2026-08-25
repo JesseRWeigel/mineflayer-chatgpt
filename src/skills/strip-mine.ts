@@ -119,6 +119,10 @@ export const stripMineSkill: Skill = {
           };
         }
         if (b.name === "lava" || b.name === "water") continue;
+        if (!canHarvest(bot, b.name)) {
+          console.log(`[Skill] strip_mine tunnel skipping ${b.name} — no iron-tier pickaxe to harvest it`);
+          continue;
+        }
 
         await equipBestPickaxe(bot);
         try {
@@ -188,9 +192,31 @@ export const stripMineSkill: Skill = {
 
 // --- Helpers ---
 
+const PICK_TIER: Record<string, number> = {
+  wooden_pickaxe: 0,
+  stone_pickaxe: 1,
+  golden_pickaxe: 1,
+  iron_pickaxe: 2,
+  diamond_pickaxe: 3,
+  netherite_pickaxe: 4,
+};
+
 async function equipBestPickaxe(bot: Bot): Promise<void> {
-  const pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+  // BEST means best: the old find() grabbed the first pickaxe in the pack,
+  // so a bot carrying stone and iron could mine with stone.
+  const picks = bot.inventory.items().filter((i) => i.name.endsWith("_pickaxe"));
+  const pick = picks.sort((a, b) => (PICK_TIER[b.name] ?? 0) - (PICK_TIER[a.name] ?? 0))[0];
   if (pick) await bot.equip(pick, "hand");
+}
+
+// Diamond ore mined below iron tier drops NOTHING — the ore is destroyed
+// forever. Gold, emerald and redstone share the rule. Refuse those digs
+// unless an iron-or-better pickaxe is in the pack; the vein stays in the
+// wall for the properly equipped trip.
+const IRON_TIER_ORES = /(diamond|emerald|gold|redstone)_ore$/;
+function canHarvest(bot: Bot, name: string): boolean {
+  if (!IRON_TIER_ORES.test(name)) return true;
+  return bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2);
 }
 
 /**
@@ -235,6 +261,10 @@ async function mineExposedOre(bot: Bot, pos: Vec3): Promise<{ mined: number; ore
   for (const t of toCheck) {
     const b = bot.blockAt(t);
     if (!b || !b.name.endsWith("_ore")) continue;
+    if (!canHarvest(bot, b.name)) {
+      console.log(`[Skill] strip_mine leaving ${b.name} in the wall — no iron-tier pickaxe to harvest it`);
+      continue;
+    }
     try {
       await equipBestPickaxe(bot);
       await digSafe(bot, b);
