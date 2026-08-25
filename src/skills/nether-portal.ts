@@ -58,6 +58,7 @@ const bankedFrames = persistentRecord<{
   axis: "x" | "z";
   banked?: number;
   lavaStrikes?: number;
+  lastStrikeAt?: number;
 }>("bankedFrames");
 const saveBankedFrames = () => persistRecord("bankedFrames", bankedFrames);
 // A banked frame whose lava keeps proving unreachable is a trap, not an
@@ -597,6 +598,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         axis,
         banked: bankedNow,
         lavaStrikes: grew ? 0 : (before?.lavaStrikes ?? 0),
+        lastStrikeAt: grew ? undefined : before?.lastStrikeAt,
       };
       saveBankedFrames();
     }
@@ -632,10 +634,24 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // bucket fine and only the walk back to the ring jammed — the 252 frame
     // reached 3/10 through exactly that noise. Only "the lava itself is out
     // of reach" evidence retires a frame.
-    if (banked > 0 && /could not get closer|Cannot find a lava source/i.test(got)) {
+    // Two more exclusions, learned when three routine misses retired the
+    // healthiest frame in the registry within one hour of it CASTING a
+    // block: a miss that voted its cell out ("that cell is blacklisted") is
+    // the rotation self-healing, so it never strikes; and strikes are
+    // rate-limited to one per frame per half hour, so only sustained
+    // futility across hours — the 392 lake-trap signature — reaches the
+    // limit, while a healthy site's bad stretch cannot outrun its own
+    // progress resets.
+    if (
+      banked > 0 &&
+      /could not get closer|Cannot find a lava source/i.test(got) &&
+      !/that cell is blacklisted/i.test(got)
+    ) {
       const entry = bankedFrames[frameKey];
-      if (entry) {
+      const rested = !entry?.lastStrikeAt || Date.now() - entry.lastStrikeAt > 30 * 60_000;
+      if (entry && rested) {
         entry.lavaStrikes = (entry.lavaStrikes ?? 0) + 1;
+        entry.lastStrikeAt = Date.now();
         saveBankedFrames();
         if (frameLavaDead(entry)) {
           console.log(
