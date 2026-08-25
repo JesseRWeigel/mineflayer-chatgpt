@@ -395,7 +395,12 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     const occ = (
       bot as unknown as { blockAtCursor?: (d: number) => { name: string; position: Vec3 } | null }
     ).blockAtCursor?.(5);
-    if (occ && occ.position && occ.position.y > sp.y && !FLUIDS.has(occ.name)) {
+    // Water loosens the above-source gate: digging under a water source at
+    // worst splashes the digger, and the 9/10 frame's last slot stalled on a
+    // stone lip BELOW an overhead water source the gate refused to touch.
+    // Lava keeps the strict gate — an opened cell below lava level floods.
+    const occSafe = occ?.position && (occ.position.y > sp.y || fluid === "water");
+    if (occ && occ.position && occSafe && !FLUIDS.has(occ.name)) {
       const blk = bot.blockAt(occ.position);
       if (blk && blk.name !== "air") {
         try {
