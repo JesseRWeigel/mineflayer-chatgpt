@@ -59,6 +59,7 @@ const bankedFrames = persistentRecord<{
   banked?: number;
   lavaStrikes?: number;
   lastStrikeAt?: number;
+  lastProgressAt?: number;
 }>("bankedFrames");
 const saveBankedFrames = () => persistRecord("bankedFrames", bankedFrames);
 // A banked frame whose lava keeps proving unreachable is a trap, not an
@@ -68,7 +69,16 @@ const saveBankedFrames = () => persistRecord("bankedFrames", bankedFrames);
 // its blocks stay in the world and the registry, but the swarm stops
 // pilgrimage to lava that is not there.
 const LAVA_STRIKE_LIMIT = 3;
-const frameLavaDead = (e: { lavaStrikes?: number }) => (e.lavaStrikes ?? 0) >= LAVA_STRIKE_LIMIT;
+// Recent progress overrides strikes: the strike system benched TWO frames
+// that were actively casting — approach failures from 19 and even 100
+// blocks out counted the same as the lake-trap's point-blank futility. A
+// frame that banked a block in the last six hours has proven its lava
+// works; pathing noise cannot retire it. The lake-trap signature (days
+// without a single cast) still benches on schedule.
+const PROGRESS_SHIELD_MS = 6 * 60 * 60_000;
+const frameLavaDead = (e: { lavaStrikes?: number; lastProgressAt?: number }) =>
+  (e.lavaStrikes ?? 0) >= LAVA_STRIKE_LIMIT &&
+  (!e.lastProgressAt || Date.now() - e.lastProgressAt > PROGRESS_SHIELD_MS);
 const RESUME_RANGE = 48;
 
 /**
@@ -596,6 +606,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         banked: bankedNow,
         lavaStrikes: grew ? 0 : (before?.lavaStrikes ?? 0),
         lastStrikeAt: grew ? undefined : before?.lastStrikeAt,
+        lastProgressAt: grew ? Date.now() : before?.lastProgressAt,
       };
       saveBankedFrames();
     }
