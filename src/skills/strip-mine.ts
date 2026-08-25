@@ -38,12 +38,15 @@ export const stripMineSkill: Skill = {
     let mined = 0;
     const oresFound: string[] = [];
 
-    // Depth follows the mission: the portal doorway is plugged with obsidian
-    // only a diamond pickaxe clears, and diamonds live far below the iron
-    // band this skill was tuned for. When the season goal names diamonds,
-    // dig to the prime diamond band; otherwise keep the proven iron depth —
-    // the steering text flips the depth back when the mission moves on.
-    const targetY = /diamond/i.test(getSeasonGoal() ?? "") ? -53 : TARGET_Y;
+    // Depth follows the mission AND the tools: the portal doorway is plugged
+    // with obsidian only a diamond pickaxe clears, and diamonds live far
+    // below the iron band this skill was tuned for. A diamond mission digs
+    // to the prime band — but only with an iron-or-better pick aboard, since
+    // a stone-pick bot can harvest nothing down there and should be mining
+    // IRON at y=16 to tier up first. The steering text flips the depth back
+    // when the mission moves on.
+    const hasIronPick = bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2);
+    const targetY = hasIronPick && /diamond/i.test(getSeasonGoal() ?? "") ? -53 : TARGET_Y;
 
     // Snap to nearest cardinal direction
     const forward = getCardinalDirection(bot.entity.yaw);
