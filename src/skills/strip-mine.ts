@@ -121,7 +121,17 @@ export const stripMineSkill: Skill = {
             stats: { blocksMined: mined, oresFound: oresFound.length },
           };
         }
-        if (b.name === "lava" || b.name === "water") continue;
+        if (b.name === "lava" || b.name === "water") {
+          // Skipping the wet cell used to leave the walk-forward step to
+          // wade straight into it — Forge ended the night swimming in his
+          // own flooded tunnel one block from iron ore. A breached fluid
+          // ends the tunnel with whatever it earned.
+          return {
+            success: mined > 0,
+            message: `Tunnel hit ${b.name} at step ${step} — stopped before wading in. Mined ${mined} blocks. ${formatOres(oresFound)}`,
+            stats: { blocksMined: mined, oresFound: oresFound.length },
+          };
+        }
         if (!canHarvest(bot, b.name)) {
           console.log(`[Skill] strip_mine tunnel skipping ${b.name} — no iron-tier pickaxe to harvest it`);
           continue;
