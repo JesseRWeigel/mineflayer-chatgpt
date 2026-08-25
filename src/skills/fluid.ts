@@ -68,6 +68,24 @@ export function isSourceBlock(block: { name: string; metadata?: number } | null)
  */
 export const LAVA_DEPTH = 20;
 
+/**
+ * Where to LOOK when scooping. Center-of-cell aim was clipping pool rims:
+ * point-blank misses at the 252 pool all read cursor=dirt or cursor=stone —
+ * the eye-ray to the cell's center crossed the rim lip first. Bias the aim
+ * toward the bot's own edge of the cell so the ray crosses the least rim
+ * geometry, at fluid-surface height when the bot stands level-or-above and
+ * low on the near face when the fluid sits overhead.
+ */
+function scoopAim(bot: Bot, cell: Vec3): Vec3 {
+  const c = cell.offset(0.5, 0, 0.5);
+  const p = bot.entity.position;
+  const dx = p.x - c.x;
+  const dz = p.z - c.z;
+  const h = Math.hypot(dx, dz) || 1;
+  const above = p.y >= cell.y;
+  return c.offset((dx / h) * 0.3, above ? 0.85 : 0.25, (dz / h) * 0.3);
+}
+
 /** How close the bot must be for activateItem to affect a block. */
 export const REACH_BLOCKS = 4.5;
 
@@ -340,7 +358,7 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
   // substituted for lookAt+activateItem on the reasoning that it looks at the
   // block internally. It does, and that is correct for solid blocks and inert
   // for fluid ones.
-  await bot.lookAt(source.position.offset(0.5, 0.5, 0.5), true);
+  await bot.lookAt(scoopAim(bot, source.position), true);
   bot.activateItem();
   await new Promise((r) => setTimeout(r, 500)); // let the inventory packet land
 
@@ -360,7 +378,7 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     if (!b2) return `Bucket vanished on the way to the ${fluid}.`;
     await bot.equip(b2, "hand");
     await new Promise((r) => setTimeout(r, 150));
-    await bot.lookAt(source.position.offset(0.5, 0.5, 0.5), true);
+    await bot.lookAt(scoopAim(bot, source.position), true);
     bot.activateItem();
     await new Promise((r) => setTimeout(r, 500));
     filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
