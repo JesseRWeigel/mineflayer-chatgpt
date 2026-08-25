@@ -53,8 +53,21 @@ const savePlannedSites = () => persistRecord("plannedSites", Object.fromEntries(
  * churn; the blocks stay in the world. Anyone passing within resume range
  * adopts the nearest banked frame instead of prospecting fresh.
  */
-const bankedFrames = persistentRecord<{ origin: Vec3Like; axis: "x" | "z"; banked?: number }>("bankedFrames");
+const bankedFrames = persistentRecord<{
+  origin: Vec3Like;
+  axis: "x" | "z";
+  banked?: number;
+  lavaStrikes?: number;
+}>("bankedFrames");
 const saveBankedFrames = () => persistRecord("bankedFrames", bankedFrames);
+// A banked frame whose lava keeps proving unreachable is a trap, not an
+// asset: the 5-block frame at 392 sat beside a pool sealed under a lake —
+// 500+ commute legs funneled the whole swarm into a walk that could never
+// end in a pour. Three strikes retire the frame as a commute/adopt target;
+// its blocks stay in the world and the registry, but the swarm stops
+// pilgrimage to lava that is not there.
+const LAVA_STRIKE_LIMIT = 3;
+const frameLavaDead = (e: { lavaStrikes?: number }) => (e.lavaStrikes ?? 0) >= LAVA_STRIKE_LIMIT;
 const RESUME_RANGE = 48;
 
 /**
@@ -256,6 +269,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   // world — the registry outlives both the bot's plans and the process.
   if (!prior || Math.hypot(prior.origin.x - p.x, prior.origin.y - p.y, prior.origin.z - p.z) > RESUME_RANGE) {
     for (const entry of Object.values(bankedFrames)) {
+      if (frameLavaDead(entry)) continue;
       if (Math.hypot(entry.origin.x - p.x, entry.origin.y - p.y, entry.origin.z - p.z) <= RESUME_RANGE) {
         console.log(
           `[Portal] ${bot.username}: adopting team frame with banked obsidian at ${entry.origin.x},${entry.origin.y},${entry.origin.z}`,
@@ -327,6 +341,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       // four-block frame at the proven pool got no visitors.
       let nearest: { origin: Vec3Like; d: number; banked: number } | null = null;
       for (const e of Object.values(bankedFrames)) {
+        if (frameLavaDead(e)) continue;
         const d = Math.hypot(e.origin.x - q0.x, e.origin.y - q0.y, e.origin.z - q0.z);
         if (d > 220) continue;
         const b = e.banked ?? 1;
@@ -555,11 +570,20 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
 
   // Any obsidian in the frame makes it team property worth returning to.
+  const frameKey = `${origin.x},${origin.y},${origin.z}`;
   {
     const bankedNow = frame.filter((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian").length;
-    const frameKey = `${origin.x},${origin.y},${origin.z}`;
-    if (bankedNow > 0 && bankedFrames[frameKey]?.banked !== bankedNow) {
-      bankedFrames[frameKey] = { origin, axis, banked: bankedNow };
+    const before = bankedFrames[frameKey];
+    if (bankedNow > 0 && before?.banked !== bankedNow) {
+      // Fresh obsidian in the ring is proof the lava here still pours —
+      // clear any strikes along with recording the new count.
+      const grew = bankedNow > (before?.banked ?? 0);
+      bankedFrames[frameKey] = {
+        origin,
+        axis,
+        banked: bankedNow,
+        lavaStrikes: grew ? 0 : (before?.lavaStrikes ?? 0),
+      };
       saveBankedFrames();
     }
   }
@@ -588,6 +612,23 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         `[Portal] ${bot.username} abandoned empty site at ${origin.x},${origin.y},${origin.z} — lava unreachable from it`,
       );
       return `Portal stalled getting obsidian: ${got} Site abandoned; the next attempt sites a fresh frame beside reachable lava.`;
+    }
+    // A BANKED frame that cannot reach its lava earns a strike. Pour-range
+    // failures are excluded on purpose: those mean the lava filled the
+    // bucket fine and only the walk back to the ring jammed — the 252 frame
+    // reached 3/10 through exactly that noise. Only "the lava itself is out
+    // of reach" evidence retires a frame.
+    if (banked > 0 && /could not get closer|Cannot find a lava source/i.test(got)) {
+      const entry = bankedFrames[frameKey];
+      if (entry) {
+        entry.lavaStrikes = (entry.lavaStrikes ?? 0) + 1;
+        saveBankedFrames();
+        if (frameLavaDead(entry)) {
+          console.log(
+            `[Portal] ${bot.username}: frame at ${frameKey} has dead local lava (${entry.lavaStrikes} strikes) — retired as a commute target`,
+          );
+        }
+      }
     }
     return `Portal stalled getting obsidian: ${got}`;
   }
