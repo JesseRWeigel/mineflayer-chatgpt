@@ -530,22 +530,19 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   // needs it. Stone and dirt are everywhere; dig up to four blocks nearby
   // first, never touching the frame's own volume or its floor support.
   if (timeLeft() > 90_000) {
-    const SCAFF = new Set([
-      "cobblestone",
-      "dirt",
-      "stone",
-      "andesite",
-      "diorite",
-      "granite",
-      "deepslate",
-      "netherrack",
-    ]);
+    // Count ONLY what the pathfinder can tower with. The broad stone family
+    // satisfies the cast's own scaffold placer, but pillaring out of a pit
+    // accepts dirt and cobblestone alone — a bot passed this check holding
+    // granite and still reported towers=0 at the pour walk-back. Same rule
+    // for what to dig: stone and dirt drop tower-usable items; andesite,
+    // diorite, granite and deepslate drop items the pathfinder ignores.
+    const SCAFF = new Set(["cobblestone", "dirt"]);
     const scaffCount = () =>
       bot.inventory
         .items()
         .filter((i) => SCAFF.has(i.name))
         .reduce((n, i) => n + i.count, 0);
-    const DIGGABLE = new Set(["stone", "dirt", "grass_block", "andesite", "diorite", "granite", "deepslate"]);
+    const DIGGABLE = new Set(["stone", "dirt", "grass_block"]);
     const protectedCells = new Set(
       [...frame, ...interiorPositions(origin, axis)].flatMap((p) => [
         `${p.x},${p.y},${p.z}`,
