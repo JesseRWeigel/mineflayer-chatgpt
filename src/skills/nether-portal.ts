@@ -334,7 +334,14 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     // in the world, "no lava within 96" at the deforested village means
     // COMMUTE — and leaving that walk to model attention lost whole nights
     // of runs to descents into terrain the refusals mapped out days ago.
-    if (!lava) {
+    // A WELL-BUILT frame outranks local prospecting too: run 301's first
+    // hour went entirely to a village descent toward virgin deep lava (five
+    // "ran out of time" legs toward y=-60) while the 3/10 frame with proven
+    // lava sat one commute away — the descent would only have smeared an
+    // eighth frame across the map. With 3+ blocks banked at a healthy frame
+    // in range, commute even though lava is findable here; thin frames (1-2
+    // blocks) still lose to lava in hand.
+    {
       const q0 = bot.entity.position;
       // Most-built frame wins; distance only breaks ties. Nearest-first sent
       // the whole swarm to a one-block frame with a jammed approach while the
@@ -349,9 +356,9 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
           nearest = { origin: e.origin, d, banked: b };
         }
       }
-      if (nearest && nearest.d > RESUME_RANGE) {
+      if (nearest && nearest.d > RESUME_RANGE && (!lava || nearest.banked >= 3)) {
         console.log(
-          `[Portal] ${bot.username}: no local lava — commuting to banked frame at ${nearest.origin.x},${nearest.origin.y},${nearest.origin.z} (${nearest.d.toFixed(0)} away)`,
+          `[Portal] ${bot.username}: ${lava ? "well-built frame outranks local lava" : "no local lava"} — commuting to banked frame at ${nearest.origin.x},${nearest.origin.y},${nearest.origin.z} (${nearest.d.toFixed(0)} away)`,
         );
         bot.pathfinder.setMovements(baseMoves(bot));
         for (let leg = 0; leg < 2; leg++) {
@@ -367,11 +374,13 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
           )
             break;
         }
-        lava = findLava();
         const dNow = bot.entity.position.distanceTo(new Vec3(nearest.origin.x, nearest.origin.y, nearest.origin.z));
-        if (!lava && dNow > RESUME_RANGE) {
-          return `Commuting to the banked frame at ${nearest.origin.x},${nearest.origin.y},${nearest.origin.z} — still ${dNow.toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
-        }
+        // Hand back on ARRIVAL as well as mid-march: continuing in-run from
+        // here would site a fresh frame beside whatever lava is local — the
+        // exact move that minted the 388 one-block stubs two cells from the
+        // real frame. The re-invocation lands in the adoption path instead,
+        // which resumes the registered origin.
+        return `Commuting to the banked frame at ${nearest.origin.x},${nearest.origin.y},${nearest.origin.z} — ${dNow <= RESUME_RANGE ? "arrived in adoption range" : `still ${dNow.toFixed(0)} blocks away`}. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
       }
     }
 
