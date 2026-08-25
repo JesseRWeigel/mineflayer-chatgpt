@@ -5,6 +5,7 @@ import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import { baseMoves, collectNearbyDrops } from "../bot/navigation.js";
 import { digDownTo } from "./descend.js";
+import { getSeasonGoal } from "../bot/memory.js";
 
 const TUNNEL_LENGTH = 40;
 const TORCH_INTERVAL = 6;
@@ -37,23 +38,30 @@ export const stripMineSkill: Skill = {
     let mined = 0;
     const oresFound: string[] = [];
 
+    // Depth follows the mission: the portal doorway is plugged with obsidian
+    // only a diamond pickaxe clears, and diamonds live far below the iron
+    // band this skill was tuned for. When the season goal names diamonds,
+    // dig to the prime diamond band; otherwise keep the proven iron depth —
+    // the steering text flips the depth back when the mission moves on.
+    const targetY = /diamond/i.test(getSeasonGoal() ?? "") ? -53 : TARGET_Y;
+
     // Snap to nearest cardinal direction
     const forward = getCardinalDirection(bot.entity.yaw);
     console.log(`[Skill] Strip mine direction: ${dirName(forward)}, starting Y=${bot.entity.position.y.toFixed(0)}`);
 
-    // --- Phase 1: Descend to TARGET_Y (iron/diamond depth) ---
+    // --- Phase 1: Descend to targetY (iron/diamond depth) ---
     // The old manual staircase dug blocks but moveToPosition often failed to
     // follow it down, so the bot stayed at the surface (Y~64-90) and tunneled
     // where iron is rare — 12 runs found only coal, 0 iron. Use the pathfinder
     // with digging enabled to ACTUALLY reach depth: it handles the descent and
     // avoids lava/dangerous falls itself.
     const currentY = Math.floor(bot.entity.position.y);
-    if (currentY > TARGET_Y + 5) {
+    if (currentY > targetY + 5) {
       onProgress({
         skillName: "strip_mine",
         phase: "Digging down",
         progress: 0.05,
-        message: `Digging down to Y=${TARGET_Y} (iron depth)...`,
+        message: `Digging down to Y=${targetY} (iron depth)...`,
         active: true,
       });
       const digMoves = baseMoves(bot);
@@ -62,7 +70,7 @@ export const stripMineSkill: Skill = {
       bot.pathfinder.setMovements(digMoves);
       try {
         await Promise.race([
-          bot.pathfinder.goto(new goals.GoalY(TARGET_Y)),
+          bot.pathfinder.goto(new goals.GoalY(targetY)),
           new Promise<void>((_, rej) =>
             setTimeout(() => {
               bot.pathfinder.stop();
@@ -77,7 +85,7 @@ export const stripMineSkill: Skill = {
         // y=-33 comfortably. Raising the budget would only re-create the
         // watchdog stall noted below, so fall back to digging straight down,
         // which is what a player does and what safeToDigDown makes survivable.
-        const fallback = await digDownTo(bot, TARGET_Y);
+        const fallback = await digDownTo(bot, targetY);
         console.log(`[Skill] strip_mine pathfinder descent failed; ${fallback}`);
       }
       // Collect anything the descent dropped (ore dug on the way down).
@@ -165,10 +173,10 @@ export const stripMineSkill: Skill = {
     // needs depth -- fill_bucket looking for lava -- was then told to strip_mine
     // again, from the same place, forever.
     const endY = Math.floor(bot.entity.position.y);
-    const reachedDepth = endY <= TARGET_Y + 5;
+    const reachedDepth = endY <= targetY + 5;
     const depthNote = reachedDepth
       ? ` Now at y=${endY}.`
-      : ` NOTE: still at y=${endY}, never reached ore depth (y=${TARGET_Y}) — the descent was blocked or timed out. Try from an open area or a cave entrance.`;
+      : ` NOTE: still at y=${endY}, never reached ore depth (y=${targetY}) — the descent was blocked or timed out. Try from an open area or a cave entrance.`;
 
     return {
       success: true,
