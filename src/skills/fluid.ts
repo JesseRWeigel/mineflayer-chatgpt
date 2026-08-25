@@ -384,6 +384,44 @@ export async function fillBucket(bot: Bot, fluid: "water" | "lava"): Promise<str
     filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
   }
   if (filled) return `Filled a bucket with ${fluid}.`;
+
+  // The crosshair diagnostic has named a solid occluder on every production
+  // miss (cursor=dirt, cursor=stone) while flat probe scenes fill from the
+  // same distances — irregular cave rims block sight lines no aim tweak can
+  // route around. The occluder is identified, so REMOVE it: one dig opens
+  // the line, then scoop again. Only when it sits ABOVE the source's level —
+  // fluid cannot flow up, so the opened cell stays dry.
+  {
+    const occ = (
+      bot as unknown as { blockAtCursor?: (d: number) => { name: string; position: Vec3 } | null }
+    ).blockAtCursor?.(5);
+    if (occ && occ.position && occ.position.y > sp.y && !FLUIDS.has(occ.name)) {
+      const blk = bot.blockAt(occ.position);
+      if (blk && blk.name !== "air") {
+        try {
+          await Promise.race([
+            bot.dig(blk),
+            new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 10_000)),
+          ]);
+          console.log(
+            `[Bucket] ${bot.username} dug the ${occ.name} occluder at ${occ.position.x},${occ.position.y},${occ.position.z} — retrying the scoop`,
+          );
+          const b3 = bot.inventory.items().find((i) => i.name === "bucket");
+          if (b3) {
+            await bot.equip(b3, "hand");
+            await new Promise((r) => setTimeout(r, 150));
+            await bot.lookAt(scoopAim(bot, source.position), true);
+            bot.activateItem();
+            await new Promise((r) => setTimeout(r, 500));
+            filled = bot.inventory.items().some((i) => i.name === `${fluid}_bucket`);
+            if (filled) return `Filled a bucket with ${fluid}.`;
+          }
+        } catch {
+          bot.stopDigging();
+        }
+      }
+    }
+  }
   const q = bot.entity.position;
   const dNow = Math.hypot(q.x - sp.x, q.y - sp.y, q.z - sp.z);
   // held= is the tell: RCON confirmed the fourth same-coords failure targeted
