@@ -128,6 +128,7 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[], deadline?: nu
     // spreading lava. Water flow is harmless, and lava placed into a
     // water-occupied cell converts to obsidian on the spot — no free-flowing
     // lava ever exists, and both pours aim at the same solid support.
+    let pouredStation: Vec3Like | null = null;
     if (!touchesWater(bot, pos)) {
       const water = await fillBucket(bot, "water");
       if (!water.startsWith("Filled")) return `Stopped after ${cast}/${total}: ${water}`;
@@ -156,6 +157,7 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[], deadline?: nu
         });
       const pouredWater = await emptyBucket(bot, station ?? pos);
       if (!pouredWater.startsWith("Poured")) return `Stopped after ${cast}/${total}: ${pouredWater}`;
+      pouredStation = station ?? pos;
       await new Promise((r) => setTimeout(r, 600)); // let the flow reach the slot
     }
 
@@ -175,6 +177,21 @@ export async function castInPlace(bot: Bot, positions: Vec3Like[], deadline?: nu
     await new Promise((r) => setTimeout(r, 600));
     const now = bot.blockAt(new Vec3(pos.x, pos.y, pos.z));
     if (now?.name === "obsidian") cast++;
+
+    // Reclaim the station. Every station left behind joined a standing flood
+    // — after enough runs at one site the frame ledge became open water, the
+    // stuck detector fired on swimming casters, and the step-in to the pool
+    // drowned in the cast's own pours. The bucket is empty right here (the
+    // lava just left it), the station source sits two blocks away, and
+    // scooping it back both cleans the site and carries the next slot's
+    // water charge for free. Best effort: a missed scoop just leaves the
+    // old behaviour.
+    if (pouredStation) {
+      const reclaimed = await fillBucket(bot, "water");
+      if (!reclaimed.startsWith("Filled")) {
+        console.log(`[Cast] station reclaim skipped: ${reclaimed}`);
+      }
+    }
   }
   return cast === total
     ? `Cast ${cast} obsidian in place.`
