@@ -551,7 +551,12 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         `${p.x},${p.y - 1},${p.z}`,
       ]),
     );
-    for (let s = 0; s < 4 && scaffCount() < 4; s++) {
+    // Eight, doubled from four: the census caught Atlas stranded at the pool
+    // with a full lava bucket and ZERO tower blocks — the walk back up the
+    // cave chimney at the 252 site needs pathfinder pillars, and the frame
+    // supports had eaten his four. The pour trip spends scaffold the lintel
+    // math never budgeted.
+    for (let s = 0; s < 8 && scaffCount() < 8; s++) {
       const blk = bot.findBlock({
         matching: (b) =>
           DIGGABLE.has(b.name) &&
@@ -570,8 +575,8 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         break;
       }
     }
-    if (scaffCount() < 4) {
-      console.log(`[Portal] ${bot.username}: scaffold short (${scaffCount()}/4) — the cast may stop at the lintel`);
+    if (scaffCount() < 8) {
+      console.log(`[Portal] ${bot.username}: scaffold short (${scaffCount()}/8) — the cast may stop at the lintel`);
     }
   }
 

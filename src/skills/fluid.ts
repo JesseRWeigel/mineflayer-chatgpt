@@ -420,7 +420,16 @@ export async function emptyBucket(bot: Bot, at: Vec3Like): Promise<string> {
         }
       }
       if (bot.entity.position.distanceTo(new Vec3(at.x, at.y, at.z)) > 4.5) {
-        return `Could not get within pouring range of ${at.x},${at.y},${at.z} — the path back is blocked.`;
+        // Instrumented after twelve blind failures at one frame: where the
+        // bot actually ended, and whether it even HAD blocks to tower with —
+        // the pathfinder only pillars out of a hole with dirt or cobble in
+        // the pack (stone does not count for it).
+        const feet = bot.entity.position.floored();
+        const towers = bot.inventory
+          .items()
+          .filter((i) => i.name === "cobblestone" || i.name === "dirt")
+          .reduce((n, i) => n + i.count, 0);
+        return `Could not get within pouring range of ${at.x},${at.y},${at.z} — the path back is blocked (ended ${feet.x},${feet.y},${feet.z}, stand=${stand ? `${stand.x},${stand.y},${stand.z}` : "none"}, towers=${towers}).`;
       }
     }
   }
