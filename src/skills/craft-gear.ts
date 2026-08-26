@@ -189,6 +189,28 @@ export const craftGearSkill: Skill = {
       }
     }
 
+    // STICKS get the same treatment: GearDebug caught the miner at
+    // cobble=33 sticks=0 — the cobble courtesy worked and the craft still
+    // died on handles, thirty-three times in one hour. Withdraw sticks,
+    // then planks, before the recipe check; the log withdrawal above only
+    // helps when logs are actually banked.
+    const stickCount = () =>
+      bot.inventory
+        .items()
+        .filter((i) => i.name === "stick")
+        .reduce((s, i) => s + i.count, 0);
+    if (!signal.aborted && stickCount() < 4 && stashPos) {
+      const { withdrawStash } = await import("./stash.js");
+      for (const want of ["stick", "planks"]) {
+        if (stickCount() >= 4) break;
+        try {
+          await withdrawStash(bot, stashPos, want, 8);
+        } catch {
+          /* none pooled */
+        }
+      }
+    }
+
     // INSTRUMENTATION (craft-gear debugging): entry material state, so the
     // next failure diagnosis reads evidence instead of guessing (5 previous
     // wood-chain fixes were each one layer deeper than the guess).
