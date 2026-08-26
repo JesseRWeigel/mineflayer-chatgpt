@@ -874,12 +874,11 @@ export class BotBrain {
       this.roleConfig.allowedSkills.includes("strip_mine") &&
       !isSkillRunning(this.bot)
     ) {
-      const hasIron = this.bot.inventory
-        .items()
-        .some(
-          (i) =>
-            i.name === "iron_ingot" || i.name === "raw_iron" || (i.name.startsWith("iron_") && i.name !== "iron_ore"),
-        );
+      // CRAFTABLE iron only: the old any-iron_* match counted the iron
+      // shovels minted during the bad-budget era, so shovel-carrying miners
+      // read as iron-rich and the push stood down for a full hour. Tools in
+      // the hand are not ingots for the pickaxe.
+      const hasIron = this.bot.inventory.items().some((i) => i.name === "iron_ingot" || i.name === "raw_iron");
       // No pickaxe requirement anymore: the skill self-supplies its pick
       // (withdraws stash cobble, crafts inline) — requiring one here meant
       // a toolless miner could never trigger the very push that would have
