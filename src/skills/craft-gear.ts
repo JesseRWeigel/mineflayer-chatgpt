@@ -16,6 +16,16 @@ const TIERS = [
 ];
 
 const TOOL_TYPES = ["pickaxe", "axe", "sword", "shovel"];
+
+/** Pickaxe tiers for the metal-reservation check below. */
+const PICK_PRIORITY: Record<string, number> = {
+  wooden_pickaxe: 0,
+  stone_pickaxe: 1,
+  golden_pickaxe: 1,
+  iron_pickaxe: 2,
+  diamond_pickaxe: 3,
+  netherite_pickaxe: 4,
+};
 // Armor: bots were ALL fighting unarmored (combat was the top death cause —
 // 12 of 21 deaths/run). craft_gear made tools but never armor, so the brain's
 // auto-equip-armor timer had nothing to wear. Iron armor ~halves damage.
@@ -235,6 +245,17 @@ export const craftGearSkill: Skill = {
 
       // Try each tier from best to worst
       for (const tier of TIERS) {
+        // RESERVE metal for the pickaxe: an iron ingot went into an iron
+        // SHOVEL while the diamond ladder was starving for the three ingots
+        // an iron pickaxe costs. Until an iron-or-better pickaxe exists,
+        // iron and diamond stay pickaxe-only; other tools cap at stone.
+        if (
+          (tier.name === "iron" || tier.name === "diamond") &&
+          toolType !== "pickaxe" &&
+          !bot.inventory.items().some((i) => (PICK_PRIORITY[i.name] ?? 0) >= 2)
+        ) {
+          continue;
+        }
         const itemName = `${tier.name}_${toolType}`;
         const mcItem = mcData.itemsByName[itemName];
         if (!mcItem) continue;
