@@ -344,7 +344,9 @@ export class BotBrain {
         },
         time: this.bot.time.timeOfDay < 13000 || this.bot.time.timeOfDay > 23000 ? "Daytime" : "Nighttime",
         inventory: this.bot.inventory.items().map((i) => `${i.name}x${i.count}`),
-        seasonGoal: this.memStore.getSeasonGoal() ?? undefined,
+        // Role mission outranks broadcast steering: specialists hold their
+        // lane even when a chat-set goal sweeps the team.
+        seasonGoal: this.roleConfig.seasonGoal ?? this.memStore.getSeasonGoal() ?? undefined,
       };
       if (isSkillRunning(this.bot)) {
         overlayData.action = `[SKILL] ${getActiveSkillName(this.bot)}`;
@@ -904,7 +906,7 @@ export class BotBrain {
       name: this.roleConfig.name,
       personality: this.roleConfig.personality,
       role: this.roleConfig.role,
-      seasonGoal: this.memStore.getSeasonGoal(),
+      seasonGoal: this.roleConfig.seasonGoal ?? this.memStore.getSeasonGoal(),
       allowedActions: this.roleConfig.allowedActions,
       allowedSkills: this.roleConfig.allowedSkills,
       priorities: this.roleConfig.priorities,

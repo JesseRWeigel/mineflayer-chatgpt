@@ -42,6 +42,13 @@ export interface BotRoleConfig {
   keepItems: { name: string; minCount: number }[];
   /** Role-specific priority rules injected into system prompt after actions/skills. */
   priorities: string;
+  /**
+   * Per-role mission line. When set it OVERRIDES the chat-set season goal —
+   * division of labor holds even when broadcast steering changes. Jesse's
+   * design (2026-08-25): specialists who trade through the stash instead of
+   * five generalists each starving alone.
+   */
+  seasonGoal?: string;
 }
 
 /**
@@ -90,6 +97,8 @@ export const ATLAS_CONFIG: BotRoleConfig = {
 4. Mark ore veins and interesting locations for teammates
 5. gather_wood if team bulletin shows stash is low on logs — WOOD GROWS AT BASE: an oak grove rings the stash and saplings are replanted after every chop. NEVER travel far to find trees; if none are grown right now, explore/mine instead and gather later.
 6. When inventory is 30+ full: deposit_stash`,
+  seasonGoal:
+    "You are the PORTAL KEEPER. The portal frame at 278 14 -243 needs its LAST block: invoke_skill build_nether_portal. Keep a bucket and flint_and_steel from the stash. Deposit everything you do not carry as kit.",
 };
 
 /** Flora: Farmer, crafter, and base keeper. Stays near home. */
@@ -122,6 +131,8 @@ export const FLORA_CONFIG: BotRoleConfig = {
 5. If inventory has raw ore: smelt_ores
 6. When inventory is 30+ full: deposit_stash
 7. Do NOT build houses — Mason builds. Do NOT chase distant teammates.`,
+  seasonGoal:
+    "You are the COOK. Farm wheat, bake bread, cook meat, and DEPOSIT food in the stash every trip — the team eats only what you bank. A fed team mines the diamonds that finish the Nether portal.",
 };
 
 /** Forge: Miner and smelter. Works underground, supplies the team with ores and ingots. */
@@ -163,6 +174,8 @@ export const FORGE_CONFIG: BotRoleConfig = {
 6. When inventory is 30+ full: deposit_stash
 7. If stash is low on cobblestone/iron: prioritize mining those
 8. Need wood for tools? The oak grove AT BASE regrows from saplings — gather there or withdraw_stash. NEVER roam far searching for trees.`,
+  seasonGoal:
+    "You are the TOOLSMITH. Withdraw raw_iron and coal from the stash, smelt_ores into iron_ingot, craft iron_pickaxe and iron tools, DEPOSIT spare tools in the stash. Once you hold an iron_pickaxe: strip_mine reaches DIAMOND depth — get 3 diamonds and craft a diamond_pickaxe.",
 };
 
 /** Mason: Builder and architect. Constructs structures, lights areas, keeps the base beautiful. */
@@ -195,6 +208,8 @@ export const MASON_CONFIG: BotRoleConfig = {
 4. Low on building materials (planks/cobblestone)? gather_wood or withdraw_stash, then resume building. Wood comes from the oak grove AT BASE (saplings regrow after chopping) — never roam looking for trees; if none are grown, withdraw_stash or build with what you have.
 5. When inventory is 30+ full of junk: deposit_stash (this also tops up your food).
 Do NOT strip_mine or smelt — that's Forge's job. You build.`,
+  seasonGoal:
+    "You are the ORE HAULER. strip_mine for iron_ore and coal, then DEPOSIT raw_iron and coal in the stash for Forge the toolsmith. Keep the smelter fed; your ore becomes the diamond pickaxe that finishes the portal.",
 };
 
 /** Blade: Combat specialist and guard. Patrols, fights hostiles, protects teammates. */
@@ -225,6 +240,8 @@ export const BLADE_CONFIG: BotRoleConfig = {
 5. Patrol near teammates — check team bulletin for who is furthest from base
 6. Hunt passive mobs (pigs, cows) for food supply → deposit_stash
 7. At night: patrol perimeter near base, kill hostiles`,
+  seasonGoal:
+    "You are the HUNTER. Kill animals, cook the meat, DEPOSIT food in the stash. At night guard the village and the miners. Your food deposits keep the diamond expedition alive.",
 };
 
 /** All bot configs in startup order. */
