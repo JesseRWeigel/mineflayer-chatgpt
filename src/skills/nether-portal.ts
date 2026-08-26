@@ -687,10 +687,33 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   const frameComplete = frame.every((pos) => bot.blockAt(new Vec3(pos.x, pos.y, pos.z))?.name === "obsidian");
   if (!frameComplete) return `Frame unfinished so far (${got}) — retry to continue this same frame.`;
 
-  // Clear the interior so the portal has room to form.
+  // Clear the interior so the portal has room to form. Stray casts left
+  // OBSIDIAN inside the doorway, and a bare bot.dig on obsidian below
+  // diamond tier runs past the skill watchdog without ever dropping the
+  // block — clearing must skip what the pick in hand cannot break and say
+  // so, instead of hanging on it.
+  const hasDiamondPick = bot.inventory
+    .items()
+    .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+  let pluggedByObsidian = 0;
   for (const pos of interiorPositions(origin, axis)) {
     const b = bot.blockAt(new Vec3(pos.x, pos.y, pos.z));
-    if (b && b.name !== "air" && b.name !== "nether_portal") await bot.dig(b).catch(() => {});
+    if (!b || b.name === "air" || b.name === "nether_portal") continue;
+    if (b.name === "obsidian" && !hasDiamondPick) {
+      pluggedByObsidian++;
+      continue;
+    }
+    try {
+      await Promise.race([
+        bot.dig(b),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 20_000)),
+      ]);
+    } catch {
+      bot.stopDigging();
+    }
+  }
+  if (pluggedByObsidian > 0) {
+    return `Frame complete (10/10) but the doorway holds ${pluggedByObsidian} stray obsidian only a DIAMOND pickaxe can clear. Bring one and invoke_skill build_nether_portal again to continue.`;
   }
 
   const igniter = bot.inventory.items().find((i) => i.name === "flint_and_steel");
