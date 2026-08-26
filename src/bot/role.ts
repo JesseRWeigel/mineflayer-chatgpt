@@ -221,7 +221,7 @@ export const MASON_CONFIG: BotRoleConfig = {
 5. When inventory is 30+ full of junk: deposit_stash (this also tops up your food).
 Do NOT strip_mine or smelt — that's Forge's job. You build.`,
   seasonGoal:
-    "You are the ORE HAULER. strip_mine for iron_ore and coal, then DEPOSIT raw_iron and coal in the stash for Forge the toolsmith. Keep the smelter fed; your ore becomes the diamond pickaxe that finishes the portal.",
+    "You are the ORE HAULER. strip_mine for iron_ore and coal, then DEPOSIT raw_iron and coal in the stash for Forge the toolsmith. The village tunnels are mined out — walk 60+ blocks away before starting a tunnel. Known iron was seen near 286 0 -305. Your ore becomes the diamond pickaxe that finishes the portal.",
 };
 
 /** Blade: Combat specialist and guard. Patrols, fights hostiles, protects teammates. */

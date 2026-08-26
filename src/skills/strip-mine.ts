@@ -9,14 +9,13 @@ import { getSeasonGoal } from "../bot/memory.js";
 
 const TUNNEL_LENGTH = 40;
 const TORCH_INTERVAL = 6;
-// Y=16 is IRON's peak in 1.18+ (and the classic iron-mining level). At Y=-16
-// (a prior diamond-chasing setting) tunnels yielded gold/redstone but ZERO
-// iron — the deepslate zone is iron-poor — which starved the whole
-// iron->tools->armor chain (0 iron smelted for runs). Diamonds are shelved
-// (volume-limited, not worth the deep lava), so there's no reason to be that
-// deep. Y=16 restores iron supply, still yields coal/copper, and is well above
-// the lava lakes (~-50) so it stays lava-safe.
-const TARGET_Y = 16;
+// Y=16 is IRON's statistical peak in 1.18+, but the village underground at
+// that level is swiss cheese after months of tunnels: four consecutive
+// 40-block tunnels found zero ore. Y=8 sits below the mined-out band in
+// fresh rock, still well inside iron's distribution (and where the bots'
+// own memories record deepslate iron sightings), and stays far above the
+// lava lakes (~-50).
+const TARGET_Y = 8;
 
 export const stripMineSkill: Skill = {
   name: "strip_mine",
