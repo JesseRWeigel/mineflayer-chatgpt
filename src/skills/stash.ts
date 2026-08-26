@@ -1104,10 +1104,14 @@ export async function withdrawStash(
   // in the chest at (298,70,-308) — 13 blocks out — invisible to every
   // withdrawal while Mason ground iron for a bucket the team already owned.
   // The same blind spot cost two RCON hunts before this made it durable.
+  // count 64, not 16: the stash has sprawled to SIXTY-ONE chests, and the
+  // sixteen nearest happened to exclude the one holding the team's last two
+  // sticks — the withdrawal reported empty shelves while the item sat
+  // banked twenty blocks away. Scan them all.
   const allChests = bot.findBlocks({
     matching: (b) => b.name === "chest" || b.name === "trapped_chest",
     maxDistance: 20,
-    count: 16,
+    count: 64,
   });
   for (const pos of allChests) {
     const block = bot.blockAt(pos);
