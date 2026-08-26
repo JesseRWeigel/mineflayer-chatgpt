@@ -90,6 +90,14 @@ export const stripMineSkill: Skill = {
         const fallback = await digDownTo(bot, targetY);
         console.log(`[Skill] strip_mine pathfinder descent failed; ${fallback}`);
       }
+      // Trust ALTITUDE, never the resolver: eight descents in one hour
+      // "succeeded" at y=72 with a y=8 goal — goto resolved without moving
+      // and the fallback never ran because nothing threw. If the bot is
+      // still high after the pathfinder has had its say, dig down by hand.
+      if (Math.floor(bot.entity.position.y) > targetY + 5) {
+        const fallback = await digDownTo(bot, targetY);
+        console.log(`[Skill] strip_mine goto ended high; ${fallback}`);
+      }
       // Collect anything the descent dropped (ore dug on the way down).
       await collectNearbyDrops(bot, 4, 3000);
       console.log(`[Skill] strip_mine descended to Y=${bot.entity.position.y.toFixed(0)}`);
