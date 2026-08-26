@@ -66,6 +66,14 @@ export const config = {
      * to re-enable the scaffolding (e.g. for reliability demos).
      */
     allowInterventions: process.env.ALLOW_INTERVENTIONS === "true",
+    /**
+     * Deterministic strategy pushes (forcing setup_stash / build_farm /
+     * strip_mine on cooldown). These choose ACTIONS; they never touch world
+     * state, so they are not cheats — but they shared the interventions gate
+     * and died with it, collapsing skill invocations to 22 per hour across
+     * five bots while explore and eat soaked up 500+. Default ON.
+     */
+    allowStrategyOverrides: process.env.ALLOW_STRATEGY_OVERRIDES !== "false",
     /** Idle interval for event-driven brain — how often to re-plan when nothing happens. */
     idleIntervalMs: parseInt(process.env.BOT_IDLE_INTERVAL_MS || "10000"),
     /** Enable the critic step after each action (uses an extra LLM call per action). */

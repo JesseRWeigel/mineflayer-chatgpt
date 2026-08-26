@@ -778,7 +778,7 @@ export class BotBrain {
     // without ever picking setup_stash, so when the preconditions are met
     // we just run it.
     if (
-      config.bot.allowInterventions &&
+      config.bot.allowStrategyOverrides &&
       this.roleConfig.allowedSkills.includes("setup_stash") &&
       this.roleConfig.stashPos &&
       !this.recentFailures.has("skill:setup_stash")
@@ -828,7 +828,7 @@ export class BotBrain {
     // failures that pre-loaded as a blacklist entry every restart, which then
     // blocked the override from ever firing). Cooldown alone bounds retries.
     if (
-      config.bot.allowInterventions &&
+      config.bot.allowStrategyOverrides &&
       this.roleConfig.allowedSkills.includes("build_farm") &&
       !isSkillRunning(this.bot)
     ) {
@@ -870,7 +870,7 @@ export class BotBrain {
     // both advances the iron-age goal AND generates the iron/ore trajectories
     // the v2 dataset is starved of.
     if (
-      config.bot.allowInterventions &&
+      config.bot.allowStrategyOverrides &&
       this.roleConfig.allowedSkills.includes("strip_mine") &&
       !isSkillRunning(this.bot)
     ) {
