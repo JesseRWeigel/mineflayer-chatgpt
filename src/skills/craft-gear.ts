@@ -162,6 +162,23 @@ export const craftGearSkill: Skill = {
       }
     }
 
+    // COBBLE SELF-SUPPLY, the same courtesy wood gets: the village is
+    // deforested (no stash logs, no trees within 64) so the wood chain dead
+    // -ends, while the stash holds a full stack of cobblestone nobody
+    // thought to withdraw — craft_gear kept reporting "need cobblestone for
+    // pickaxe" ten blocks from sixty-four of them. Sticks were already in
+    // the pack; one withdrawal unlocks the stone pick and the whole mining
+    // ladder behind it.
+    const hasCobbleFor = () => bot.inventory.items().some((i) => i.name === "cobblestone" && i.count >= 3);
+    if (!signal.aborted && !hasCobbleFor() && stashPos) {
+      const { withdrawStash } = await import("./stash.js");
+      try {
+        await withdrawStash(bot, stashPos, "cobblestone", 8);
+      } catch {
+        /* none pooled */
+      }
+    }
+
     // INSTRUMENTATION (craft-gear debugging): entry material state, so the
     // next failure diagnosis reads evidence instead of guessing (5 previous
     // wood-chain fixes were each one layer deeper than the guess).
