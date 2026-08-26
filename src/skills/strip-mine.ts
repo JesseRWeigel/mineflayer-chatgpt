@@ -229,14 +229,19 @@ async function equipBestPickaxe(bot: Bot): Promise<void> {
   if (pick) await bot.equip(pick, "hand");
 }
 
-// Diamond ore mined below iron tier drops NOTHING — the ore is destroyed
-// forever. Gold, emerald and redstone share the rule. Refuse those digs
-// unless an iron-or-better pickaxe is in the pack; the vein stays in the
-// wall for the properly equipped trip.
+// Ore mined below its tool tier drops NOTHING — the ore is destroyed
+// forever. Diamond, gold, emerald and redstone need iron-or-better; iron,
+// lapis and copper need stone-or-better (a wooden pick shatters them — six
+// "Found: 1x iron_ore" tunnels banked zero raw iron before this guard
+// covered them). Underleveled digs leave the vein in the wall for the
+// properly equipped trip.
 const IRON_TIER_ORES = /(diamond|emerald|gold|redstone)_ore$/;
+const STONE_TIER_ORES = /(iron|lapis|copper)_ore$/;
 function canHarvest(bot: Bot, name: string): boolean {
-  if (!IRON_TIER_ORES.test(name)) return true;
-  return bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2);
+  const best = bot.inventory.items().reduce((m, i) => Math.max(m, PICK_TIER[i.name] ?? -1), -1);
+  if (IRON_TIER_ORES.test(name)) return best >= 2;
+  if (STONE_TIER_ORES.test(name)) return best >= 1;
+  return true;
 }
 
 /**
