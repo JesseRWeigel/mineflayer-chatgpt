@@ -92,7 +92,7 @@ export const ATLAS_CONFIG: BotRoleConfig = {
   ],
   priorities: `ATLAS PRIORITIES:
 1. If health < 6 and hostile mob nearby: flee
-2. If hungry (food < 14): eat
+2. If hungry (food < 14) AND you CARRY food: eat. No food in inventory? Do NOT pick eat again — withdraw_stash if the stash has food, otherwise keep working your trade while the cook restocks.
 3. Explore new territory — you are the team's eyes
 4. Mark ore veins and interesting locations for teammates
 5. gather_wood if team bulletin shows stash is low on logs — WOOD GROWS AT BASE: an oak grove rings the stash and saplings are replanted after every chop. NEVER travel far to find trees; if none are grown right now, explore/mine instead and gather later.
@@ -123,7 +123,7 @@ export const FLORA_CONFIG: BotRoleConfig = {
   ],
   priorities: `FLORA PRIORITIES — THE FARM IS YOUR LIFE'S WORK:
 1. If health < 6 and hostile mob nearby: flee
-2. If hungry (food < 14): eat
+2. If hungry (food < 14) AND you CARRY food: eat. No food in inventory? Do NOT pick eat again — withdraw_stash if the stash has food, otherwise keep working your trade while the cook restocks.
 3. NO FARM YET? This is your #1 job and it MUST be near water. The village
    has no water — there is an irrigation bed with water at the village (290, 71, -312). go_to it,
    THEN invoke_skill build_farm. It crafts the hoe and finds seeds itself.
@@ -167,7 +167,7 @@ export const FORGE_CONFIG: BotRoleConfig = {
   ],
   priorities: `FORGE PRIORITIES:
 1. If health < 6: flee to surface, eat
-2. If hungry (food < 14): eat
+2. If hungry (food < 14) AND you CARRY food: eat. No food in inventory? Do NOT pick eat again — withdraw_stash if the stash has food, otherwise keep working your trade while the cook restocks.
 3. If have pickaxe: strip_mine for iron, coal, diamonds
 4. If no pickaxe: craft_gear
 5. If inventory has raw ore and furnace nearby: smelt_ores
@@ -235,7 +235,7 @@ export const BLADE_CONFIG: BotRoleConfig = {
   priorities: `BLADE PRIORITIES:
 1. If hostile mob within 16 blocks: neural_combat
 2. If health < 6: eat, then re-engage
-3. If hungry (food < 14): eat
+3. If hungry (food < 14) AND you CARRY food: eat. No food in inventory? Do NOT pick eat again — withdraw_stash if the stash has food, otherwise keep working your trade while the cook restocks.
 4. If no sword or armor: craft_gear or withdraw_stash
 5. Patrol near teammates — check team bulletin for who is furthest from base
 6. Hunt passive mobs (pigs, cows) for food supply → deposit_stash
