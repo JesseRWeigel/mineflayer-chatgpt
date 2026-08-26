@@ -288,6 +288,18 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
         if (planted >= 3 || !bot.inventory.items().some((i) => i.name.endsWith("_sapling"))) break;
         const above = bot.blockAt(spot.offset(0, 1, 0));
         if (!above || above.name !== "air") continue;
+        // OPEN SKY required: seven saplings sat growthless for hours under
+        // the deforestation's leftover floating canopies — filtered light
+        // stalls growth. Ten clear blocks overhead approximates sky access.
+        let sky = true;
+        for (let dy = 2; dy <= 10; dy++) {
+          const b = bot.blockAt(spot.offset(0, dy, 0));
+          if (b && b.name !== "air") {
+            sky = false;
+            break;
+          }
+        }
+        if (!sky) continue;
         try {
           const ground = bot.blockAt(spot);
           if (!ground) continue;
