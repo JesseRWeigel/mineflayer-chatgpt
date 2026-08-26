@@ -305,6 +305,20 @@ export const craftGearSkill: Skill = {
           ? bot.recipesFor(mcItem.id, null, 1, table)[0]
           : bot.recipesFor(mcItem.id, null, 1, null)[0];
 
+        // Thirty-six full craft runs produced zero pickaxes with materials
+        // visibly aboard — name the exact tier verdicts so the next failure
+        // identifies itself. Pickaxe only: it is the tool the arc hinges on.
+        if (toolType === "pickaxe") {
+          const c = (n: string) =>
+            bot.inventory
+              .items()
+              .filter((i) => i.name.endsWith(n))
+              .reduce((s, i) => s + i.count, 0);
+          console.log(
+            `[GearDebug] pickaxe/${tier.name}: recipe=${recipe ? "yes" : "NO"} table=${table ? "yes" : "no"} planks=${c("_planks")} sticks=${c("stick")} cobble=${c("cobblestone")} logs=${c("_log")}`,
+          );
+        }
+
         if (!recipe) continue;
 
         // Navigate to table if needed
