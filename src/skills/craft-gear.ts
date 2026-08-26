@@ -587,14 +587,23 @@ async function ensureSticks(bot: Bot, count: number, signal: AbortSignal): Promi
     break; // One log type is enough for sticks
   }
 
-  // Now craft sticks (recipe uses any plank type via tags)
-  const stickRecipe = bot.recipesFor(stickItem.id, null, 1, null)[0];
-  if (stickRecipe) {
-    const need = Math.ceil((count - have) / 4);
+  // Now craft sticks (recipe uses any plank type via tags). SINGLE crafts
+  // in a loop, probe-validated: a bot sat at nine planks and zero sticks
+  // while the old multi-count craft failed silently — the probe crafts
+  // count=1 reliably, and a swallowed error here starves every pickaxe
+  // above it. Failures now say so.
+  const need = Math.ceil((count - have) / 4);
+  for (let k = 0; k < need; k++) {
+    const stickRecipe = bot.recipesFor(stickItem.id, null, 1, null)[0];
+    if (!stickRecipe) {
+      console.log(`[GearDebug] stick recipe unavailable at craft ${k + 1}/${need}`);
+      break;
+    }
     try {
-      await bot.craft(stickRecipe, need, undefined);
-    } catch {
-      /* ok */
+      await bot.craft(stickRecipe, 1, undefined);
+    } catch (e) {
+      console.log(`[GearDebug] stick craft ${k + 1}/${need} failed: ${(e as Error).message}`);
+      break;
     }
   }
 }
