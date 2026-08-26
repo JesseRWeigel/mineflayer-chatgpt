@@ -880,9 +880,12 @@ export class BotBrain {
           (i) =>
             i.name === "iron_ingot" || i.name === "raw_iron" || (i.name.startsWith("iron_") && i.name !== "iron_ore"),
         );
-      const hasPickaxe = this.bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
+      // No pickaxe requirement anymore: the skill self-supplies its pick
+      // (withdraws stash cobble, crafts inline) — requiring one here meant
+      // a toolless miner could never trigger the very push that would have
+      // equipped him.
       const cooledDown = Date.now() - this.lastIronOverrideMs > 180_000;
-      if (!hasIron && hasPickaxe && cooledDown) {
+      if (!hasIron && cooledDown) {
         this.lastIronOverrideMs = Date.now();
         this.log.info("Brain", "OVERRIDE: no iron yet — running strip_mine for ore");
         this.events.onThought("The deep calls. Time to carve for iron — pickaxe in hand, downward!");
