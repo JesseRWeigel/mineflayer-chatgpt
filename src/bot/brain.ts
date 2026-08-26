@@ -1322,6 +1322,15 @@ export class BotBrain {
       }
     }
 
+    // "No food" is not transient: food appears only when someone works, so
+    // the generic three-repeats-then-brief-block cycle let hungry bots burn
+    // three hundred decisions an hour re-ordering from an empty kitchen.
+    // Block eat immediately and for long enough that a real restock (a farm
+    // harvest, a hunt, a stash run) can happen before the next attempt.
+    if (result.startsWith("No food in inventory")) {
+      this.blockAction("eat", "No food to eat — withdraw some or work your trade first.", 10 * 60_000);
+    }
+
     // General repeat-breaker: the same action producing the SAME result 3x in
     // a row is a stuck loop — even if the action reports "success" (e.g. Flora
     // "withdrew" planks 6x that never arrived, or chat begging). Blacklist it
