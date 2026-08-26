@@ -190,8 +190,20 @@ export const MASON_CONFIG: BotRoleConfig = {
   leashRadius: 150,
   stashPos: STASH_POS,
   safeSpawn: { x: 280, y: 0, z: -320 },
-  allowedActions: ["go_to", "place_block", "craft", "gather_wood", "eat", "sleep", "chat", "flee"],
-  allowedSkills: ["build_house", "build_bridge", "light_area", "build_farm", "setup_stash"],
+  // mine_block + the mining skills arrived with the ore-hauler trade: the
+  // first specialist hour handed Mason a mission the action gate would not
+  // let him execute — no strip_mine, no craft_gear, not even mine_block.
+  allowedActions: ["go_to", "place_block", "craft", "gather_wood", "mine_block", "eat", "sleep", "chat", "flee"],
+  allowedSkills: [
+    "build_house",
+    "build_bridge",
+    "light_area",
+    "build_farm",
+    "setup_stash",
+    "strip_mine",
+    "craft_gear",
+    "smelt_ores",
+  ],
   keepItems: [
     { name: "sapling", minCount: 16 },
     { name: "axe", minCount: 1 },
