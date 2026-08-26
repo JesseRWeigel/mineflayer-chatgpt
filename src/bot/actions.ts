@@ -271,8 +271,41 @@ async function gatherWood(bot: Bot, count: number): Promise<string> {
 
   // Don't advise exploring for wood: that advice is what walked the team 780
   // blocks into the badlands. Saplings replanted at base regrow on their own.
-  if (allLogs.length === 0)
+  if (allLogs.length === 0) {
+    // PLANT before waiting: the deforested village hit 19 "no trees" answers
+    // in one run while Blade carried three saplings the whole time. A bot
+    // holding saplings puts them in the ground on nearby grass — the wait
+    // becomes the thing that creates the trees being waited for.
+    const sapling = bot.inventory.items().find((i) => i.name.endsWith("_sapling"));
+    if (sapling) {
+      let planted = 0;
+      const spots = bot.findBlocks({
+        matching: (b) => b.name === "grass_block",
+        maxDistance: 12,
+        count: 16,
+      });
+      for (const spot of spots) {
+        if (planted >= 3 || !bot.inventory.items().some((i) => i.name.endsWith("_sapling"))) break;
+        const above = bot.blockAt(spot.offset(0, 1, 0));
+        if (!above || above.name !== "air") continue;
+        try {
+          const ground = bot.blockAt(spot);
+          if (!ground) continue;
+          await bot.pathfinder.goto(new goals.GoalNear(spot.x, spot.y + 1, spot.z, 2));
+          const s = bot.inventory.items().find((i) => i.name.endsWith("_sapling"));
+          if (!s) break;
+          await bot.equip(s, "hand");
+          await bot.placeBlock(ground, new Vec3(0, 1, 0));
+          planted++;
+        } catch {
+          /* next spot */
+        }
+      }
+      if (planted > 0)
+        return `No trees within 256 blocks — planted ${planted} sapling(s) nearby instead. They grow in minutes; gather_wood again later.`;
+    }
     return "No trees found within 256 blocks. Wait for replanted saplings near base to grow — do NOT wander off searching; do other useful work and try again later.";
+  }
 
   // Nearest-first: findBlocks returns scan order, and burning the 4-try
   // budget on 120+ block hikes (which time out over broken terrain) starves
