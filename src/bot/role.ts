@@ -236,7 +236,10 @@ export const BLADE_CONFIG: BotRoleConfig = {
   leashRadius: 300,
   stashPos: STASH_POS,
   safeSpawn: { x: 280, y: 0, z: -320 },
-  allowedActions: ["attack", "flee", "go_to", "eat", "sleep", "chat"],
+  // gather_wood joined the hunter's kit when he turned out to be the only
+  // bot carrying saplings — the replanting branch lives inside gather_wood,
+  // and the one bot who could reforest was the one bot barred from trying.
+  allowedActions: ["attack", "flee", "go_to", "gather_wood", "eat", "sleep", "chat"],
   allowedSkills: ["neural_combat", "craft_gear"],
   keepItems: [
     { name: "sword", minCount: 1 },
