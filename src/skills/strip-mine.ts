@@ -28,10 +28,21 @@ export const stripMineSkill: Skill = {
   },
 
   async execute(bot, _params, signal, onProgress): Promise<SkillResult> {
-    // Verify pickaxe
-    const pickaxe = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+    // Verify pickaxe — and SELF-SUPPLY one first, the house pattern.
+    // Bouncing "use craft_gear first" back to the model lost whole hours:
+    // the advice was read, echoed, and wandered away from, and craft_gear
+    // was never once invoked in a full run. Run the gear craft inline.
+    let pickaxe = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
     if (!pickaxe) {
-      return { success: false, message: "Need a pickaxe! Use craft_gear first, then strip_mine." };
+      const { craftGearSkill } = await import("./craft-gear.js");
+      await craftGearSkill.execute(bot, {}, signal, onProgress).catch(() => {});
+      pickaxe = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+    }
+    if (!pickaxe) {
+      return {
+        success: false,
+        message: "Need a pickaxe and could not craft one — stash is out of cobblestone or sticks.",
+      };
     }
 
     let mined = 0;
