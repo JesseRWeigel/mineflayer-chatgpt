@@ -241,12 +241,22 @@ export const craftGearSkill: Skill = {
       // slots 5-8, so a bot wearing an iron_chestplate read as not owning
       // one and crafted duplicates instead of the next piece (PR #25).
       const owned = bot.inventory.slots.filter((i): i is NonNullable<typeof i> => i !== null).map((i) => i.name);
-      const piece = affordableArmourPiece(ingots, owned);
+      // The pickaxe reservation below only guarded the TOOL loop, and this
+      // armour pass runs first: Mason arrived with 9 ingots and no iron pick,
+      // the chestplate took 8, and the pickaxe pass found one ingot left (run
+      // 357). Until an iron-or-better pickaxe exists, armour may only spend
+      // what leaves 3 ingots for it — with 9 that buys a helmet, with 6 boots,
+      // and the diamond ladder still gets its pick this trip.
+      const hasIronPick = bot.inventory.items().some((i) => (PICK_PRIORITY[i.name] ?? 0) >= 2);
+      const armourBudget = hasIronPick ? ingots : Math.max(0, ingots - 3);
+      const piece = affordableArmourPiece(armourBudget, owned);
       if (piece) {
-        console.log(`[GearDebug] armour: ${ingots} ingots -> attempting ${piece}`);
+        console.log(`[GearDebug] armour: ${ingots} ingots (budget ${armourBudget}) -> attempting ${piece}`);
         await craftPiece(bot, mcData, piece, crafted);
       } else {
-        console.log(`[GearDebug] armour: ${ingots} ingots, nothing affordable (cheapest piece costs 4)`);
+        console.log(
+          `[GearDebug] armour: ${ingots} ingots (budget ${armourBudget}), nothing affordable (cheapest piece costs 4)`,
+        );
       }
     }
 
