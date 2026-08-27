@@ -44,6 +44,7 @@ export const stripMineSkill: Skill = {
     }
 
     let mined = 0;
+    let oreChases = 0;
     const oresFound: string[] = [];
 
     // Depth follows the mission AND the tools: the portal doorway is plugged
@@ -261,6 +262,44 @@ export const stripMineSkill: Skill = {
       const exposed = await mineExposedOre(bot, pos);
       mined += exposed.mined;
       oresFound.push(...exposed.ores);
+
+      // SPELUNK when the tunnel is really a cave: half these "tunnels" mine
+      // twenty of eighty blocks because the steps pass through open caverns,
+      // and the one-block wall scan misses ore sitting in cave walls a few
+      // blocks off the line. Caves EXPOSE ore (that is their one gift) — so
+      // every few air-steps, sweep ten blocks around for visible ore and go
+      // get it, budgeted so the watchdog stays happy.
+      if (exposed.mined === 0 && step % 4 === 0 && oreChases < 6) {
+        const visible = bot.findBlocks({
+          matching: (bk) => bk.name.endsWith("_ore") && canHarvest(bot, bk.name),
+          maxDistance: 10,
+          count: 3,
+        });
+        for (const op of visible) {
+          if (signal.aborted || oreChases >= 6) break;
+          const blk = bot.blockAt(op);
+          if (!blk || !blk.name.endsWith("_ore")) continue;
+          oreChases++;
+          try {
+            await Promise.race([
+              bot.pathfinder.goto(new goals.GoalNear(op.x, op.y, op.z, 2)),
+              new Promise<void>((_, rej) => setTimeout(() => rej(new Error("chase timeout")), 12_000)),
+            ]);
+          } catch {
+            bot.pathfinder.stop();
+            continue;
+          }
+          await equipBestPickaxe(bot);
+          try {
+            await digSafe(bot, blk);
+            mined++;
+            oresFound.push(blk.name);
+            mined += (await followVein(bot, op, blk.name, oresFound)) as number;
+          } catch {
+            /* next */
+          }
+        }
+      }
 
       // Walk forward into cleared space
       const targetPos = pos.offset(forward.x, 0, forward.z);
