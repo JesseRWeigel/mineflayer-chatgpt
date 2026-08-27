@@ -9,13 +9,11 @@ import { getSeasonGoal } from "../bot/memory.js";
 
 const TUNNEL_LENGTH = 40;
 const TORCH_INTERVAL = 6;
-// Y=16 is IRON's statistical peak in 1.18+, but the village underground at
-// that level is swiss cheese after months of tunnels: four consecutive
-// 40-block tunnels found zero ore. Y=8 sits below the mined-out band in
-// fresh rock, still well inside iron's distribution (and where the bots'
-// own memories record deepslate iron sightings), and stays far above the
-// lava lakes (~-50).
-const TARGET_Y = 8;
+// Y=15: iron's statistical peak is y=16, and tunnels now start 60+ blocks
+// from the village (mission rule), so the peak band is fresh rock again.
+// The y=8 detour — chosen when tunnels still started inside the mined-out
+// village — produced a dozen deep tunnels of copper and no iron.
+const TARGET_Y = 15;
 
 export const stripMineSkill: Skill = {
   name: "strip_mine",
