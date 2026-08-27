@@ -344,7 +344,13 @@ export const stripMineSkill: Skill = {
 
     return {
       success: true,
-      message: `Strip mine complete! Tunnel ${tunnelStart.x},${tunnelStart.y},${tunnelStart.z} -> ${bot.entity.position.floored().x},${endY},${bot.entity.position.floored().z}, mined ${mined} blocks.${depthNote} ${formatOres(oresFound)}`,
+      message: `Strip mine complete! Tunnel ${tunnelStart.x},${tunnelStart.y},${tunnelStart.z} -> ${bot.entity.position.floored().x},${endY},${bot.entity.position.floored().z}, mined ${mined} blocks.${depthNote} ${formatOres(oresFound)} Cargo: ${
+        bot.inventory
+          .items()
+          .filter((i) => i.name === "raw_iron" || i.name === "coal" || i.name.endsWith("_ore"))
+          .map((i) => `${i.count}x ${i.name}`)
+          .join(", ") || "no ore items"
+      }.`,
       stats: { blocksMined: mined, oresFound: oresFound.length },
     };
   },
