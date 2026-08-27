@@ -104,10 +104,34 @@ export const stripMineSkill: Skill = {
       // Trust ALTITUDE, never the resolver: eight descents in one hour
       // "succeeded" at y=72 with a y=8 goal — goto resolved without moving
       // and the fallback never ran because nothing threw. If the bot is
-      // still high after the pathfinder has had its say, dig down by hand.
-      if (Math.floor(bot.entity.position.y) > targetY + 5) {
+      // still high after the pathfinder has had its say, dig down by hand —
+      // and when ONE column refuses (the village floats over old shafts:
+      // "4-block drop below", "no floor in sight"), step sideways and try
+      // the next column instead of giving the whole job up, the way a
+      // player would. Nine surface tunnels in one hour ended on exactly
+      // these single-column refusals.
+      const SHIFTS = [
+        [0, 0],
+        [6, 0],
+        [0, 6],
+        [-6, 0],
+        [0, -6],
+      ];
+      for (const [dx, dz] of SHIFTS) {
+        if (Math.floor(bot.entity.position.y) <= targetY + 5 || signal.aborted) break;
+        if (dx !== 0 || dz !== 0) {
+          const p0 = bot.entity.position.floored();
+          try {
+            await Promise.race([
+              bot.pathfinder.goto(new goals.GoalNear(p0.x + dx, p0.y, p0.z + dz, 2)),
+              new Promise<void>((_, rej) => setTimeout(() => rej(new Error("shift timeout")), 12_000)),
+            ]);
+          } catch {
+            bot.pathfinder.stop();
+          }
+        }
         const fallback = await digDownTo(bot, targetY);
-        console.log(`[Skill] strip_mine goto ended high; ${fallback}`);
+        console.log(`[Skill] strip_mine descent try at shift ${dx},${dz}; ${fallback}`);
       }
       // Collect anything the descent dropped (ore dug on the way down).
       await collectNearbyDrops(bot, 4, 3000);
