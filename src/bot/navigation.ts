@@ -65,15 +65,42 @@ export function explorerMoves(bot: Bot): InstanceType<typeof Movements> {
 }
 
 /**
+ * One pathfinder per bot, several writers: the active skill, the reactive
+ * layer, and — the expensive one — ZOMBIE skills. The executor's 240s watchdog
+ * frees the brain by resolving early, but the orphaned skill promise keeps
+ * running until its own code notices the abort signal, and its cleanup paths
+ * call pathfinder.stop(). Those one-shot stops land on whatever the NEXT skill
+ * is doing: run 353 lost 10 of 15 pre-mine stash deposits to "Path was stopped"
+ * / "The goal was changed", each within a second of a previous skill's timeout.
+ *
+ * The generation counter tells the two cases apart. Deliberate takeovers
+ * (skill start, watchdog abort, direct-action timeout) bump it; safeGoto only
+ * retries an interrupted walk while the generation it started under is still
+ * current. A zombie's own goto sees the bumped generation and stays dead.
+ */
+const navGeneration = new WeakMap<Bot, number>();
+export function bumpNavGeneration(bot: Bot): void {
+  navGeneration.set(bot, (navGeneration.get(bot) ?? 0) + 1);
+}
+function getNavGeneration(bot: Bot): number {
+  return navGeneration.get(bot) ?? 0;
+}
+
+/**
  * Wraps pathfinder.goto with a timeout and stall detection.
  * - Times out after `timeoutMs` (default 15s)
  * - Cancels if bot hasn't moved more than 0.3 blocks in 5 seconds AFTER movement begins
+ * - Retries (max 2) when an external one-shot stop kills the walk, unless the
+ *   nav generation advanced (meaning the stop was a deliberate takeover)
  * - `stallStartDelayMs`: grace period before stall detection activates (use when thinkTimeout is high)
  */
 export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStartDelayMs = 0): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     let lastPos = bot.entity.position.clone();
     let stallTicks = 0;
+    let settled = false;
+    let retries = 0;
+    const genAtStart = getNavGeneration(bot);
     let stallActive = stallStartDelayMs === 0;
     const STALL_CHECK_MS = 1000;
     const STALL_THRESHOLD = 5; // 5 checks of 1s = 5 seconds without progress
@@ -89,6 +116,7 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
         : null;
 
     const timeout = setTimeout(() => {
+      settled = true;
       clearInterval(stallCheck);
       if (stallDelayTimer) clearTimeout(stallDelayTimer);
       bot.pathfinder.stop();
@@ -140,6 +168,7 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
             `[Stuck] ${bot.username} at ${sp.x.toFixed(0)},${sp.y.toFixed(0)},${sp.z.toFixed(0)} ` +
               `sides=${around} onGround=${bot.entity.onGround}`,
           );
+          settled = true;
           reject(new Error("Stuck — not making progress toward goal."));
         }
       } else {
@@ -148,20 +177,40 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
       lastPos = currentPos.clone();
     }, STALL_CHECK_MS);
 
-    bot.pathfinder
-      .goto(goal)
-      .then(() => {
-        clearTimeout(timeout);
-        clearInterval(stallCheck);
-        if (stallDelayTimer) clearTimeout(stallDelayTimer);
-        resolve();
-      })
-      .catch((err: any) => {
-        clearTimeout(timeout);
-        clearInterval(stallCheck);
-        if (stallDelayTimer) clearTimeout(stallDelayTimer);
-        reject(err);
-      });
+    const finishTimers = () => {
+      clearTimeout(timeout);
+      clearInterval(stallCheck);
+      if (stallDelayTimer) clearTimeout(stallDelayTimer);
+    };
+    const attempt = () => {
+      if (settled) return; // outer timeout/stall fired during the retry delay
+      bot.pathfinder
+        .goto(goal)
+        .then(() => {
+          if (settled) return;
+          settled = true;
+          finishTimers();
+          resolve();
+        })
+        .catch((err: any) => {
+          if (settled) return;
+          // "Path was stopped" / "The goal was changed" are external one-shot
+          // interruptions (usually a zombie skill's cleanup), never a verdict
+          // on THIS route. Walk again — unless the generation advanced, which
+          // means the stop was deliberate and this walk should stay dead.
+          const interrupted = /stopped before it could be completed|goal was changed/i.test(err?.message ?? "");
+          if (interrupted && retries < 2 && getNavGeneration(bot) === genAtStart) {
+            retries++;
+            console.log(`[Nav] ${bot.username} goto interrupted externally — retry ${retries}/2`);
+            setTimeout(attempt, 1000);
+            return;
+          }
+          settled = true;
+          finishTimers();
+          reject(err);
+        });
+    };
+    attempt();
   });
 }
 

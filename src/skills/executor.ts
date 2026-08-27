@@ -4,6 +4,7 @@ import { gatherMaterials } from "./materials.js";
 import { updateOverlay } from "../stream/overlay.js";
 import { recordSkillAttempt } from "../bot/memory.js";
 import { getBotMemoryStore, registerBotMemory } from "../bot/memory-registry.js";
+import { bumpNavGeneration } from "../bot/navigation.js";
 
 export { registerBotMemory };
 
@@ -120,7 +121,10 @@ export async function runSkill(bot: Bot, skill: Skill, params: Record<string, an
     return `Skill ${skill.name} was interrupted.`;
   }
 
-  // Phase 2: Execute the skill
+  // Phase 2: Execute the skill. This skill is now the pathfinder's legitimate
+  // owner — advance the nav generation so any earlier walk (a zombie skill's
+  // still-unwinding safeGoto) stops retrying itself back into contention.
+  bumpNavGeneration(bot);
   const skillPromise = skill.execute(bot, params, signal, (p) => {
     progress({
       ...p,
@@ -159,6 +163,8 @@ export async function runSkill(bot: Bot, skill: Skill, params: Record<string, an
   let watchdog: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<{ success: boolean; message: string }>((resolve) => {
     watchdog = setTimeout(() => {
+      // Deliberate takeover: the skill being killed must not retry its walks.
+      bumpNavGeneration(bot);
       try {
         bot.pathfinder.stop();
       } catch {

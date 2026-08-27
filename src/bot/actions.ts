@@ -17,7 +17,7 @@ import { RESUMABLE_PROTOCOL } from "./memory.js";
 import { config } from "../config.js";
 
 import { STASH_POS } from "./role.js";
-import { baseMoves, safeMoves, explorerMoves, safeGoto, collectNearbyDrops } from "./navigation.js";
+import { baseMoves, safeMoves, explorerMoves, safeGoto, collectNearbyDrops, bumpNavGeneration } from "./navigation.js";
 export { safeMoves, explorerMoves, safeGoto, collectNearbyDrops };
 
 /** Hard cap for a single DIRECT action. Longer than any legit action (gather
@@ -44,6 +44,8 @@ export async function executeAction(bot: Bot, action: string, params: Record<str
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<string>((resolve) => {
     timer = setTimeout(() => {
+      // Deliberate takeover: the timed-out action's walk must not retry itself.
+      bumpNavGeneration(bot);
       try {
         bot.pathfinder.stop();
       } catch {
