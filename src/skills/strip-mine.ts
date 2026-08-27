@@ -250,7 +250,13 @@ export const stripMineSkill: Skill = {
         try {
           await digSafe(bot, b);
           mined++;
-          if (b.name.includes("ore")) oresFound.push(b.name);
+          if (b.name.includes("ore")) {
+            oresFound.push(b.name);
+            // Pick the drop up NOW, where it fell: the end-of-tunnel sweep
+            // misses early drops, and the first tunnel-struck iron in weeks
+            // evaporated exactly this way (found 2x iron_ore, cargo empty).
+            await collectNearbyDrops(bot, 4, 3000);
+          }
         } catch {
           /* skip */
         }
@@ -295,6 +301,7 @@ export const stripMineSkill: Skill = {
             mined++;
             oresFound.push(blk.name);
             mined += (await followVein(bot, op, blk.name, oresFound)) as number;
+            await collectNearbyDrops(bot, 6, 4000);
           } catch {
             /* next */
           }
@@ -347,7 +354,7 @@ export const stripMineSkill: Skill = {
       message: `Strip mine complete! Tunnel ${tunnelStart.x},${tunnelStart.y},${tunnelStart.z} -> ${bot.entity.position.floored().x},${endY},${bot.entity.position.floored().z}, mined ${mined} blocks.${depthNote} ${formatOres(oresFound)} Cargo: ${
         bot.inventory
           .items()
-          .filter((i) => i.name === "raw_iron" || i.name === "coal" || i.name.endsWith("_ore"))
+          .filter((i) => i.name.startsWith("raw_") || i.name === "coal" || i.name.endsWith("_ore"))
           .map((i) => `${i.count}x ${i.name}`)
           .join(", ") || "no ore items"
       }.`,
