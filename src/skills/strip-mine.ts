@@ -64,6 +64,41 @@ export const stripMineSkill: Skill = {
     const forward = getCardinalDirection(bot.entity.yaw);
     console.log(`[Skill] Strip mine direction: ${dirName(forward)}, starting Y=${bot.entity.position.y.toFixed(0)}`);
 
+    // WALK OUT before digging down. The 60-block standoff lived only in
+    // advisory mission text, and the inline pick craft walks every miner to
+    // the stash first — so tunnels kept starting AT the village and boring
+    // back through its honeycomb: two y=16 tunnels this hour found zero ore
+    // of any kind. Mechanics over advice, as always: if the start is within
+    // 50 of the stash, hike ~70 blocks along the tunnel heading first.
+    {
+      const { STASH_POS } = await import("../bot/role.js");
+      const p = bot.entity.position;
+      const nearStash = Math.hypot(p.x - STASH_POS.x, p.z - STASH_POS.z) < 50;
+      if (nearStash && !signal.aborted) {
+        const tx = Math.floor(p.x + forward.x * 70);
+        const tz = Math.floor(p.z + forward.z * 70);
+        onProgress({
+          skillName: "strip_mine",
+          phase: "Hiking out",
+          progress: 0.03,
+          message: `Walking ${70} blocks ${dirName(forward)} to fresh rock...`,
+          active: true,
+        });
+        bot.pathfinder.setMovements(baseMoves(bot));
+        try {
+          await Promise.race([
+            bot.pathfinder.goto(new goals.GoalXZ(tx, tz)),
+            new Promise<void>((_, rej) => setTimeout(() => rej(new Error("hike timeout")), 60_000)),
+          ]);
+        } catch {
+          bot.pathfinder.stop();
+        }
+        console.log(
+          `[Skill] strip_mine hiked out to ${bot.entity.position.floored()} (${Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z).toFixed(0)} from stash)`,
+        );
+      }
+    }
+
     // --- Phase 1: Descend to targetY (iron/diamond depth) ---
     // The old manual staircase dug blocks but moveToPosition often failed to
     // follow it down, so the bot stayed at the surface (Y~64-90) and tunneled
