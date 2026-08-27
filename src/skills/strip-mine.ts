@@ -60,8 +60,23 @@ export const stripMineSkill: Skill = {
     // and the tunnel already stops at breached fluids.
     const targetY = hasIronPick && /diamond/i.test(getSeasonGoal() ?? "") ? -58 : TARGET_Y;
 
-    // Snap to nearest cardinal direction
-    const forward = getCardinalDirection(bot.entity.yaw);
+    // Snap to nearest cardinal direction — but never TOWARD the portal
+    // quarry. Bots at the stash face the portal (they commute there), and
+    // the gaze-following heading sent tunnel after tunnel up the most
+    // excavated corridor on the map: the travel report showed a "fresh
+    // rock" tunnel ending four blocks from the portal workings. When the
+    // yaw cardinal points that way, pick the cardinal whose 70-block hike
+    // lands farthest from the quarry instead.
+    const QUARRY = { x: 278, z: -243 };
+    let forward = getCardinalDirection(bot.entity.yaw);
+    {
+      const p = bot.entity.position;
+      const landing = (d: { x: number; z: number }) => Math.hypot(p.x + d.x * 70 - QUARRY.x, p.z + d.z * 70 - QUARRY.z);
+      const cardinals = [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)];
+      if (landing(forward) < 80) {
+        forward = cardinals.reduce((a, b) => (landing(b) > landing(a) ? b : a));
+      }
+    }
     console.log(`[Skill] Strip mine direction: ${dirName(forward)}, starting Y=${bot.entity.position.y.toFixed(0)}`);
 
     // WALK OUT before digging down. The 60-block standoff lived only in
