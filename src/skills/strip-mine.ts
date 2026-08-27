@@ -56,7 +56,11 @@ export const stripMineSkill: Skill = {
     // IRON at y=16 to tier up first. The steering text flips the depth back
     // when the mission moves on.
     const hasIronPick = bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2);
-    const targetY = hasIronPick && /diamond/i.test(getSeasonGoal() ?? "") ? -53 : TARGET_Y;
+    // -58, corrected from -53 after the mechanics research: diamond peaks at
+    // y=-58/-59 and the accepted practice is mining the peak band with a
+    // water bucket for lava (common at -54 and below) — the kits carry one,
+    // and the tunnel already stops at breached fluids.
+    const targetY = hasIronPick && /diamond/i.test(getSeasonGoal() ?? "") ? -58 : TARGET_Y;
 
     // Snap to nearest cardinal direction
     const forward = getCardinalDirection(bot.entity.yaw);
