@@ -121,8 +121,18 @@ export const stripMineSkill: Skill = {
         [-6, 0],
         [0, -6],
       ];
+      // TIME-BOXED: five shifts of walk-plus-dig can total 400+ seconds,
+      // which blew straight past the 240s skill watchdog and turned the
+      // retry fix into a stall generator (4 strip_mine watchdog kills the
+      // hour it shipped). Whatever depth is reached when the box closes,
+      // the tunnel runs there.
+      const descentDeadline = Date.now() + 140_000;
       for (const [dx, dz] of SHIFTS) {
         if (Math.floor(bot.entity.position.y) <= targetY + 5 || signal.aborted) break;
+        if (Date.now() > descentDeadline) {
+          console.log(`[Skill] strip_mine descent time-box closed at y=${Math.floor(bot.entity.position.y)}`);
+          break;
+        }
         if (dx !== 0 || dz !== 0) {
           const p0 = bot.entity.position.floored();
           try {
