@@ -123,20 +123,43 @@ export const stripMineSkill: Skill = {
           message: `Walking ${70} blocks ${dirName(forward)} to fresh rock...`,
           active: true,
         });
-        bot.pathfinder.setMovements(baseMoves(bot));
-        try {
-          // safeGoto, so the walk survives one-shot external stops. The raw
-          // goto race had no retry: every hike this run ended 6-18 blocks from
-          // the stash ("hiked out to ... (16 from stash)"), which parked the
-          // shaft in the honeycombed village ground where all five descent
-          // shifts hit cave drops. The 60s cap moves into safeGoto's timeout.
-          await safeGoto(bot, new goals.GoalXZ(tx, tz), 60_000);
-        } catch {
-          bot.pathfinder.stop();
+        // safeGoto, so the walk survives one-shot external stops. Two attempts:
+        // run 360 showed a single try still ends 2-13 blocks out when the bot
+        // starts entombed (Mason: [Stuck] with cobblestone on all four sides)
+        // or a night flee takes the pathfinder mid-hike. The second attempt
+        // walks with canDig so a boxed-in bot mines its way out of the village
+        // clutter instead of stalling against it.
+        const hikeDist = () => Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z);
+        for (let attempt = 0; attempt < 2 && !signal.aborted; attempt++) {
+          const moves = baseMoves(bot);
+          if (attempt > 0) {
+            moves.canDig = true;
+            moves.allow1by1towers = true;
+          }
+          bot.pathfinder.setMovements(moves);
+          try {
+            await safeGoto(bot, new goals.GoalXZ(tx, tz), 60_000);
+          } catch (err) {
+            console.log(`[Skill] strip_mine hike attempt ${attempt + 1} failed: ${(err as Error).message}`);
+            bot.pathfinder.stop();
+          }
+          if (hikeDist() >= 40) break;
         }
         console.log(
-          `[Skill] strip_mine hiked out to ${bot.entity.position.floored()} (${Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z).toFixed(0)} from stash)`,
+          `[Skill] strip_mine hiked out to ${bot.entity.position.floored()} (${hikeDist().toFixed(0)} from stash)`,
         );
+        // A shaft dug here is a junk shaft: the village underground is
+        // honeycombed and every descent shift finds a cave drop (run 360:
+        // tunnels of 3-18 blocks at y=67-73, zero at ore depth). Failing
+        // honestly beats reporting "complete" on 5 mined blocks.
+        if (hikeDist() < 40) {
+          return {
+            success: false,
+            message:
+              `Couldn't reach fresh rock — still only ${hikeDist().toFixed(0)} blocks from the stash after two hikes ` +
+              `(blocked in or under attack). No point shafting the mined-out village ground; try strip_mine again in a bit.`,
+          };
+        }
       }
     }
 
