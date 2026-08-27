@@ -46,8 +46,12 @@ export const lightAreaSkill: Skill = {
     const torchCount = countTorches();
 
     const center = bot.entity.position.floored();
+    // 10/5, down from 15/5: the 15-radius grid is ~35 walk-and-place stops
+    // and every pass in runs 362-363 hit the 240s skill watchdog mid-grid.
+    // A 10-radius pass (~12 stops) finishes inside the budget, and repeated
+    // passes centered wherever the bot idles tile the village anyway.
     const SPACING = 5;
-    const RADIUS = 15;
+    const RADIUS = 10;
     const positions: Vec3[] = [];
 
     // Generate torch grid positions

@@ -137,7 +137,13 @@ export const stripMineSkill: Skill = {
         // walks with canDig so a boxed-in bot mines its way out of the village
         // clutter instead of stalling against it.
         const hikeDist = () => Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z);
-        for (let attempt = 0; attempt < 2 && !signal.aborted; attempt++) {
+        // Time-budgeted attempts, up from a fixed two: run 363 lost 27 hikes
+        // to "The goal was changed" — each a ~10s flee takeover, and two
+        // attempts meant two flees ended the whole trip. Keep re-walking
+        // until 150s is spent or the distance is made; a flee burns one
+        // attempt, the walk resumes when the bot is free again.
+        const hikeDeadline = Date.now() + 150_000;
+        for (let attempt = 0; Date.now() < hikeDeadline && !signal.aborted; attempt++) {
           const moves = baseMoves(bot);
           if (attempt > 0) {
             moves.canDig = true;
@@ -145,12 +151,13 @@ export const stripMineSkill: Skill = {
           }
           bot.pathfinder.setMovements(moves);
           try {
-            await safeGoto(bot, new goals.GoalXZ(tx, tz), 60_000);
+            await safeGoto(bot, new goals.GoalXZ(tx, tz), Math.max(15_000, hikeDeadline - Date.now()));
           } catch (err) {
             console.log(`[Skill] strip_mine hike attempt ${attempt + 1} failed: ${(err as Error).message}`);
             bot.pathfinder.stop();
           }
           if (hikeDist() >= 40) break;
+          await new Promise((r) => setTimeout(r, 2000)); // let a flee finish before rewalking
         }
         console.log(
           `[Skill] strip_mine hiked out to ${bot.entity.position.floored()} (${hikeDist().toFixed(0)} from stash)`,
