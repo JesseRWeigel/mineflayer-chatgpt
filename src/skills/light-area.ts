@@ -81,8 +81,17 @@ export const lightAreaSkill: Skill = {
     let placed = 0;
     const total = Math.min(positions.length, torchCount);
 
+    // Internal deadline UNDER the 240s executor watchdog. Even the shrunken
+    // grid kept dying to the watchdog (runs 362-364: every pass "timed out
+    // after 240s"), because flee interruptions stretch each walk-and-place
+    // stop. Stopping ourselves at 200s converts those deaths into successes
+    // that report their torch count — coverage grows identically either way,
+    // but the skill's success rate stops looking like a 0% failure.
+    const deadline = Date.now() + 200_000;
+
     for (let i = 0; i < positions.length && placed < torchCount; i++) {
       if (signal.aborted) break;
+      if (Date.now() > deadline) break;
 
       const pos = positions[i];
       const torch = bot.inventory.items().find((it) => it.name === "torch");
