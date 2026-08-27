@@ -124,12 +124,18 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
       case "chat": {
         const msg = typeof params.message === "string" ? params.message.trim() : "";
         if (!msg) return "chat needs a 'message' param — nothing was said.";
+        // The bots are server ops for spawn-safety plumbing, which made the
+        // chat action a command console: the model typed "/give @p obsidian
+        // 1", the server obeyed, and a story advancement got conjured out of
+        // thin air (revoked, item cleared). Model-authored chat is TALK ONLY.
+        if (msg.startsWith("/")) return "Commands are not allowed in chat — say it in words instead.";
         bot.chat(msg);
         return `Said: ${msg}`;
       }
       case "respond_to_chat": {
         const msg = typeof params.message === "string" ? params.message.trim() : "";
         if (!msg) return "respond_to_chat needs a 'message' param — nothing was said.";
+        if (msg.startsWith("/")) return "Commands are not allowed in chat — say it in words instead.";
         bot.chat(msg);
         return `Replied: ${msg}`;
       }
