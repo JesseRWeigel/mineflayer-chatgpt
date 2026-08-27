@@ -3,7 +3,7 @@ import type { Skill, SkillResult } from "./types.js";
 import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
-import { baseMoves, collectNearbyDrops } from "../bot/navigation.js";
+import { baseMoves, collectNearbyDrops, safeGoto } from "../bot/navigation.js";
 import { digDownTo } from "./descend.js";
 import { getSeasonGoal } from "../bot/memory.js";
 
@@ -125,10 +125,12 @@ export const stripMineSkill: Skill = {
         });
         bot.pathfinder.setMovements(baseMoves(bot));
         try {
-          await Promise.race([
-            bot.pathfinder.goto(new goals.GoalXZ(tx, tz)),
-            new Promise<void>((_, rej) => setTimeout(() => rej(new Error("hike timeout")), 60_000)),
-          ]);
+          // safeGoto, so the walk survives one-shot external stops. The raw
+          // goto race had no retry: every hike this run ended 6-18 blocks from
+          // the stash ("hiked out to ... (16 from stash)"), which parked the
+          // shaft in the honeycombed village ground where all five descent
+          // shifts hit cave drops. The 60s cap moves into safeGoto's timeout.
+          await safeGoto(bot, new goals.GoalXZ(tx, tz), 60_000);
         } catch {
           bot.pathfinder.stop();
         }

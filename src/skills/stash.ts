@@ -961,7 +961,19 @@ export async function depositStash(
       if (planks < 8) {
         try {
           const mcData = (await import("minecraft-data")).default(bot.version);
-          const log = bot.inventory.items().find((i) => i.name.endsWith("_log"));
+          let log = bot.inventory.items().find((i) => i.name.endsWith("_log"));
+          if (!log) {
+            // The deposit that just bounced BANKED this bot's logs moments
+            // earlier — five "carrying 0 planks and no logs" bails in run 359,
+            // each right after a deposit that included wood. The bot is
+            // standing at the stash; take two logs back out for the chest.
+            try {
+              await withdrawStash(bot, stashPos, "log", 2);
+            } catch {
+              /* stash has no logs either — the bail below reports it */
+            }
+            log = bot.inventory.items().find((i) => i.name.endsWith("_log"));
+          }
           if (!log) {
             expandBail = `carrying ${planks} planks and no logs`;
           } else {
