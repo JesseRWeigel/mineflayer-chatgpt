@@ -721,6 +721,21 @@ export class BotBrain {
     // Safety overrides first
     if (await this.runSafetyOverrides()) return;
 
+    // NIGHT REFLEX. playersSleepingPercentage=1 (Jesse-approved 2026-08-27)
+    // means ONE sleeping bot skips the night for the whole server — but across
+    // the first full night with the rule live, the models chose sleep ZERO
+    // times in 1,292 actions and the fleet spent the dark hours in flee/eat
+    // churn (9% action success). Same doctrine as auto-eat: survival plumbing
+    // is mechanical, the LLM plans on top of it. Only idle bots get here
+    // (skills re-queue strategic events), so nobody abandons a job to nap.
+    const timeOfDay = this.bot.time?.timeOfDay ?? 0;
+    if (timeOfDay >= 12542 && timeOfDay <= 23458 && !(this.bot as any).isSleeping) {
+      const slept = await executeAction(this.bot, "sleep", {});
+      this.log.info("Brain", `Night reflex: sleep → ${slept}`);
+      if (/zzz|sleeping/i.test(slept)) return; // in bed — skip the LLM turn
+      // Sleep failed (no bed, hostiles nearby) — fall through to normal planning.
+    }
+
     // Survival override: starvation was killing the team (whole roster at
     // hunger 0, 286 failed "eat" attempts in one run). If hungry with no food
     // on hand, withdraw food from the stash so auto-eat has fuel — no waiting
