@@ -158,6 +158,7 @@ export class BotBrain {
   private lastFarmOverrideMs = 0;
   private lastIronOverrideMs = 0;
   private lastGearOverrideMs = 0;
+  private lastLightOverrideMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -913,6 +914,46 @@ export class BotBrain {
           { action: "strip_mine", params: {} },
           result,
           /mined|ore|iron|complete/i.test(result),
+        );
+        return;
+      }
+    }
+
+    // Village-lighting override. Mob spawns need block-light 0 and one torch
+    // clears ~12 blocks (domain research), yet light_area was invoked ZERO
+    // times in run 361 while the fleet logged 152 flees in an hour and both
+    // hike attempts of every mining trip died to "goal was changed" — the
+    // reactive layer seizing the pathfinder to run from mobs that spawned in
+    // the unlit village. Torching the base is the standard human answer;
+    // deterministic here because the model never chooses it. Daytime only
+    // (torch-placing during a night flee storm is chaos), near the stash,
+    // 40-minute cooldown — the grid is idempotent so repeats are cheap.
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("light_area") &&
+      !isSkillRunning(this.bot) &&
+      this.roleConfig.stashPos
+    ) {
+      const tod = this.bot.time?.timeOfDay ?? 0;
+      const p = this.bot.entity.position;
+      const nearStash = Math.hypot(p.x - this.roleConfig.stashPos.x, p.z - this.roleConfig.stashPos.z) < 30;
+      const cooledDown = Date.now() - this.lastLightOverrideMs > 2_400_000;
+      if (tod < 12000 && nearStash && cooledDown) {
+        this.lastLightOverrideMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: daylight at the unlit village — running light_area");
+        this.events.onThought("Enough midnight ambushes. Today this village gets TORCHES.");
+        const result = await executeAction(this.bot, "invoke_skill", {
+          skill: "light_area",
+          stashPos: this.roleConfig.stashPos,
+        });
+        this.events.onAction("light_area", result);
+        this.lastAction = "light_area";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:light_area",
+          { action: "light_area", params: {} },
+          result,
+          /placed|torch/i.test(result),
         );
         return;
       }
