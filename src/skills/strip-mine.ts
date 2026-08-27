@@ -186,6 +186,10 @@ export const stripMineSkill: Skill = {
     }
 
     // --- Phase 2: Horizontal mining tunnel ---
+    // Coordinates in the report: three "fresh rock" hours produced zero ore
+    // and tunnels that dug 20 of a possible 80 blocks — mostly air. WHERE
+    // the tunnel actually ran is the missing fact.
+    const tunnelStart = bot.entity.position.floored();
     onProgress({
       skillName: "strip_mine",
       phase: "Mining tunnel",
@@ -286,7 +290,7 @@ export const stripMineSkill: Skill = {
 
     return {
       success: true,
-      message: `Strip mine complete! Dug ${TUNNEL_LENGTH}-block tunnel, mined ${mined} blocks total.${depthNote} ${formatOres(oresFound)}`,
+      message: `Strip mine complete! Tunnel ${tunnelStart.x},${tunnelStart.y},${tunnelStart.z} -> ${bot.entity.position.floored().x},${endY},${bot.entity.position.floored().z}, mined ${mined} blocks.${depthNote} ${formatOres(oresFound)}`,
       stats: { blocksMined: mined, oresFound: oresFound.length },
     };
   },
