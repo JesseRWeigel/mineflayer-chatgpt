@@ -1796,9 +1796,13 @@ async function sleepInBed(bot: Bot): Promise<string> {
   // Already in bed — just wait for morning (counts as success so no blacklisting)
   if ((bot as any).isSleeping) return "Sleeping... zzz (waiting for morning)";
 
+  // 64, up from 32: the village's one surviving bed sits at 314,67,-336,
+  // ~35 blocks from the stash where bots idle at night. Every one of the 68
+  // "No bed and no wool" reflex failures on the first real night happened
+  // within walking distance of a bed the search radius missed by 3 blocks.
   let bed = bot.findBlock({
     matching: (b) => b.name.includes("bed"),
-    maxDistance: 32,
+    maxDistance: 64,
   });
 
   // Auto-place bed from inventory if none found nearby
@@ -1881,7 +1885,10 @@ async function sleepInBed(bot: Bot): Promise<string> {
 
   try {
     bot.pathfinder.setMovements(safeMoves(bot));
-    await safeGoto(bot, new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2), 8000);
+    // 20s, up from 8s: the wider bed search (64 blocks) can send this walk up
+    // to ~60 blocks; at ~4.3 blocks/s plus path-think time, 8s only covered
+    // the old 32-block radius.
+    await safeGoto(bot, new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2), 20000);
     await bot.sleep(bed);
     return "Sleeping... zzz";
   } catch (err: any) {
