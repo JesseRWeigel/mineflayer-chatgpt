@@ -47,6 +47,29 @@ export const stripMineSkill: Skill = {
     let oreChases = 0;
     const oresFound: string[] = [];
 
+    // EMPTY THE PACK before mining: three bots sat at 36 of 36 slots and one
+    // at 35 — a full inventory silently rejects every pickup, which is where
+    // days of dug ore actually went. The deposit action exists but the model
+    // never chooses it, so the mine does its own banking when nearly full.
+    {
+      const freeSlots = 36 - bot.inventory.items().length;
+      const { STASH_POS } = await import("../bot/role.js");
+      if (freeSlots < 6 && !signal.aborted) {
+        const { depositStash } = await import("./stash.js");
+        const keep = [
+          { name: "pickaxe", minCount: 1 },
+          { name: "sword", minCount: 1 },
+          { name: "bucket", minCount: 1 },
+          { name: "torch", minCount: 8 },
+          { name: "food", minCount: 4 },
+          { name: "cobblestone", minCount: 8 },
+          { name: "stick", minCount: 4 },
+        ];
+        const banked = await depositStash(bot, STASH_POS, keep).catch((e) => `deposit failed: ${e.message}`);
+        console.log(`[Skill] strip_mine pre-mine deposit (${freeSlots} slots were free): ${banked}`);
+      }
+    }
+
     // Depth follows the mission AND the tools: the portal doorway is plugged
     // with obsidian only a diamond pickaxe clears, and diamonds live far
     // below the iron band this skill was tuned for. A diamond mission digs
