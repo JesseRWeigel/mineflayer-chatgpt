@@ -97,9 +97,16 @@ export const stripMineSkill: Skill = {
       const p = bot.entity.position;
       const landing = (d: { x: number; z: number }) => Math.hypot(p.x + d.x * 70 - QUARRY.x, p.z + d.z * 70 - QUARRY.z);
       const cardinals = [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)];
-      if (landing(forward) < 80) {
-        forward = cardinals.reduce((a, b) => (landing(b) > landing(a) ? b : a));
-      }
+      // East/west first. The village sits in a north-south squeeze: the portal
+      // quarry is ~70 south and the lake starts ~80 north, so both z headings
+      // waste the trip — run 362's two full-distance hikes both went north to
+      // z=-389/-391 and their tunnels died "hit water at step 0" in the lake
+      // shallows. Every iron-bearing tunnel so far ran on the x axis (x=313,
+      // x=350, and today's deepest at x=408-417). Prefer x-axis cardinals,
+      // then the landing farthest from the quarry.
+      const safe = cardinals.filter((c) => landing(c) >= 80);
+      const pool = safe.length ? safe : cardinals;
+      forward = pool.sort((a, b) => Math.abs(b.x) - Math.abs(a.x) || landing(b) - landing(a))[0];
     }
     console.log(`[Skill] Strip mine direction: ${dirName(forward)}, starting Y=${bot.entity.position.y.toFixed(0)}`);
 
