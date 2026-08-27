@@ -157,6 +157,7 @@ export class BotBrain {
   // Farm override cooldown — a fast-failing skill must not thrash every cycle
   private lastFarmOverrideMs = 0;
   private lastIronOverrideMs = 0;
+  private lastGearOverrideMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -912,6 +913,46 @@ export class BotBrain {
           { action: "strip_mine", params: {} },
           result,
           /mined|ore|iron|complete/i.test(result),
+        );
+        return;
+      }
+    }
+
+    // Iron-pickaxe override — the rung the other pushes stop short of. The
+    // strip_mine push stands down as soon as a bot HOLDS iron (correctly), but
+    // nothing then converts it: Mason carried 9-11 iron_ingot for a full run,
+    // shuffling them between slots, while the model never chose craft_gear.
+    // Ingots in hand + no iron pick = craft now. This is the gate to the
+    // diamond depth (strip_mine only descends to -58 with an iron pick).
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("craft_gear") &&
+      !isSkillRunning(this.bot)
+    ) {
+      const ingots = this.bot.inventory
+        .items()
+        .filter((i) => i.name === "iron_ingot")
+        .reduce((s, i) => s + i.count, 0);
+      const hasIronPick = this.bot.inventory
+        .items()
+        .some((i) => i.name === "iron_pickaxe" || i.name === "diamond_pickaxe");
+      const cooledDown = Date.now() - this.lastGearOverrideMs > 180_000;
+      if (ingots >= 3 && !hasIronPick && cooledDown) {
+        this.lastGearOverrideMs = Date.now();
+        this.log.info("Brain", `OVERRIDE: ${ingots} iron ingots and no iron pickaxe — running craft_gear`);
+        this.events.onThought("Enough iron in my pack for a REAL pickaxe. To the crafting table!");
+        const result = await executeAction(this.bot, "invoke_skill", {
+          skill: "craft_gear",
+          stashPos: this.roleConfig.stashPos,
+        });
+        this.events.onAction("craft_gear", result);
+        this.lastAction = "craft_gear";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:craft_gear",
+          { action: "craft_gear", params: {} },
+          result,
+          /crafted|iron_pickaxe|complete/i.test(result),
         );
         return;
       }
