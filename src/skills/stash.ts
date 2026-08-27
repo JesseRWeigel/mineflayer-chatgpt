@@ -244,12 +244,13 @@ const STASH_ROWS: { category: string; patterns: string[] }[] = [
  *  This is the same silent-catch trap documented for the expansion gates below,
  *  which cost three rounds of guesswork before the gates were labelled. Label the
  *  cause where it happens so the fix targets the one that is actually firing. */
-export type DepositFailure = "no_chest_found" | "chest_unreachable" | "chest_open_failed";
+export type DepositFailure = "no_chest_found" | "chest_unreachable" | "chest_open_failed" | "chest_full";
 
 const FAILURE_WORDING: Record<DepositFailure, string> = {
   no_chest_found: "no chest serves that category",
   chest_unreachable: "couldn't walk to the chest",
   chest_open_failed: "the chest wouldn't open",
+  chest_full: "every chest tried was full",
 };
 
 /** Does this block, sitting directly on top of a chest, stop the chest opening?
@@ -348,7 +349,11 @@ export function nothingToBankMessage(keptNames: string[]): string {
  *  could spend gathering, and the resulting "all placement attempts failed" is
  *  what sent seven earlier hypotheses chasing chest supply that was never short. */
 export function shouldAttemptExpansion(failures: Map<DepositFailure, number>): boolean {
-  return (failures.get("no_chest_found") ?? 0) > 0;
+  // A full chest is the other condition a NEW chest genuinely fixes. Blade
+  // stood at the stash with 148 andesite + 132 diorite aboard, the one chest
+  // his category resolved to was full, and the load came home — misreported
+  // as "everything I'm carrying is kept" (RCON census cycle 187).
+  return (failures.get("no_chest_found") ?? 0) > 0 || (failures.get("chest_full") ?? 0) > 0;
 }
 
 /**
@@ -375,6 +380,9 @@ export function depositFailureAdvice(failures: Map<DepositFailure, number>): str
   // Only a genuinely missing chest is fixed by another chest.
   if (dominant === "no_chest_found") {
     return "No chest serves that category — craft a chest and place it by the stash.";
+  }
+  if (dominant === "chest_full") {
+    return "The chests this load reached are full — a NEW chest is needed; carry planks or a chest on the next trip.";
   }
   return (
     "The chest exists and was found, so more chests will not help — do NOT craft one. " +
@@ -796,9 +804,15 @@ export async function depositStash(
     // the 10s timeout is what we are actually paying.
     let banked = false;
     let lastFail: { reason: DepositFailure; detail: string } | null = null;
+    // Items still looking for a chest with room. The loop used to stop at the
+    // first chest it OPENED, swallow every full-chest throw item by item, and
+    // report the load as kept gear — Blade's 148 andesite + 132 diorite came
+    // home from a 61-chest stash because his one category chest was full.
+    // Leftovers now walk on to the next candidate.
+    let pending = [...items];
 
     for (const chest of candidates) {
-      if (banked) break;
+      if (pending.length === 0) break;
       let distToChest = Number.NaN;
       try {
         // Navigation failure must NOT skip the roof clear. First deploy of the
@@ -851,17 +865,19 @@ export async function depositStash(
           throw navErr; // genuinely could not get there — keep the old attribution
         }
         const container = await openContainerTimed(bot, chest);
-        for (const item of items) {
+        const leftover: typeof pending = [];
+        for (const item of pending) {
           try {
             await container.deposit(item.type, null, item.count);
             deposited += item.count;
           } catch {
-            // Chest full — this will trigger expansion request
+            leftover.push(item); // this chest has no room for it — try the next candidate
           }
         }
         snapshotChest(chest.position, container.containerItems(), container.inventoryStart);
         container.close();
         banked = true;
+        pending = leftover;
       } catch (err) {
         const walked = withinReach(distToChest);
         // A chest one block away that will neither open nor be pathed to points at
@@ -893,7 +909,17 @@ export async function depositStash(
       }
     }
 
-    if (!banked && lastFail) noteFailure(lastFail.reason, items.length, lastFail.detail);
+    if (!banked && lastFail) {
+      noteFailure(lastFail.reason, items.length, lastFail.detail);
+    } else if (pending.length > 0) {
+      // Chests were reached and opened; these stacks just found no room in any
+      // of them. Real chest_full failures feed the expansion trigger above.
+      noteFailure(
+        "chest_full",
+        pending.length,
+        `category ${category}: ${pending.length} of ${items.length} stacks left after ${candidates.length} chest(s)`,
+      );
+    }
   }
 
   // AUTO-EXPANSION: the stash filled up with weeks of accumulated blocks and
@@ -1000,9 +1026,14 @@ export async function depositStash(
           // just made room for. Step adjacent, let the block settle, and retry
           // once before giving up.
           const container = await openNewChest(bot, placed);
+          // FRESH keep-counts for this second pass. Reusing the first pass's
+          // populated map means every reserve reads as already full, so the
+          // items kept in pass one (the only pickaxe, the food buffer) would
+          // fall through shouldKeep and be dumped into the new chest.
+          const expansionKept = new Map<string, number>();
           for (const item of bot.inventory.items()) {
             if (item.name === "chest") continue; // keep spare chests for next expansion
-            if (shouldKeep(item.name, keepItems, keptCounts, item.count)) continue;
+            if (shouldKeep(item.name, keepItems, expansionKept, item.count)) continue;
             try {
               await container.deposit(item.type, null, item.count);
               deposited += item.count;

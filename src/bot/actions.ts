@@ -41,6 +41,13 @@ export async function executeAction(bot: Bot, action: string, params: Record<str
     return executeActionInner(bot, action, params);
   }
 
+  // Direct actions here run concurrently with skills only when they're the
+  // brain's survival reflexes (flee, eat) — reactive events deliberately
+  // interrupt skills. Claim pathfinder ownership up front: without this bump
+  // the interrupted skill walk retried against the flee's goal in a 1s-cadence
+  // tug-of-war (2,750 retry lines in one 2h run).
+  bumpNavGeneration(bot);
+
   let timer: ReturnType<typeof setTimeout> | null = null;
   const timeout = new Promise<string>((resolve) => {
     timer = setTimeout(() => {
