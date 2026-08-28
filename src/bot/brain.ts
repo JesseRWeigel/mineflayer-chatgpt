@@ -901,11 +901,37 @@ export class BotBrain {
       // (withdraws stash cobble, crafts inline) — requiring one here meant
       // a toolless miner could never trigger the very push that would have
       // equipped him.
+      // Diamond leg: once a miner owns an iron+ pick, having iron is no
+      // longer a reason to stay home — the mission needs 3 diamonds and
+      // strip_mine already dives to y=-58 with that pick. Run 371 proved the
+      // gap: the iron push stood down (everyone had iron) and mining stopped
+      // COLD — one strip_mine start all run while Blade "explored" for
+      // diamonds on the surface.
+      const holdsIronPick = this.bot.inventory
+        .items()
+        .some((i) => i.name === "iron_pickaxe" || i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+      const diamonds = this.bot.inventory
+        .items()
+        .filter((i) => i.name === "diamond")
+        .reduce((s, i) => s + i.count, 0);
+      const hasDiamondPick = this.bot.inventory
+        .items()
+        .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+      const wantsDive = holdsIronPick && !hasDiamondPick && diamonds < 3;
       const cooledDown = Date.now() - this.lastIronOverrideMs > 180_000;
-      if (!hasIron && cooledDown) {
+      if ((!hasIron || wantsDive) && cooledDown) {
         this.lastIronOverrideMs = Date.now();
-        this.log.info("Brain", "OVERRIDE: no iron yet — running strip_mine for ore");
-        this.events.onThought("The deep calls. Time to carve for iron — pickaxe in hand, downward!");
+        this.log.info(
+          "Brain",
+          wantsDive
+            ? `OVERRIDE: iron pick + ${diamonds}/3 diamonds — diving to diamond depth`
+            : "OVERRIDE: no iron yet — running strip_mine for ore",
+        );
+        this.events.onThought(
+          wantsDive
+            ? "Iron pick in hand and diamonds waiting at the bottom of the world. DIVE."
+            : "The deep calls. Time to carve for iron — pickaxe in hand, downward!",
+        );
         const result = await executeAction(this.bot, "invoke_skill", { skill: "strip_mine" });
         this.events.onAction("strip_mine", result);
         this.lastAction = "strip_mine";
@@ -1012,11 +1038,32 @@ export class BotBrain {
       const hasIronPick = this.bot.inventory
         .items()
         .some((i) => i.name === "iron_pickaxe" || i.name === "diamond_pickaxe");
+      // Diamond tier, same shape: 3 diamonds + 2 sticks = the pickaxe that
+      // clears the portal doorway. craft_gear's tier loop prefers the best
+      // affordable pick, so invoking it with diamonds aboard mints it.
+      const diamondCount = this.bot.inventory
+        .items()
+        .filter((i) => i.name === "diamond")
+        .reduce((s, i) => s + i.count, 0);
+      const hasDiamondPickax = this.bot.inventory
+        .items()
+        .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+      const wantsIronPick = ingots >= 3 && !hasIronPick;
+      const wantsDiamondPick = diamondCount >= 3 && !hasDiamondPickax;
       const cooledDown = Date.now() - this.lastGearOverrideMs > 180_000;
-      if (ingots >= 3 && !hasIronPick && cooledDown) {
+      if ((wantsIronPick || wantsDiamondPick) && cooledDown) {
         this.lastGearOverrideMs = Date.now();
-        this.log.info("Brain", `OVERRIDE: ${ingots} iron ingots and no iron pickaxe — running craft_gear`);
-        this.events.onThought("Enough iron in my pack for a REAL pickaxe. To the crafting table!");
+        this.log.info(
+          "Brain",
+          wantsDiamondPick
+            ? `OVERRIDE: ${diamondCount} diamonds and no diamond pickaxe — running craft_gear`
+            : `OVERRIDE: ${ingots} iron ingots and no iron pickaxe — running craft_gear`,
+        );
+        this.events.onThought(
+          wantsDiamondPick
+            ? "THREE DIAMONDS. The doorway-clearing pickaxe gets crafted RIGHT NOW."
+            : "Enough iron in my pack for a REAL pickaxe. To the crafting table!",
+        );
         const result = await executeAction(this.bot, "invoke_skill", {
           skill: "craft_gear",
           stashPos: this.roleConfig.stashPos,
