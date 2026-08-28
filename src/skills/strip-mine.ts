@@ -189,7 +189,12 @@ export const stripMineSkill: Skill = {
           }
           bot.pathfinder.setMovements(moves);
           try {
-            await safeGoto(bot, new goals.GoalXZ(tx, tz), Math.max(15_000, hikeDeadline - Date.now()));
+            // 12s stall grace: run 377 lost 17 hike attempts to "Stuck" with
+            // ZERO goal-change kills — the stall detector fires after 5s of
+            // standing still, and computing a dig-enabled 70-block path takes
+            // longer than that (thinkTimeout alone is 10s). The grace period
+            // exists for exactly this; the hike never used it.
+            await safeGoto(bot, new goals.GoalXZ(tx, tz), Math.max(15_000, hikeDeadline - Date.now()), 12_000);
           } catch (err) {
             console.log(`[Skill] strip_mine hike attempt ${attempt + 1} failed: ${(err as Error).message}`);
             bot.pathfinder.stop();
@@ -205,11 +210,16 @@ export const stripMineSkill: Skill = {
         // tunnels of 3-18 blocks at y=67-73, zero at ore depth). Failing
         // honestly beats reporting "complete" on 5 mined blocks.
         if (hikeDist() < 40) {
+          // "again to continue" matches the RESUMABLE_PROTOCOL phrasing that
+          // marks this a precondition failure, not a skill bug — three of
+          // these honest aborts helped push strip_mine onto Forge's permanent
+          // broken-skills list in run 377, poisoning the LLM's skill ranking
+          // for the one skill the mission runs on.
           return {
             success: false,
             message:
-              `Couldn't reach fresh rock — still only ${hikeDist().toFixed(0)} blocks from the stash after two hikes ` +
-              `(blocked in or under attack). No point shafting the mined-out village ground; try strip_mine again in a bit.`,
+              `Couldn't reach fresh rock — still only ${hikeDist().toFixed(0)} blocks from the stash ` +
+              `(blocked in or under attack). No point shafting the mined-out village ground; run strip_mine again to continue.`,
           };
         }
       }
