@@ -22,7 +22,7 @@ export const stripMineSkill: Skill = {
   // The diamond run is a 150s-capped hike plus a ~130-block descent plus the
   // tunnel itself; 240s killed it mid-descent at y=-14 (run 370). Every phase
   // in here carries its own deadline, so the bigger envelope stays bounded.
-  timeoutMs: 480_000,
+  timeoutMs: 900_000,
 
   estimateMaterials(_bot, _params) {
     return {};
@@ -36,7 +36,7 @@ export const stripMineSkill: Skill = {
     // discarding whatever cargo was already pocketed. Ending the tunnel early
     // returns a normal completion report instead.
     const skillStart = Date.now();
-    const softExpired = () => Date.now() - skillStart > 440_000;
+    const softExpired = () => Date.now() - skillStart > 840_000;
 
     // Verify pickaxe — and SELF-SUPPLY one first, the house pattern.
     // Bouncing "use craft_gear first" back to the model lost whole hours:
@@ -339,7 +339,7 @@ export const stripMineSkill: Skill = {
       // Also capped against the whole-trip clock: a slow hike plus a full
       // 280s descent left zero tunnel time inside the 480s envelope. The
       // descent yields at least ~60s of tunneling wherever it got to.
-      const descentDeadline = Math.min(Date.now() + 280_000, skillStart + 380_000);
+      const descentDeadline = Math.min(Date.now() + 280_000, skillStart + 680_000);
       for (const [dx, dz] of SHIFTS) {
         if (Math.floor(bot.entity.position.y) <= targetY + 5 || signal.aborted) break;
         if (Date.now() > descentDeadline) {
