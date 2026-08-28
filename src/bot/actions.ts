@@ -223,7 +223,7 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
         const stashPos = params.stashPos;
         const keepItems = params.keepItems;
         if (!stashPos) return "No stash position configured.";
-        return await depositStash(bot, stashPos, keepItems ?? []);
+        return await depositStash(bot, stashPos, keepItems ?? [], params.materialReserve);
       }
       case "withdraw_stash": {
         const stashPos = params.stashPos;

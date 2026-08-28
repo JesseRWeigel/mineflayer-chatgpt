@@ -427,6 +427,11 @@ export function shouldKeep(
   /** How many items are in this stack. Defaults to 1 so callers that only know
    *  the name still behave as before. */
   itemCount = 1,
+  /** Ingot/diamond pocket reserve. The default assumes the bot can craft with
+   *  what it keeps; pass 0 for bots with no craft action or craft_gear skill —
+   *  Atlas carried 9 iron ingots for a day under the default reserve while
+   *  Forge sat at 2 of the 3 ingots the iron pickaxe needed. */
+  materialReserve = KEEP_MATERIAL_RESERVE,
 ): boolean {
   // ALWAYS keep valuable gear. Bots crafted iron tools (12 in one run) then
   // deposited them as "surplus" and re-ground iron forever, never advancing.
@@ -532,7 +537,7 @@ export function shouldKeep(
   const KEEP_MATERIALS = ["iron_ingot", "gold_ingot", "diamond"];
   if (KEEP_MATERIALS.includes(itemName)) {
     const kept = currentCounts.get("__materials") ?? 0;
-    if (kept < KEEP_MATERIAL_RESERVE) {
+    if (kept < materialReserve) {
       currentCounts.set("__materials", kept + itemCount);
       return true;
     }
@@ -634,6 +639,8 @@ export async function depositStash(
   bot: Bot,
   stashPos: { x: number; y: number; z: number },
   keepItems: { name: string; minCount: number }[],
+  /** See shouldKeep: 0 for bots that cannot craft, so their ingots pool. */
+  materialReserve = KEEP_MATERIAL_RESERVE,
 ): Promise<string> {
   // Walk to stash area
   const startPos = bot.entity.position.clone();
@@ -713,7 +720,7 @@ export async function depositStash(
   const byCategory = new Map<string, typeof itemsToDeposit>();
   const keptNames: string[] = [];
   for (const item of itemsToDeposit) {
-    if (shouldKeep(item.name, keepItems, keptCounts, item.count)) {
+    if (shouldKeep(item.name, keepItems, keptCounts, item.count, materialReserve)) {
       keptNames.push(item.name);
       continue;
     }
@@ -1045,7 +1052,7 @@ export async function depositStash(
           const expansionKept = new Map<string, number>();
           for (const item of bot.inventory.items()) {
             if (item.name === "chest") continue; // keep spare chests for next expansion
-            if (shouldKeep(item.name, keepItems, expansionKept, item.count)) continue;
+            if (shouldKeep(item.name, keepItems, expansionKept, item.count, materialReserve)) continue;
             try {
               await container.deposit(item.type, null, item.count);
               deposited += item.count;

@@ -1248,6 +1248,13 @@ export class BotBrain {
     if ((decision.action === "deposit_stash" || decision.action === "withdraw_stash") && this.roleConfig.stashPos) {
       normalizedParams.stashPos = this.roleConfig.stashPos;
       normalizedParams.keepItems = this.roleConfig.keepItems;
+      // The ingot pocket-reserve assumes the holder can craft with it. A bot
+      // with no craft action and no craft_gear skill (Atlas) just hoards:
+      // he carried 9 iron ingots for a day while the toolsmith sat 1 ingot
+      // short of the iron pickaxe. Non-crafters bank every ingot.
+      const canCraft =
+        this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
+      if (!canCraft) normalizedParams.materialReserve = 0;
     }
 
     // Protect the village site from being strip-mined into bot-trapping pits
