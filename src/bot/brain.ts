@@ -1335,6 +1335,14 @@ export class BotBrain {
       const canCraft =
         this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
       if (!canCraft) normalizedParams.materialReserve = 0;
+      // Same shape for pickaxes: the team's only iron pickaxe ended up kept
+      // by Blade, who has no mine_block and no strip_mine — the fleet's
+      // mining engine sat dark while a hunter carried its key. Non-miners
+      // bank every pick; miners keep only their best (computed in
+      // depositStash).
+      const canMine =
+        this.roleConfig.allowedActions.includes("mine_block") || this.roleConfig.allowedSkills.includes("strip_mine");
+      normalizedParams.canMine = canMine;
     }
 
     // Protect the village site from being strip-mined into bot-trapping pits

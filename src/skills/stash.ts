@@ -432,7 +432,24 @@ export function shouldKeep(
    *  Atlas carried 9 iron ingots for a day under the default reserve while
    *  Forge sat at 2 of the 3 ingots the iron pickaxe needed. */
   materialReserve = KEEP_MATERIAL_RESERVE,
+  /** Which pickaxe (if any) this bot should keep. undefined = legacy "keep
+   *  the first pickaxe seen", which is how the team's ONLY iron pickaxe got
+   *  banked from behind a stone pick in slot order and ended up stranded on
+   *  Blade, a bot with no mining ability (run 374). Pass the bot's best
+   *  pickaxe name to keep exactly that one, or null to bank them all. */
+  pickaxeKeep?: string | null,
 ): boolean {
+  // Explicit pickaxe policy trumps every blanket rule below, including the
+  // always-keep-iron-gear one — that blanket is what stranded the team's only
+  // iron pickaxe on a bot that cannot mine.
+  if (pickaxeKeep !== undefined && itemName.endsWith("_pickaxe")) {
+    if (pickaxeKeep === null || itemName !== pickaxeKeep) return false;
+    const kept = currentCounts.get("__pickaxe") ?? 0;
+    if (kept >= 1) return false;
+    currentCounts.set("__pickaxe", 1);
+    return true;
+  }
+
   // ALWAYS keep valuable gear. Bots crafted iron tools (12 in one run) then
   // deposited them as "surplus" and re-ground iron forever, never advancing.
   // A bot should never give up its iron/diamond/netherite tools or armor.
@@ -641,7 +658,23 @@ export async function depositStash(
   keepItems: { name: string; minCount: number }[],
   /** See shouldKeep: 0 for bots that cannot craft, so their ingots pool. */
   materialReserve = KEEP_MATERIAL_RESERVE,
+  /** Whether this bot can mine (mine_block action or strip_mine skill).
+   *  Non-miners bank every pickaxe; miners keep only their best one. */
+  canMine = true,
 ): Promise<string> {
+  const PICK_RANK: Record<string, number> = {
+    wooden_pickaxe: 0,
+    golden_pickaxe: 1,
+    stone_pickaxe: 1,
+    iron_pickaxe: 2,
+    diamond_pickaxe: 3,
+    netherite_pickaxe: 4,
+  };
+  const bestPick = bot.inventory
+    .items()
+    .filter((i) => i.name.endsWith("_pickaxe"))
+    .sort((a, b) => (PICK_RANK[b.name] ?? 0) - (PICK_RANK[a.name] ?? 0))[0];
+  const pickaxeKeep: string | null = canMine && bestPick ? bestPick.name : null;
   // Walk to stash area
   const startPos = bot.entity.position.clone();
   await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 30000);
@@ -720,7 +753,7 @@ export async function depositStash(
   const byCategory = new Map<string, typeof itemsToDeposit>();
   const keptNames: string[] = [];
   for (const item of itemsToDeposit) {
-    if (shouldKeep(item.name, keepItems, keptCounts, item.count, materialReserve)) {
+    if (shouldKeep(item.name, keepItems, keptCounts, item.count, materialReserve, pickaxeKeep)) {
       keptNames.push(item.name);
       continue;
     }
@@ -1052,7 +1085,7 @@ export async function depositStash(
           const expansionKept = new Map<string, number>();
           for (const item of bot.inventory.items()) {
             if (item.name === "chest") continue; // keep spare chests for next expansion
-            if (shouldKeep(item.name, keepItems, expansionKept, item.count, materialReserve)) continue;
+            if (shouldKeep(item.name, keepItems, expansionKept, item.count, materialReserve, pickaxeKeep)) continue;
             try {
               await container.deposit(item.type, null, item.count);
               deposited += item.count;
