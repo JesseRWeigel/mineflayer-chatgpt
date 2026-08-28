@@ -159,7 +159,10 @@ export async function runSkill(bot: Bot, skill: Skill, params: Record<string, an
   // indefinitely. Atlas + Flora were frozen ~13h inside a hung strip_mine.
   // Race the skill against a hard timeout that force-stops movement and RETURNS,
   // freeing the brain regardless of what the skill's internal await is doing.
-  const MAX_SKILL_MS = 240_000;
+  // Skills may declare a longer budget (strip_mine's diamond run is a
+  // hike + 130-block descent + tunnel and died at 240s mid-journey in run
+  // 370, y=-14 of -58); every phase inside such skills is itself time-boxed.
+  const MAX_SKILL_MS = skill.timeoutMs ?? 240_000;
   let watchdog: ReturnType<typeof setTimeout> | null = null;
   const timeoutPromise = new Promise<{ success: boolean; message: string }>((resolve) => {
     watchdog = setTimeout(() => {

@@ -39,6 +39,11 @@ export interface Skill {
   name: string;
   description: string;
   params: Record<string, { type: string; description: string }>;
+  /** Override for the executor's hard watchdog (default 240s). Only for
+   *  skills whose internal phases are each time-boxed — the watchdog is the
+   *  last line against a hung await, so an override must never mean
+   *  "unbounded", just "this journey is legitimately longer". */
+  timeoutMs?: number;
 
   /** Estimate raw materials needed. Called before execution for the gathering phase. */
   estimateMaterials(bot: Bot, params: Record<string, any>): Record<string, number>;

@@ -19,6 +19,10 @@ export const stripMineSkill: Skill = {
   description:
     "Dig a mining tunnel for ores. Staircases down to Y=11 if needed, then mines 30 blocks horizontally with torch lighting. Requires a pickaxe.",
   params: {},
+  // The diamond run is a 150s-capped hike plus a ~130-block descent plus the
+  // tunnel itself; 240s killed it mid-descent at y=-14 (run 370). Every phase
+  // in here carries its own deadline, so the bigger envelope stays bounded.
+  timeoutMs: 480_000,
 
   estimateMaterials(_bot, _params) {
     return {};
@@ -241,8 +245,11 @@ export const stripMineSkill: Skill = {
       // which blew straight past the 240s skill watchdog and turned the
       // retry fix into a stall generator (4 strip_mine watchdog kills the
       // hour it shipped). Whatever depth is reached when the box closes,
-      // the tunnel runs there.
-      const descentDeadline = Date.now() + 140_000;
+      // the tunnel runs there. 280s now that the skill envelope is 480s:
+      // the iron-pick dive is ~130 blocks (y≈70 to -58) and the 140s box
+      // was closing mid-dive; the deeper box still leaves the envelope
+      // ~200s for the tunnel and pickups.
+      const descentDeadline = Date.now() + 280_000;
       for (const [dx, dz] of SHIFTS) {
         if (Math.floor(bot.entity.position.y) <= targetY + 5 || signal.aborted) break;
         if (Date.now() > descentDeadline) {
