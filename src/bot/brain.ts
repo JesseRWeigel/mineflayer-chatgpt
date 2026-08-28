@@ -159,6 +159,7 @@ export class BotBrain {
   private lastIronOverrideMs = 0;
   private lastGearOverrideMs = 0;
   private lastLightOverrideMs = 0;
+  private lastSmeltOverrideMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -954,6 +955,40 @@ export class BotBrain {
           { action: "light_area", params: {} },
           result,
           /placed|torch/i.test(result),
+        );
+        return;
+      }
+    }
+
+    // Smelt override — the rung between mined and craftable. The first
+    // end-to-end iron arrived in run 364, and in run 365 Forge stood holding
+    // raw iron while the model tried to convert it with CRAFT twice ("Can't
+    // craft iron_ingot — need: iron_nugget"); craft cannot smelt, and
+    // smelt_ores was never chosen. Raw metal in hand plus the skill = smelt
+    // now. smelt_ores already handles furnace, fuel, and stash withdrawal.
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("smelt_ores") &&
+      !isSkillRunning(this.bot)
+    ) {
+      const rawMetal = this.bot.inventory
+        .items()
+        .filter((i) => i.name === "raw_iron" || i.name === "raw_gold" || i.name === "raw_copper")
+        .reduce((s, i) => s + i.count, 0);
+      const cooledDown = Date.now() - this.lastSmeltOverrideMs > 300_000;
+      if (rawMetal >= 1 && cooledDown) {
+        this.lastSmeltOverrideMs = Date.now();
+        this.log.info("Brain", `OVERRIDE: ${rawMetal} raw metal aboard — running smelt_ores`);
+        this.events.onThought("Raw ore does nothing in a pocket. To the furnace!");
+        const result = await executeAction(this.bot, "invoke_skill", { skill: "smelt_ores" });
+        this.events.onAction("smelt_ores", result);
+        this.lastAction = "smelt_ores";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:smelt_ores",
+          { action: "smelt_ores", params: {} },
+          result,
+          /smelted|ingot/i.test(result),
         );
         return;
       }
