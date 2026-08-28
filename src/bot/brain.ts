@@ -1033,9 +1033,34 @@ export class BotBrain {
       // Diamonds too: a non-miner can never dig the rest of a 3-set, so a
       // diamond in his pocket is dead capital (Blade's sat there five runs).
       const holdsDiamond = this.bot.inventory.items().some((i) => i.name === "diamond");
-      const cooledDown = Date.now() - this.lastToolReturnMs > 600_000;
+      // 5min, down from 10: every attempt is a lottery ticket on a quiet
+      // window between mob waves — run 380 got five tickets and no winner.
+      const cooledDown = Date.now() - this.lastToolReturnMs > 300_000;
       if (!canMine && (holdsPick || holdsDiamond) && cooledDown) {
         this.lastToolReturnMs = Date.now();
+        // FAST PATH: toss to a visible miner. Blade's five stash errands in
+        // run 380 all died to combat interruption (150s of walk plus chest
+        // work never fits between pillager attacks) — but a hand-off to a
+        // miner standing in the village is a 3-block walk and one throw.
+        const minerNames = BOT_ROSTER.filter(
+          (r) => r.allowedActions.includes("mine_block") || r.allowedSkills.includes("strip_mine"),
+        ).map((r) => r.name);
+        const nearbyMiner = minerNames.find((n) => {
+          const e = this.bot.players[n]?.entity;
+          return e && this.bot.entity.position.distanceTo(e.position) < 24;
+        });
+        if (nearbyMiner) {
+          const itemToGive = holdsDiamond
+            ? "diamond"
+            : (this.bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"))?.name ?? "diamond");
+          this.log.info("Brain", `OVERRIDE: handing ${itemToGive} to ${nearbyMiner} (miner nearby)`);
+          this.events.onThought(`${nearbyMiner} can actually use this. Here, catch!`);
+          const result = await executeAction(this.bot, "give_item", { to: nearbyMiner, item: itemToGive, count: 64 });
+          this.events.onAction("give_item", result);
+          this.lastAction = "give_item";
+          this.lastResult = result;
+          return;
+        }
         this.log.info("Brain", "OVERRIDE: non-miner carrying mining assets — returning them to the stash");
         this.events.onThought("This belongs in a miner's hands. Back to the stash it goes.");
         const canCraft =
