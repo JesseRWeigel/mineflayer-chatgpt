@@ -29,6 +29,15 @@ export const stripMineSkill: Skill = {
   },
 
   async execute(bot, _params, signal, onProgress): Promise<SkillResult> {
+    // Soft deadline UNDER the 480s watchdog. The phase budget was
+    // overcommitted: deposit + withdrawals + 150s hike + 280s descent leaves
+    // nothing for a tunnel whose 40 steps each carry a dig plus a 3s pickup
+    // sweep — run 382 lost ELEVEN trips as 480s watchdog kills, every one
+    // discarding whatever cargo was already pocketed. Ending the tunnel early
+    // returns a normal completion report instead.
+    const skillStart = Date.now();
+    const softExpired = () => Date.now() - skillStart > 440_000;
+
     // Verify pickaxe — and SELF-SUPPLY one first, the house pattern.
     // Bouncing "use craft_gear first" back to the model lost whole hours:
     // the advice was read, echoed, and wandered away from, and craft_gear
@@ -308,7 +317,10 @@ export const stripMineSkill: Skill = {
       // the iron-pick dive is ~130 blocks (y≈70 to -58) and the 140s box
       // was closing mid-dive; the deeper box still leaves the envelope
       // ~200s for the tunnel and pickups.
-      const descentDeadline = Date.now() + 280_000;
+      // Also capped against the whole-trip clock: a slow hike plus a full
+      // 280s descent left zero tunnel time inside the 480s envelope. The
+      // descent yields at least ~60s of tunneling wherever it got to.
+      const descentDeadline = Math.min(Date.now() + 280_000, skillStart + 380_000);
       for (const [dx, dz] of SHIFTS) {
         if (Math.floor(bot.entity.position.y) <= targetY + 5 || signal.aborted) break;
         if (Date.now() > descentDeadline) {
@@ -348,6 +360,10 @@ export const stripMineSkill: Skill = {
     });
 
     for (let step = 0; step < TUNNEL_LENGTH && !signal.aborted; step++) {
+      if (softExpired()) {
+        console.log(`[Skill] strip_mine soft deadline at step ${step} — ending tunnel with cargo aboard`);
+        break;
+      }
       const pos = bot.entity.position.floored();
 
       // Dig 2 blocks ahead: foot level and head level
