@@ -80,6 +80,23 @@ export const stripMineSkill: Skill = {
     // a stone-pick bot can harvest nothing down there and should be mining
     // IRON at y=16 to tier up first. The steering text flips the depth back
     // when the mission moves on.
+    // Reclaim a banked upgrade first. The tool-return reflex banks picks that
+    // wandered to non-miners (Blade held the team's only iron pick through
+    // runs 374-375); a stone-pick miner would otherwise grind iron at y=15
+    // while a better pick sits in a chest ten steps away.
+    if (!signal.aborted && !bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2)) {
+      const { withdrawStash } = await import("./stash.js");
+      const { STASH_POS: SP } = await import("../bot/role.js");
+      for (const want of ["diamond_pickaxe", "iron_pickaxe"]) {
+        try {
+          await withdrawStash(bot, SP, want, 1);
+        } catch {
+          /* none banked — craft path below still applies */
+        }
+        if (bot.inventory.items().some((i) => i.name === want)) break;
+      }
+    }
+
     const hasIronPick = bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2);
     // -58, corrected from -53 after the mechanics research: diamond peaks at
     // y=-58/-59 and the accepted practice is mining the peak band with a

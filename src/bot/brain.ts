@@ -161,6 +161,7 @@ export class BotBrain {
   private lastLightOverrideMs = 0;
   private lastSmeltOverrideMs = 0;
   private lastPortalOverrideMs = 0;
+  private lastToolReturnMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1015,6 +1016,36 @@ export class BotBrain {
           result,
           /lit|ignit|portal|cleared|complete/i.test(result),
         );
+        return;
+      }
+    }
+
+    // Tool-return reflex. The best-pickaxe deposit policy (c01bf0d) only
+    // works if the holder ever visits the stash, and Blade — carrying the
+    // team's only iron pickaxe he cannot swing — chose deposit_stash zero
+    // times in run 375 (it isn't even in his action list, so the model
+    // could not have picked it). A non-miner holding any pickaxe walks it
+    // back; depositStash's canMine=false banks every pick he carries.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.roleConfig.stashPos) {
+      const canMine =
+        this.roleConfig.allowedActions.includes("mine_block") || this.roleConfig.allowedSkills.includes("strip_mine");
+      const holdsPick = this.bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
+      const cooledDown = Date.now() - this.lastToolReturnMs > 600_000;
+      if (!canMine && holdsPick && cooledDown) {
+        this.lastToolReturnMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: non-miner carrying a pickaxe — returning tools to the stash");
+        this.events.onThought("This pickaxe belongs in a miner's hands. Back to the stash it goes.");
+        const canCraft =
+          this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
+        const result = await executeAction(this.bot, "deposit_stash", {
+          stashPos: this.roleConfig.stashPos,
+          keepItems: this.roleConfig.keepItems,
+          ...(canCraft ? {} : { materialReserve: 0 }),
+          canMine: false,
+        });
+        this.events.onAction("deposit_stash", result);
+        this.lastAction = "deposit_stash";
+        this.lastResult = result;
         return;
       }
     }
