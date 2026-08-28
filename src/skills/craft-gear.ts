@@ -260,6 +260,28 @@ export const craftGearSkill: Skill = {
       }
     }
 
+    // Logs are not planks. Run 378: bots stood at the table with 8 logs and
+    // 62 sticks, planks=0, and every pickaxe tier read recipe=NO — a wooden
+    // pick needs 3 PLANKS and recipesFor only sees what is already in the
+    // inventory. Convert a couple of logs up front; 2 logs = 8 planks covers
+    // a wooden pick plus the handle sticks.
+    if (!signal.aborted) {
+      const planksHeld = bot.inventory
+        .items()
+        .filter((i) => i.name.endsWith("_planks"))
+        .reduce((s, i) => s + i.count, 0);
+      const logHeld = bot.inventory.items().find((i) => i.name.endsWith("_log"));
+      if (planksHeld < 6 && logHeld) {
+        const plankDef = mcData.itemsByName[logHeld.name.replace("_log", "_planks")];
+        const recipe = plankDef && bot.recipesFor(plankDef.id, null, 1, null)[0];
+        if (recipe) {
+          await bot.craft(recipe, Math.min(2, logHeld.count), undefined).catch((e) => {
+            console.log(`[GearDebug] log->planks craft failed: ${(e as Error).message}`);
+          });
+        }
+      }
+    }
+
     // Ensure we have sticks (need at least 8 for a full set)
     await ensureSticks(bot, 8, signal);
 
