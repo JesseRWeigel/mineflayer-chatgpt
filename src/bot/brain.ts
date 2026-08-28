@@ -1029,21 +1029,32 @@ export class BotBrain {
     if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.roleConfig.stashPos) {
       const canMine =
         this.roleConfig.allowedActions.includes("mine_block") || this.roleConfig.allowedSkills.includes("strip_mine");
+      const roleCanCraft =
+        this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
       const holdsPick = this.bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
-      // Diamonds too: a non-miner can never dig the rest of a 3-set, so a
-      // diamond in his pocket is dead capital (Blade's sat there five runs).
+      // Diamonds pool only in a crafter-miner's pocket. Blade's toss landed
+      // the stone on ATLAS (run 381) — who can mine but not craft and has no
+      // strip_mine, so it was just a different dead end; the old !canMine
+      // guard never fired for him. A diamond leaves any bot that cannot
+      // complete the set itself.
       const holdsDiamond = this.bot.inventory.items().some((i) => i.name === "diamond");
+      const wantsReturn = (holdsPick && !canMine) || (holdsDiamond && !(canMine && roleCanCraft));
       // 5min, down from 10: every attempt is a lottery ticket on a quiet
       // window between mob waves — run 380 got five tickets and no winner.
       const cooledDown = Date.now() - this.lastToolReturnMs > 300_000;
-      if (!canMine && (holdsPick || holdsDiamond) && cooledDown) {
+      if (wantsReturn && cooledDown) {
         this.lastToolReturnMs = Date.now();
         // FAST PATH: toss to a visible miner. Blade's five stash errands in
         // run 380 all died to combat interruption (150s of walk plus chest
         // work never fits between pillager attacks) — but a hand-off to a
         // miner standing in the village is a 3-block walk and one throw.
+        // Crafter-miners only: the first live toss went to Atlas, a plain
+        // miner who can never craft the pickaxe — a different pocket, same
+        // dead end. Forge and Mason are where a diamond becomes a tool.
         const minerNames = BOT_ROSTER.filter(
-          (r) => r.allowedActions.includes("mine_block") || r.allowedSkills.includes("strip_mine"),
+          (r) =>
+            (r.allowedActions.includes("mine_block") || r.allowedSkills.includes("strip_mine")) &&
+            (r.allowedActions.includes("craft") || r.allowedSkills.includes("craft_gear")),
         ).map((r) => r.name);
         const nearbyMiner = minerNames.find((n) => {
           const e = this.bot.players[n]?.entity;
@@ -1061,15 +1072,16 @@ export class BotBrain {
           this.lastResult = result;
           return;
         }
-        this.log.info("Brain", "OVERRIDE: non-miner carrying mining assets — returning them to the stash");
-        this.events.onThought("This belongs in a miner's hands. Back to the stash it goes.");
-        const canCraft =
-          this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
+        this.log.info("Brain", "OVERRIDE: carrying mining assets this role can't use — returning them to the stash");
+        this.events.onThought("This belongs in a crafter-miner's hands. Back to the stash it goes.");
+        // Honest capability flags: Atlas (a plain miner banking a diamond)
+        // still keeps his best pickaxe; the reserve-zero override is what
+        // sends the diamond to the chest.
         const result = await executeAction(this.bot, "deposit_stash", {
           stashPos: this.roleConfig.stashPos,
           keepItems: this.roleConfig.keepItems,
-          ...(canCraft ? {} : { materialReserve: 0 }),
-          canMine: false,
+          ...(roleCanCraft && canMine ? {} : { materialReserve: 0 }),
+          canMine,
         });
         this.events.onAction("deposit_stash", result);
         this.lastAction = "deposit_stash";
