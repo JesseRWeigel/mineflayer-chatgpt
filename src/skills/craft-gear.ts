@@ -81,6 +81,15 @@ export const craftGearSkill: Skill = {
     const total = TOOL_TYPES.length;
     let done = 0;
 
+    // Optional caller-imposed deadline. strip_mine's inline gear-up call was
+    // blocking for the mining trip's entire 480s envelope on bad days (tree
+    // hunts, cobble digs, deaths mid-errand) — runs 383-384 lost 33 trips to
+    // watchdog kills that all began inside this function. Past the deadline,
+    // each phase is skipped and whatever was crafted so far is returned.
+    const deadlineMs = (params as { deadlineMs?: number } | undefined)?.deadlineMs;
+    const gearDeadline = deadlineMs ? Date.now() + deadlineMs : Infinity;
+    const gearExpired = () => Date.now() > gearDeadline;
+
     // Pull iron ingots from the shared stash before crafting (the stash is the
     // team warehouse — use it). The smelter deposits ingots; whoever crafts
     // withdraws them. Without this, craft_gear only ever found enough materials
@@ -135,7 +144,7 @@ export const craftGearSkill: Skill = {
       }
       if (!hasWood()) {
         const { safeGoto, collectNearbyDrops } = await import("../bot/navigation.js");
-        for (let t = 0; t < 2 && !signal.aborted && !hasWood(); t++) {
+        for (let t = 0; t < 2 && !signal.aborted && !hasWood() && !gearExpired(); t++) {
           let logBlock = bot.findBlock({ matching: (b) => b.name.endsWith("_log"), maxDistance: 64 });
           if (!logBlock) break;
           // Walk to the trunk BASE (canopy-branch lesson) and skip floaters.
@@ -180,7 +189,7 @@ export const craftGearSkill: Skill = {
     // the pack; one withdrawal unlocks the stone pick and the whole mining
     // ladder behind it.
     const hasCobbleFor = () => bot.inventory.items().some((i) => i.name === "cobblestone" && i.count >= 3);
-    if (!signal.aborted && !hasCobbleFor() && stashPos) {
+    if (!signal.aborted && !gearExpired() && !hasCobbleFor() && stashPos) {
       const { withdrawStash } = await import("./stash.js");
       try {
         await withdrawStash(bot, stashPos, "cobblestone", 8);
@@ -232,7 +241,7 @@ export const craftGearSkill: Skill = {
     // Crafting the chestplate before tools routes the bot's handful of iron to
     // survival gear first; tools still get crafted after (and stone fallbacks
     // cover most tasks). The brain's auto-equip timer then wears it.
-    if (!signal.aborted) {
+    if (!signal.aborted && !gearExpired()) {
       const ingots = bot.inventory
         .items()
         .filter((i) => i.name === "iron_ingot")
@@ -286,7 +295,7 @@ export const craftGearSkill: Skill = {
     await ensureSticks(bot, 8, signal);
 
     for (const toolType of TOOL_TYPES) {
-      if (signal.aborted) break;
+      if (signal.aborted || gearExpired()) break;
 
       done++;
       onProgress({
@@ -410,7 +419,7 @@ export const craftGearSkill: Skill = {
 
     // --- Craft ARMOR (iron/diamond) — the brain's auto-equip timer wears it ---
     for (const piece of ARMOR_TYPES) {
-      if (signal.aborted) break;
+      if (signal.aborted || gearExpired()) break;
       for (const tier of ARMOR_TIERS) {
         // Diamonds are pickaxe-only until the diamond pickaxe exists. This
         // loop tries diamond first, and it's how Forge's FOUR dive diamonds

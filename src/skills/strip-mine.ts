@@ -45,7 +45,9 @@ export const stripMineSkill: Skill = {
     let pickaxe = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
     if (!pickaxe) {
       const { craftGearSkill } = await import("./craft-gear.js");
-      await craftGearSkill.execute(bot, {}, signal, onProgress).catch(() => {});
+      // 180s cap: runs 383-384 lost 33 trips to watchdog kills that all began
+      // inside this call — an unbounded gear-up eats the whole trip envelope.
+      await craftGearSkill.execute(bot, { deadlineMs: 180_000 }, signal, onProgress).catch(() => {});
       pickaxe = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
     }
     if (!pickaxe) {
