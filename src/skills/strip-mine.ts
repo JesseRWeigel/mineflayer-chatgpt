@@ -54,6 +54,17 @@ export const stripMineSkill: Skill = {
         message: "Need a pickaxe and could not craft one — stash is out of cobblestone or sticks.",
       };
     }
+    // The soft deadline only guarded the tunnel loop, but run 383's FIFTEEN
+    // watchdog kills all died before the first hike progress line — the
+    // inline gear-up (tree chopping, cobble mining, deaths mid-errand) can
+    // eat the whole envelope on a bad day. Bail honestly at each phase
+    // boundary instead of letting the watchdog discard the trip.
+    if (softExpired()) {
+      return {
+        success: false,
+        message: "Trip clock ran out while gearing up — run strip_mine again to continue.",
+      };
+    }
 
     let mined = 0;
     let oreChases = 0;
@@ -187,6 +198,12 @@ export const stripMineSkill: Skill = {
       const { STASH_POS } = await import("../bot/role.js");
       const p = bot.entity.position;
       const nearStash = Math.hypot(p.x - STASH_POS.x, p.z - STASH_POS.z) < 50;
+      if (softExpired()) {
+        return {
+          success: false,
+          message: "Trip clock ran out before the hike — run strip_mine again to continue.",
+        };
+      }
       if (nearStash && !signal.aborted) {
         const tx = Math.floor(p.x + forward.x * 70);
         const tz = Math.floor(p.z + forward.z * 70);
