@@ -5,7 +5,6 @@ import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
 import { baseMoves, collectNearbyDrops, safeGoto } from "../bot/navigation.js";
 import { digDownTo } from "./descend.js";
-import { getSeasonGoal } from "../bot/memory.js";
 
 const TUNNEL_LENGTH = 40;
 const TORCH_INTERVAL = 6;
@@ -82,7 +81,13 @@ export const stripMineSkill: Skill = {
     // y=-58/-59 and the accepted practice is mining the peak band with a
     // water bucket for lava (common at -54 and below) — the kits carry one,
     // and the tunnel already stops at breached fluids.
-    const targetY = hasIronPick && /diamond/i.test(getSeasonGoal() ?? "") ? -58 : TARGET_Y;
+    // Depth follows the TOOL alone. This also tested the season-goal text for
+    // "diamond", but that read the singleton chat-goal — the per-role mission
+    // text where the word actually lives never reaches this function, so the
+    // flip could never fire. The tool is the real gate anyway: an iron pick
+    // legally harvests diamond ore, iron shows up on the way down regardless,
+    // and the whole Nether arc is waiting on 3 diamonds.
+    const targetY = hasIronPick ? -58 : TARGET_Y;
 
     // Snap to nearest cardinal direction — but never TOWARD the portal
     // quarry. Bots at the stash face the portal (they commute there), and
