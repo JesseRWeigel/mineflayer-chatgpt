@@ -277,17 +277,13 @@ export const craftGearSkill: Skill = {
 
       // Try each tier from best to worst
       for (const tier of TIERS) {
-        // RESERVE metal for the pickaxe: an iron ingot went into an iron
-        // SHOVEL while the diamond ladder was starving for the three ingots
-        // an iron pickaxe costs. Until an iron-or-better pickaxe exists,
-        // iron and diamond stay pickaxe-only; other tools cap at stone.
-        if (
-          (tier.name === "iron" || tier.name === "diamond") &&
-          toolType !== "pickaxe" &&
-          !bot.inventory.items().some((i) => (PICK_PRIORITY[i.name] ?? 0) >= 2)
-        ) {
-          continue;
-        }
+        // RESERVE metal for the pickaxe, per tier: iron stays pickaxe-only
+        // until an iron+ pick exists, and diamond stays pickaxe-only until a
+        // DIAMOND pick exists. The old check released BOTH metals once the
+        // iron pick landed, which let dive diamonds leak into lesser tools.
+        const bestPick = bot.inventory.items().reduce((best, i) => Math.max(best, PICK_PRIORITY[i.name] ?? 0), 0);
+        if (tier.name === "iron" && toolType !== "pickaxe" && bestPick < 2) continue;
+        if (tier.name === "diamond" && toolType !== "pickaxe" && bestPick < 3) continue;
         const itemName = `${tier.name}_${toolType}`;
         const mcItem = mcData.itemsByName[itemName];
         if (!mcItem) continue;
@@ -380,6 +376,13 @@ export const craftGearSkill: Skill = {
     for (const piece of ARMOR_TYPES) {
       if (signal.aborted) break;
       for (const tier of ARMOR_TIERS) {
+        // Diamonds are pickaxe-only until the diamond pickaxe exists. This
+        // loop tries diamond first, and it's how Forge's FOUR dive diamonds
+        // became diamond_boots (run 372) while the portal doorway kept
+        // waiting on a pick — the whole mission stalled for a pair of shoes.
+        if (tier === "diamond" && !bot.inventory.items().some((i) => (PICK_PRIORITY[i.name] ?? 0) >= 3)) {
+          continue;
+        }
         const itemName = `${tier}_${piece}`;
         const mcItem = mcData.itemsByName[itemName];
         if (!mcItem) continue;
