@@ -271,6 +271,22 @@ export const smeltOresSkill: Skill = {
           new Promise((_, rej) => setTimeout(() => rej(new Error("openFurnace timeout")), 10000)),
         ])) as Awaited<ReturnType<typeof bot.openFurnace>>;
 
+        // Clear jammed slots first. "destination full" killed the 10-raw-iron
+        // batch in run 367: the shared village furnace held someone's old
+        // output plus leftovers in the input/fuel slots, putInput threw, and
+        // the whole load went unsmelted. Reclaim whatever is in the way —
+        // output always (it's free ingots), input/fuel only when they hold
+        // something this batch can't use.
+        try {
+          if (furnace.outputItem()) await furnace.takeOutput();
+          const jammedInput = furnace.inputItem();
+          if (jammedInput && jammedInput.name !== batch.itemName) await furnace.takeInput();
+          const jammedFuel = furnace.fuelItem();
+          if (jammedFuel && !FUEL_ITEMS.includes(jammedFuel.name)) await furnace.takeFuel();
+        } catch {
+          /* best effort — the puts below report anything still stuck */
+        }
+
         // Put fuel first
         const fuelItem = bot.inventory.items().find((i) => FUEL_ITEMS.includes(i.name));
         if (fuelItem) {
