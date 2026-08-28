@@ -68,6 +68,15 @@ export const stripMineSkill: Skill = {
       };
     }
 
+    // Hard cap on any single stash operation. Run 386 lost 43 trips to 900s
+    // watchdog kills all stuck at "(0%)": depositStash/withdrawStash have no
+    // internal deadline — 61 chests, per-chest walks and 10s container opens,
+    // mob interruptions — and a blocking await is immune to the boundary
+    // clocks. The raced-out operation finishes as a short-lived zombie; the
+    // nav generation counter keeps its walks from contesting the trip.
+    const raced = async <T>(p: Promise<T>, ms: number, label: string): Promise<T | string> =>
+      Promise.race([p, new Promise<string>((r) => setTimeout(() => r(`${label} timed out after ${ms / 1000}s`), ms))]);
+
     let mined = 0;
     let oreChases = 0;
     const oresFound: string[] = [];
@@ -90,7 +99,11 @@ export const stripMineSkill: Skill = {
           { name: "cobblestone", minCount: 8 },
           { name: "stick", minCount: 4 },
         ];
-        const banked = await depositStash(bot, STASH_POS, keep).catch((e) => `deposit failed: ${e.message}`);
+        const banked = await raced(
+          depositStash(bot, STASH_POS, keep).catch((e) => `deposit failed: ${e.message}`),
+          120_000,
+          "pre-mine deposit",
+        );
         console.log(`[Skill] strip_mine pre-mine deposit (${freeSlots} slots were free): ${banked}`);
       }
     }
@@ -123,7 +136,7 @@ export const stripMineSkill: Skill = {
       const { STASH_POS: SP } = await import("../bot/role.js");
       for (const want of ["diamond_pickaxe", "iron_pickaxe"]) {
         try {
-          await withdrawStash(bot, SP, want, 1);
+          await raced(withdrawStash(bot, SP, want, 1), 60_000, "pick reclaim");
         } catch {
           /* none banked — craft path below still applies */
         }
@@ -144,7 +157,7 @@ export const stripMineSkill: Skill = {
         const { withdrawStash } = await import("./stash.js");
         const { STASH_POS: SP } = await import("../bot/role.js");
         try {
-          await withdrawStash(bot, SP, "diamond", 3 - diamondsHeld);
+          await raced(withdrawStash(bot, SP, "diamond", 3 - diamondsHeld), 60_000, "diamond pool");
         } catch {
           /* none banked yet */
         }
