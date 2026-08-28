@@ -288,8 +288,22 @@ export const craftGearSkill: Skill = {
         const mcItem = mcData.itemsByName[itemName];
         if (!mcItem) continue;
 
-        // Check if we already have this or better
-        const have = bot.inventory.items().find((i) => i.name === itemName);
+        // Check if we already have this or better. A nearly-dead pickaxe does
+        // NOT count: run 376's iron pick died of durability mid-dive, and the
+        // recraft the brain ordered would have been declined here as "already
+        // had". 150 uses is the floor a dive needs.
+        const TOOL_MAX_DURABILITY: Record<string, number> = {
+          iron_pickaxe: 250,
+          diamond_pickaxe: 1561,
+          netherite_pickaxe: 2031,
+        };
+        const have = bot.inventory
+          .items()
+          .find(
+            (i) =>
+              i.name === itemName &&
+              (toolType !== "pickaxe" || (TOOL_MAX_DURABILITY[i.name] ?? Infinity) - (i.durabilityUsed ?? 0) >= 150),
+          );
         if (have) {
           crafted.push(`${itemName} (already had)`);
           break;

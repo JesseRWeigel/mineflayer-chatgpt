@@ -1099,9 +1099,17 @@ export class BotBrain {
         .items()
         .filter((i) => i.name === "iron_ingot")
         .reduce((s, i) => s + i.count, 0);
+      // Wear-aware: an iron pick with under 150 uses left dies mid-dive (250
+      // total, a descent alone costs ~130 — run 376 lost its pick that way),
+      // so a nearly-dead pick counts as no pick and the crafter re-mints.
+      const PICK_MAX: Record<string, number> = { iron_pickaxe: 250, diamond_pickaxe: 1561 };
       const hasIronPick = this.bot.inventory
         .items()
-        .some((i) => i.name === "iron_pickaxe" || i.name === "diamond_pickaxe");
+        .some(
+          (i) =>
+            (i.name === "iron_pickaxe" || i.name === "diamond_pickaxe") &&
+            (PICK_MAX[i.name] ?? 250) - (i.durabilityUsed ?? 0) >= 150,
+        );
       // Diamond tier, same shape: 3 diamonds + 2 sticks = the pickaxe that
       // clears the portal doorway. craft_gear's tier loop prefers the best
       // affordable pick, so invoking it with diamonds aboard mints it.

@@ -83,8 +83,20 @@ export const stripMineSkill: Skill = {
     // Reclaim a banked upgrade first. The tool-return reflex banks picks that
     // wandered to non-miners (Blade held the team's only iron pick through
     // runs 374-375); a stone-pick miner would otherwise grind iron at y=15
-    // while a better pick sits in a chest ten steps away.
-    if (!signal.aborted && !bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2)) {
+    // while a better pick sits in a chest ten steps away. A WORN iron+ pick
+    // counts as missing: run 376's pick died of durability mid-run — dives
+    // went from 28-block tunnels at -58 to "never reached ore depth (y=15)"
+    // — and an iron pick's 250 uses barely cover one descent plus tunnel.
+    const PICK_MAX_DURABILITY: Record<string, number> = {
+      iron_pickaxe: 250,
+      diamond_pickaxe: 1561,
+      netherite_pickaxe: 2031,
+    };
+    const ironPlusPicks = bot.inventory.items().filter((i) => (PICK_TIER[i.name] ?? 0) >= 2);
+    const freshIronPlus = ironPlusPicks.some(
+      (i) => (PICK_MAX_DURABILITY[i.name] ?? 250) - (i.durabilityUsed ?? 0) >= 150,
+    );
+    if (!signal.aborted && !freshIronPlus) {
       const { withdrawStash } = await import("./stash.js");
       const { STASH_POS: SP } = await import("../bot/role.js");
       for (const want of ["diamond_pickaxe", "iron_pickaxe"]) {
