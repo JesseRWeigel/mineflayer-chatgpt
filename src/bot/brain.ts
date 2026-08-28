@@ -160,6 +160,7 @@ export class BotBrain {
   private lastGearOverrideMs = 0;
   private lastLightOverrideMs = 0;
   private lastSmeltOverrideMs = 0;
+  private lastPortalOverrideMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -981,6 +982,38 @@ export class BotBrain {
           { action: "light_area", params: {} },
           result,
           /placed|torch/i.test(result),
+        );
+        return;
+      }
+    }
+
+    // Portal-breach override — the last rung of the whole Nether arc. Forge's
+    // mission text stops at "craft a diamond_pickaxe" and no reflex sent the
+    // finished pick anywhere: the doorway at 278,14,-243 would have waited on
+    // the model to volunteer. Diamond pick + the portal skill = go clear it.
+    // build_nether_portal handles the interior obsidian, ignition, and entry.
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("build_nether_portal") &&
+      !isSkillRunning(this.bot)
+    ) {
+      const holdsDoorwayPick = this.bot.inventory
+        .items()
+        .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+      const cooledDown = Date.now() - this.lastPortalOverrideMs > 300_000;
+      if (holdsDoorwayPick && cooledDown) {
+        this.lastPortalOverrideMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: diamond pickaxe in hand — running build_nether_portal");
+        this.events.onThought("The pick that opens the Nether is in my hand. To the doorway!");
+        const result = await executeAction(this.bot, "invoke_skill", { skill: "build_nether_portal" });
+        this.events.onAction("build_nether_portal", result);
+        this.lastAction = "build_nether_portal";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:build_nether_portal",
+          { action: "build_nether_portal", params: {} },
+          result,
+          /lit|ignit|portal|cleared|complete/i.test(result),
         );
         return;
       }
