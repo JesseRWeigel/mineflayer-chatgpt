@@ -227,16 +227,20 @@ export const smeltOresSkill: Skill = {
       }
     }
 
-    // --- Step 4: Navigate to furnace ---
+    // --- Step 4: Navigate to furnace --- (verify arrival: "try anyway" from
+    // out of reach just converts a walk failure into an openFurnace timeout)
     setMovements(bot);
-    try {
-      await gotoTimed(
-        bot,
-        new goals.GoalNear(furnaceBlock.position.x, furnaceBlock.position.y, furnaceBlock.position.z, 2),
-        20000,
-      );
-    } catch {
-      /* try anyway */
+    for (let approach = 0; approach < 2; approach++) {
+      try {
+        await gotoTimed(
+          bot,
+          new goals.GoalNear(furnaceBlock.position.x, furnaceBlock.position.y, furnaceBlock.position.z, 2),
+          20000,
+        );
+      } catch {
+        /* distance check decides whether to walk again */
+      }
+      if (bot.entity.position.distanceTo(furnaceBlock.position) <= 4) break;
     }
 
     // --- Step 5: Smelt each batch ---
@@ -347,18 +351,13 @@ function setMovements(bot: Bot) {
   bot.pathfinder.setMovements(moves);
 }
 
-/** pathfinder.goto with a hard timeout — an unreachable furnace/table goal
- *  otherwise hangs smelt_ores to the 240s skill watchdog, stalling the smelter. */
+/** Bounded walk that survives external one-shot stops. The raw goto race this
+ *  used to be had no interruption retry, so a single flee mid-walk stranded
+ *  the smelter out of reach and the next openFurnace timed out — run 368's
+ *  10-raw-iron batch died exactly this way. */
 async function gotoTimed(bot: Bot, goal: any, ms: number): Promise<void> {
-  await Promise.race([
-    bot.pathfinder.goto(goal),
-    new Promise<void>((_, rej) =>
-      setTimeout(() => {
-        bot.pathfinder.stop();
-        rej(new Error("goto timeout"));
-      }, ms),
-    ),
-  ]);
+  const { safeGoto } = await import("../bot/navigation.js");
+  await safeGoto(bot, goal, ms);
 }
 
 function countItem(bot: Bot, name: string): number {
