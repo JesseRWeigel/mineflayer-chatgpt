@@ -1030,11 +1030,14 @@ export class BotBrain {
       const canMine =
         this.roleConfig.allowedActions.includes("mine_block") || this.roleConfig.allowedSkills.includes("strip_mine");
       const holdsPick = this.bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
+      // Diamonds too: a non-miner can never dig the rest of a 3-set, so a
+      // diamond in his pocket is dead capital (Blade's sat there five runs).
+      const holdsDiamond = this.bot.inventory.items().some((i) => i.name === "diamond");
       const cooledDown = Date.now() - this.lastToolReturnMs > 600_000;
-      if (!canMine && holdsPick && cooledDown) {
+      if (!canMine && (holdsPick || holdsDiamond) && cooledDown) {
         this.lastToolReturnMs = Date.now();
-        this.log.info("Brain", "OVERRIDE: non-miner carrying a pickaxe — returning tools to the stash");
-        this.events.onThought("This pickaxe belongs in a miner's hands. Back to the stash it goes.");
+        this.log.info("Brain", "OVERRIDE: non-miner carrying mining assets — returning them to the stash");
+        this.events.onThought("This belongs in a miner's hands. Back to the stash it goes.");
         const canCraft =
           this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
         const result = await executeAction(this.bot, "deposit_stash", {
@@ -1371,16 +1374,15 @@ export class BotBrain {
       // with no craft action and no craft_gear skill (Atlas) just hoards:
       // he carried 9 iron ingots for a day while the toolsmith sat 1 ingot
       // short of the iron pickaxe. Non-crafters bank every ingot.
+      // The ingot/diamond pocket reserve is for bots that can both craft AND
+      // mine — they alone can complete a 3-diamond set on their own. Blade
+      // (craft yes, mine no) kept 1 diamond as dead capital for five runs:
+      // he can never dig the other two, and the divers can't use his one.
       const canCraft =
         this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
-      if (!canCraft) normalizedParams.materialReserve = 0;
-      // Same shape for pickaxes: the team's only iron pickaxe ended up kept
-      // by Blade, who has no mine_block and no strip_mine — the fleet's
-      // mining engine sat dark while a hunter carried its key. Non-miners
-      // bank every pick; miners keep only their best (computed in
-      // depositStash).
       const canMine =
         this.roleConfig.allowedActions.includes("mine_block") || this.roleConfig.allowedSkills.includes("strip_mine");
+      if (!(canCraft && canMine)) normalizedParams.materialReserve = 0;
       normalizedParams.canMine = canMine;
     }
 

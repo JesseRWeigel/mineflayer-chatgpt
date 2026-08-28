@@ -109,6 +109,26 @@ export const stripMineSkill: Skill = {
       }
     }
 
+    // Pool banked diamonds into this diver's pocket. Halves of the 3-set
+    // scattered in chests (a non-miner's returned stone, another diver's
+    // banked find) only become the doorway pickaxe once they sit together in
+    // a crafter-miner's inventory — the craft override counts pocket only.
+    if (!signal.aborted) {
+      const diamondsHeld = bot.inventory
+        .items()
+        .filter((i) => i.name === "diamond")
+        .reduce((s, i) => s + i.count, 0);
+      if (diamondsHeld < 3) {
+        const { withdrawStash } = await import("./stash.js");
+        const { STASH_POS: SP } = await import("../bot/role.js");
+        try {
+          await withdrawStash(bot, SP, "diamond", 3 - diamondsHeld);
+        } catch {
+          /* none banked yet */
+        }
+      }
+    }
+
     const hasIronPick = bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2);
     // -58, corrected from -53 after the mechanics research: diamond peaks at
     // y=-58/-59 and the accepted practice is mining the peak band with a
