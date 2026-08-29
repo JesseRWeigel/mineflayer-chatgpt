@@ -409,6 +409,23 @@ export const craftGearSkill: Skill = {
           // fall through to a lower tier so the bot still gets a working tool.
           if (countOf(itemName) > before) {
             crafted.push(itemName);
+            // SPARE iron pickaxe when the metal allows. At diamond depth an
+            // iron pick (250 uses) dies inside ~1.5 trips, and every death of
+            // the only pick stalls the fleet for a full smelt-and-craft cycle
+            // (runs 376-387, recurring). A second pick costs 3 ingots; the
+            // keep-best-pick rule banks it on the next stash visit, and the
+            // trip-start reclaim pulls it the moment the working pick wears
+            // out — a buffer instead of a stall.
+            if (
+              itemName === "iron_pickaxe" &&
+              bot.inventory
+                .items()
+                .filter((i) => i.name === "iron_ingot")
+                .reduce((s, i) => s + i.count, 0) >= 3
+            ) {
+              await bot.craft(recipe, 1, table || undefined).catch(() => {});
+              if (countOf(itemName) > before + 1) crafted.push(`${itemName} (spare)`);
+            }
             break;
           }
         } catch {
