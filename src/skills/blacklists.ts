@@ -77,3 +77,46 @@ export function persistRecord(name: string, value: Record<string, unknown>): voi
   store[name] = value;
   save();
 }
+
+/**
+ * Every cell belonging to a REGISTERED portal frame, as "x,y,z" keys.
+ *
+ * Jesse's rule after the self-cannibalization incident: once a portal frame
+ * exists, there is no reason to mine obsidian from it, ever. This is the
+ * mechanical form of that rule — a registry-wide no-touch list that
+ * mineObsidian consults, so protection covers every frame the swarm has
+ * ever banked, current mission or otherwise, independent of which caller
+ * forgot to pass an exclusion.
+ */
+export function protectedFrameCells(): Set<string> {
+  const out = new Set<string>();
+  const frames = persistentRecord<{ origin: { x: number; y: number; z: number }; axis: "x" | "z" }>("bankedFrames");
+  for (const entry of Object.values(frames)) {
+    if (!entry?.origin || !entry.axis) continue;
+    for (const p of frameCellsOf(entry.origin, entry.axis)) out.add(`${p.x},${p.y},${p.z}`);
+  }
+  return out;
+}
+
+// Local copy of the 4x5 frame footprint (portal-geometry's framePositions),
+// duplicated here to keep blacklists dependency-free at the bottom of the
+// import graph. WIDTH=2, HEIGHT=3, cornerless — 10 cells plus floor/lintel.
+function frameCellsOf(
+  origin: { x: number; y: number; z: number },
+  axis: "x" | "z",
+): Array<{ x: number; y: number; z: number }> {
+  const at = (w: number, h: number) =>
+    axis === "x"
+      ? { x: origin.x + w, y: origin.y + h, z: origin.z }
+      : { x: origin.x, y: origin.y + h, z: origin.z + w };
+  const cells: Array<{ x: number; y: number; z: number }> = [];
+  for (let w = 0; w < 2; w++) {
+    cells.push(at(w, -1)); // floor
+    cells.push(at(w, 3)); // lintel
+  }
+  for (let h = 0; h < 3; h++) {
+    cells.push(at(-1, h)); // left jamb
+    cells.push(at(2, h)); // right jamb
+  }
+  return cells;
+}

@@ -441,6 +441,52 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       }
     }
 
+    // PLACEMENT MODE — Jesse's directive after the self-cannibalization
+    // incident: build close to spawn so commutes stop taxing every visit.
+    // Holding a full frame's obsidian makes lava irrelevant: site beside the
+    // BOT (bots idle at the village), place the ten blocks, register the
+    // frame (registration also puts it on the mine-protection list), and
+    // hand off to the adoption path that already knows how to clear and
+    // ignite a standing frame.
+    {
+      const obsidianAboard = bot.inventory
+        .items()
+        .filter((i) => i.name === "obsidian")
+        .reduce((s, i) => s + i.count, 0);
+      if (obsidianAboard >= 10) {
+        const here = bot.entity.position;
+        const centre: Vec3Like = { x: Math.floor(here.x) + 2, y: Math.floor(here.y) + 1, z: Math.floor(here.z) };
+        let site = findSiteFlexible(centre, probe, 16);
+        if (!site) {
+          if (timeLeft() < 40_000) return outOfTime("about to carve a placement site");
+          await carveSite(bot, centre, "z");
+          site = findSiteFlexible(centre, probe, 16);
+        }
+        if (site) {
+          console.log(
+            `[Portal] ${bot.username}: PLACING frame from ${obsidianAboard} carried obsidian at ${site.origin.x},${site.origin.y},${site.origin.z} (${site.axis})`,
+          );
+          await carveSite(bot, site.origin, site.axis);
+          await placeFrame(bot, site.origin, site.axis);
+          const placedCount = framePositions(site.origin, site.axis).filter(
+            (p) => bot.blockAt(new Vec3(p.x, p.y, p.z))?.name === "obsidian",
+          ).length;
+          const key = `${site.origin.x},${site.origin.y},${site.origin.z}`;
+          bankedFrames[key] = {
+            origin: site.origin,
+            axis: site.axis,
+            banked: placedCount,
+            lastProgressAt: Date.now(),
+          };
+          saveBankedFrames();
+          plannedSites.set(bot.username, { origin: site.origin, axis: site.axis });
+          savePlannedSites();
+          return `Placed ${placedCount}/10 frame blocks at ${key} from carried obsidian. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+        }
+        console.log(`[Portal] ${bot.username}: placement mode found no site within 16 — falling through to cast path`);
+      }
+    }
+
     if (!lava && bot.entity.position.y > LAVA_DEPTH) {
       console.log(`[Portal] ${bot.username}: no lava within 96 — descending first`);
       // fill_bucket's proven shape: a refused shaft ("open air below — a

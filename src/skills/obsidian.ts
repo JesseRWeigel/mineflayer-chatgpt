@@ -227,7 +227,11 @@ export async function mineObsidian(bot: Bot, count: number, exclude: Vec3Like[] 
   if (!pick) return "Need a diamond pickaxe to mine obsidian.";
   await bot.equip(pick, "hand");
 
-  const banned = new Set(exclude.map((p) => `${p.x},${p.y},${p.z}`));
+  // Union the caller's exclusions with the registry-wide frame protection:
+  // per Jesse's rule, a registered portal frame is never a quarry.
+  const { protectedFrameCells } = await import("./blacklists.js");
+  const banned = protectedFrameCells();
+  for (const p of exclude) banned.add(`${p.x},${p.y},${p.z}`);
   let mined = 0;
   for (let i = 0; i < count; i++) {
     const block = bot.findBlock({
