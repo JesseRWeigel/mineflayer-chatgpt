@@ -380,7 +380,16 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         for (let leg = 0; leg < 2; leg++) {
           if (timeLeft() < 60_000) return outOfTime("commuting to the banked frame");
           try {
-            await safeGoto(bot, new goals.GoalNear(nearest.origin.x, nearest.origin.y, nearest.origin.z, 8), 45_000);
+            // 12s stall grace, same medicine as the mining hike: the frame
+            // sits at y=14 so the path is a dig-down whose computation alone
+            // exceeds the 5s stall alarm — run 391's commute banked ~7 blocks
+            // per invocation because every leg died to "Stuck" seconds in.
+            await safeGoto(
+              bot,
+              new goals.GoalNear(nearest.origin.x, nearest.origin.y, nearest.origin.z, 8),
+              45_000,
+              12_000,
+            );
           } catch {
             /* legs bank distance */
           }

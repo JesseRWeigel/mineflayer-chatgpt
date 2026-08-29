@@ -741,6 +741,42 @@ export class BotBrain {
       // Sleep failed (no bed, hostiles nearby) — fall through to normal planning.
     }
 
+    // Portal-breach override — RUNS FIRST among mission overrides. In run
+    // 391 the village-lighting and mining pushes both outranked it in code
+    // order: Mason marched 20 blocks toward the doorway, lost his turn to a
+    // torch chore, wandered home, and the commute reset from 71 to 89 blocks.
+    // While the doorway pick is in hand, the doorway IS the mission. Forge's
+    // mission text stops at "craft a diamond_pickaxe" and no reflex sent the
+    // finished pick anywhere: the doorway at 278,14,-243 would have waited on
+    // the model to volunteer. Diamond pick + the portal skill = go clear it.
+    // build_nether_portal handles the interior obsidian, ignition, and entry.
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("build_nether_portal") &&
+      !isSkillRunning(this.bot)
+    ) {
+      const holdsDoorwayPick = this.bot.inventory
+        .items()
+        .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+      const cooledDown = Date.now() - this.lastPortalOverrideMs > 300_000;
+      if (holdsDoorwayPick && cooledDown) {
+        this.lastPortalOverrideMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: diamond pickaxe in hand — running build_nether_portal");
+        this.events.onThought("The pick that opens the Nether is in my hand. To the doorway!");
+        const result = await executeAction(this.bot, "invoke_skill", { skill: "build_nether_portal" });
+        this.events.onAction("build_nether_portal", result);
+        this.lastAction = "build_nether_portal";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:build_nether_portal",
+          { action: "build_nether_portal", params: {} },
+          result,
+          /lit|ignit|portal|cleared|complete/i.test(result),
+        );
+        return;
+      }
+    }
+
     // Survival override: starvation was killing the team (whole roster at
     // hunger 0, 286 failed "eat" attempts in one run). If hungry with no food
     // on hand, withdraw food from the stash so auto-eat has fuel — no waiting
@@ -983,38 +1019,6 @@ export class BotBrain {
           { action: "light_area", params: {} },
           result,
           /placed|torch/i.test(result),
-        );
-        return;
-      }
-    }
-
-    // Portal-breach override — the last rung of the whole Nether arc. Forge's
-    // mission text stops at "craft a diamond_pickaxe" and no reflex sent the
-    // finished pick anywhere: the doorway at 278,14,-243 would have waited on
-    // the model to volunteer. Diamond pick + the portal skill = go clear it.
-    // build_nether_portal handles the interior obsidian, ignition, and entry.
-    if (
-      config.bot.allowStrategyOverrides &&
-      this.roleConfig.allowedSkills.includes("build_nether_portal") &&
-      !isSkillRunning(this.bot)
-    ) {
-      const holdsDoorwayPick = this.bot.inventory
-        .items()
-        .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
-      const cooledDown = Date.now() - this.lastPortalOverrideMs > 300_000;
-      if (holdsDoorwayPick && cooledDown) {
-        this.lastPortalOverrideMs = Date.now();
-        this.log.info("Brain", "OVERRIDE: diamond pickaxe in hand — running build_nether_portal");
-        this.events.onThought("The pick that opens the Nether is in my hand. To the doorway!");
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "build_nether_portal" });
-        this.events.onAction("build_nether_portal", result);
-        this.lastAction = "build_nether_portal";
-        this.lastResult = result;
-        this.trackFailure(
-          "skill:build_nether_portal",
-          { action: "build_nether_portal", params: {} },
-          result,
-          /lit|ignit|portal|cleared|complete/i.test(result),
         );
         return;
       }
