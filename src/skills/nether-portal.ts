@@ -266,11 +266,21 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         const [qKey, q] = entries[0];
         const dist = () => bot.entity.position.distanceTo(new Vec3(q.x, q.y, q.z));
         if (dist() > 20) {
+          // Surface first, then dig straight down — the strip-mine recipe.
+          // A GoalNear on a target encased in rock at y=19 defeated the
+          // direct walk completely: Mason looped "still 33 blocks away"
+          // for a full window with zero progress. The XZ column overhead is
+          // always walkable, and digDownTo is the proven descent.
           console.log(`[Portal] ${bot.username}: quarrying stub frame at ${qKey} (${dist().toFixed(0)} away)`);
           bot.pathfinder.setMovements(baseMoves(bot));
-          for (let leg = 0; leg < 2 && dist() > 20; leg++) {
-            if (timeLeft() < 60_000) return outOfTime("commuting to the obsidian quarry");
-            await safeGoto(bot, new goals.GoalNear(q.x, q.y, q.z, 8), 45_000, 12_000).catch(() => {});
+          const xzGap = () => Math.hypot(bot.entity.position.x - q.x, bot.entity.position.z - q.z);
+          for (let leg = 0; leg < 2 && xzGap() > 6; leg++) {
+            if (timeLeft() < 90_000) return outOfTime("commuting to the obsidian quarry");
+            await safeGoto(bot, new goals.GoalXZ(q.x, q.z), 45_000, 12_000).catch(() => {});
+          }
+          if (xzGap() <= 6 && bot.entity.position.y > q.y + 4) {
+            const dug = await digDownTo(bot, q.y, 80, Math.min(120_000, Math.max(30_000, timeLeft() - 60_000)));
+            console.log(`[Portal] ${bot.username}: quarry descent: ${dug}`);
           }
           if (dist() > 20) {
             return `Commuting to the obsidian quarry at ${qKey} — still ${dist().toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
