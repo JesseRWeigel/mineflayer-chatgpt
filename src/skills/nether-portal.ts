@@ -273,12 +273,14 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
           // always walkable, and digDownTo is the proven descent.
           console.log(`[Portal] ${bot.username}: quarrying stub frame at ${qKey} (${dist().toFixed(0)} away)`);
           const xzGap = () => Math.hypot(bot.entity.position.x - q.x, bot.entity.position.z - q.z);
-          for (let leg = 0; leg < 3 && xzGap() > 6; leg++) {
+          // TIME budget, the full hike pattern: run 401's instrumentation
+          // showed every fixed-count leg dying to "The goal was changed" —
+          // three flee hijacks ended the whole trip. Interruptions now pause
+          // the march (2s) and it resumes until 150s is spent or arrival;
+          // digging enables from the second attempt for bot-built clutter.
+          const qWalkDeadline = Date.now() + 150_000;
+          for (let leg = 0; Date.now() < qWalkDeadline && xzGap() > 6; leg++) {
             if (timeLeft() < 90_000) return outOfTime("commuting to the obsidian quarry");
-            // Dig-out escalation from leg 2, the mining-hike pattern: Mason
-            // looped "still 127 away" wedged against village walls
-            // ([Stuck] sides=cobblestone/oak_planks) — the clean walk has no
-            // answer to bot-built clutter.
             const mv = baseMoves(bot);
             if (leg > 0) {
               mv.canDig = true;
@@ -288,6 +290,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
             await safeGoto(bot, new goals.GoalXZ(q.x, q.z), 45_000, 12_000).catch((e) => {
               console.log(`[Portal] ${bot.username}: quarry walk leg ${leg + 1} failed: ${(e as Error).message}`);
             });
+            if (xzGap() > 6) await new Promise((r) => setTimeout(r, 2000));
           }
           if (xzGap() <= 6 && bot.entity.position.y > q.y + 4) {
             // Lateral shifts on refusal, the strip-mine pattern: Forge looped
