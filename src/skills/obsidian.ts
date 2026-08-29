@@ -215,15 +215,26 @@ export async function castInPlace(
     : `Cast ${cast} of ${total} obsidian; the rest did not convert.`;
 }
 
-/** Mine existing obsidian. Requires a diamond pickaxe; earns story/form_obsidian. */
-export async function mineObsidian(bot: Bot, count: number): Promise<string> {
+/** Mine existing obsidian. Requires a diamond pickaxe; earns story/form_obsidian.
+ *
+ *  `exclude` is load-bearing: the nearest obsidian to a bot working on a
+ *  portal frame IS the portal frame. Run 392-393's acquisition strategy ate
+ *  the completed 10-block frame one "nearest obsidian" at a time to source
+ *  blocks for the very positions it was emptying — a self-cannibalization
+ *  loop that demolished a week of casting. Never mine from protected cells. */
+export async function mineObsidian(bot: Bot, count: number, exclude: Vec3Like[] = []): Promise<string> {
   const pick = bot.inventory.items().find((i) => (pickaxeTier(i.name) ?? -1) >= DIAMOND_TIER);
   if (!pick) return "Need a diamond pickaxe to mine obsidian.";
   await bot.equip(pick, "hand");
 
+  const banned = new Set(exclude.map((p) => `${p.x},${p.y},${p.z}`));
   let mined = 0;
   for (let i = 0; i < count; i++) {
-    const block = bot.findBlock({ matching: (b) => b.name === "obsidian", maxDistance: 32 });
+    const block = bot.findBlock({
+      matching: (b) => b.name === "obsidian",
+      maxDistance: 32,
+      useExtraInfo: (b) => !banned.has(`${b.position.x},${b.position.y},${b.position.z}`),
+    });
     if (!block) break;
     await bot.dig(block);
     mined++;
@@ -244,7 +255,7 @@ export async function acquireObsidian(
       .filter((i) => i.name === "obsidian")
       .reduce((n, i) => n + i.count, 0);
     if (held >= positions.length) return `Already holding ${held} obsidian.`;
-    const res = await mineObsidian(bot, positions.length - held);
+    const res = await mineObsidian(bot, positions.length - held, [...positions, ...keepClear]);
     // Mining can come up short if no obsidian is nearby; fall back rather than stall.
     if (res.startsWith("Mined")) return res;
   }

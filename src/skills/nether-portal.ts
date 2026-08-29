@@ -209,6 +209,33 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     return `Out of run time while ${doing} (at ${p.x},${p.y},${p.z}) — progress is banked. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
   };
 
+  // Reclaim banked obsidian first. The self-cannibalization bug demolished
+  // the finished frame and the pre-mine deposits banked the pieces — up to
+  // 10 obsidian sit in the stash. Placing from inventory rebuilds in one
+  // visit; casting from lava takes days. Raced so a jammed chest cannot eat
+  // the trip (the stash-errand doctrine).
+  {
+    const obsidianHeld = bot.inventory
+      .items()
+      .filter((i) => i.name === "obsidian")
+      .reduce((s, i) => s + i.count, 0);
+    if (obsidianHeld < 10) {
+      try {
+        const { withdrawStash } = await import("./stash.js");
+        const { STASH_POS } = await import("../bot/role.js");
+        const near = Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z) < 60;
+        if (near) {
+          await Promise.race([
+            withdrawStash(bot, STASH_POS, "obsidian", 10 - obsidianHeld),
+            new Promise<void>((r) => setTimeout(r, 60_000)),
+          ]);
+        }
+      } catch {
+        /* none banked or unreachable — the cast path still exists */
+      }
+    }
+  }
+
   const names = bot.inventory.items().map((i) => i.name);
   let { ready, missing } = readinessOf(names);
 
