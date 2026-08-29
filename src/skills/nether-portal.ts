@@ -197,7 +197,12 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   // cast — and a watchdog kill returns no resumable hand-back, so the
   // auto-continue never fires and the model has to rediscover the plan. A
   // run that ends ITSELF ends with progress banked and the protocol marker.
-  const runDeadline = Date.now() + 200_000;
+  // 420s, up from 200: Mason reached the frame, mined the doorway obsidian
+  // (Ice Bucket Challenge, run 392), and then the clock ended his visit
+  // before the scaffold, cast, and ignition — every return trip re-spends
+  // ~90 commute blocks. One long visit finishes; the skill self-returns
+  // with banked progress, so the envelope stays resumable.
+  const runDeadline = Date.now() + 420_000;
   const timeLeft = () => runDeadline - Date.now();
   const outOfTime = (doing: string) => {
     const p = bot.entity.position.floored();
@@ -786,6 +791,9 @@ export const buildNetherPortalSkill: Skill = {
   description:
     "Build and light a Nether portal near your current position. Casts obsidian from lava and water, crafts an igniter if you lack one, lights the portal, and records its location for return_from_nether. Needs a bucket.",
   params: {},
+  // Matches the 420s internal runDeadline (+60s slack): the internal clock
+  // self-returns with banked progress, so the watchdog stays a hang-catcher.
+  timeoutMs: 480_000,
 
   estimateMaterials(_bot, _params) {
     return {};
