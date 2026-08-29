@@ -279,8 +279,29 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
             await safeGoto(bot, new goals.GoalXZ(q.x, q.z), 45_000, 12_000).catch(() => {});
           }
           if (xzGap() <= 6 && bot.entity.position.y > q.y + 4) {
-            const dug = await digDownTo(bot, q.y, 80, Math.min(120_000, Math.max(30_000, timeLeft() - 60_000)));
-            console.log(`[Portal] ${bot.username}: quarry descent: ${dug}`);
+            // Lateral shifts on refusal, the strip-mine pattern: Forge looped
+            // "4-block drop below — too far to fall" a dozen times from one
+            // spot — a cave under his column. A shaft four blocks over
+            // usually has a floor.
+            const SHIFTS: Array<[number, number]> = [
+              [0, 0],
+              [4, 0],
+              [0, 4],
+              [-4, 0],
+              [0, -4],
+            ];
+            for (const [sx, sz] of SHIFTS) {
+              if (bot.entity.position.y <= q.y + 4) break;
+              if (timeLeft() < 70_000) return outOfTime("descending to the quarry");
+              if (sx !== 0 || sz !== 0) {
+                const p0 = bot.entity.position;
+                await safeGoto(bot, new goals.GoalXZ(Math.floor(p0.x) + sx, Math.floor(p0.z) + sz), 15_000).catch(
+                  () => {},
+                );
+              }
+              const dug = await digDownTo(bot, q.y, 80, Math.min(90_000, Math.max(25_000, timeLeft() - 70_000)));
+              console.log(`[Portal] ${bot.username}: quarry descent (shift ${sx},${sz}): ${dug}`);
+            }
           }
           if (dist() > 20) {
             return `Commuting to the obsidian quarry at ${qKey} — still ${dist().toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
