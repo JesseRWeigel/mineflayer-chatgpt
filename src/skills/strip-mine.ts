@@ -631,6 +631,12 @@ async function mineExposedOre(bot: Bot, pos: Vec3): Promise<{ mined: number; ore
       ores.push(b.name);
       // Follow the vein a little so we don't leave most of it in the wall.
       mined += await followVein(bot, t, b.name, ores);
+      // POCKET THE DROPS. This was the one dig path with no pickup sweep —
+      // the tunnel-ahead and spelunk-chase paths both collect, and run 388's
+      // TWO diamond strikes came through here: "Found: 1x
+      // deepslate_diamond_ore! Cargo: 3x raw_iron, 4x raw_copper" — mined
+      // from the wall, dropped on the floor, walked away from.
+      await collectNearbyDrops(bot, 5, 3000);
     } catch {
       /* out of reach or interrupted — skip */
     }
