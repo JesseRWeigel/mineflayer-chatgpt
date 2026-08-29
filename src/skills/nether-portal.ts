@@ -248,7 +248,13 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         .items()
         .filter((i) => i.name === "obsidian")
         .reduce((s, i) => s + i.count, 0);
-    if (heldObs() < 10) {
+    // Diamond pick required: without one the mine at the far end must fail,
+    // and Atlas (pickless PORTAL KEEPER) spent run 396's first minutes on a
+    // 107-block commute toward exactly that failure.
+    const hasDoorwayPick = bot.inventory
+      .items()
+      .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+    if (heldObs() < 10 && hasDoorwayPick) {
       const quarries = persistentRecord<{ x: number; y: number; z: number }>("obsidianQuarries");
       const here0 = bot.entity.position;
       const entries = Object.entries(quarries).sort(
