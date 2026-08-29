@@ -1885,10 +1885,24 @@ async function sleepInBed(bot: Bot): Promise<string> {
 
   try {
     bot.pathfinder.setMovements(safeMoves(bot));
-    // 20s, up from 8s: the wider bed search (64 blocks) can send this walk up
-    // to ~60 blocks; at ~4.3 blocks/s plus path-think time, 8s only covered
-    // the old 32-block radius.
-    await safeGoto(bot, new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2), 20000);
+    // Time-budgeted walk, the mining-hike pattern: run 399 lost 65 sleep
+    // attempts to "The goal was changed" — a mob flee killing the very
+    // bed-walk that would skip the night that spawned the mob. Deaths hit
+    // 20/hr (zombie-villager massacre) while sleeps failed all night. A
+    // flee now pauses the walk; the bot resumes toward the bed until 75s
+    // is spent or it arrives.
+    const bedDeadline = Date.now() + 75_000;
+    while (Date.now() < bedDeadline && bot.entity.position.distanceTo(bed.position) > 3) {
+      try {
+        await safeGoto(
+          bot,
+          new goals.GoalNear(bed.position.x, bed.position.y, bed.position.z, 2),
+          Math.max(10_000, bedDeadline - Date.now()),
+        );
+      } catch {
+        await new Promise((r) => setTimeout(r, 2000)); // let the flee finish
+      }
+    }
     await bot.sleep(bed);
     return "Sleeping... zzz";
   } catch (err: any) {
