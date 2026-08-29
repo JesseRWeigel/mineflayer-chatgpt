@@ -240,8 +240,20 @@ export async function mineObsidian(bot: Bot, count: number, exclude: Vec3Like[] 
       useExtraInfo: (b) => !banned.has(`${b.position.x},${b.position.y},${b.position.z}`),
     });
     if (!block) break;
+    // Walk into reach first — findBlock's 32-block radius exceeds dig reach.
+    if (bot.entity.position.distanceTo(block.position) > 4) {
+      const { safeGoto: sg } = await import("../bot/navigation.js");
+      const { goals: g } = (await import("mineflayer-pathfinder")).default;
+      await sg(bot, new g.GoalNear(block.position.x, block.position.y, block.position.z, 2), 20_000).catch(() => {});
+    }
     await bot.dig(block);
     mined++;
+    // POCKET THE DROP. This function had no pickup sweep — the demolished
+    // frame's ten blocks dropped behind a walking bot and despawned, which
+    // is why the stash held nothing to rebuild with. Same disease, same
+    // cure as every other dig path in the codebase.
+    const { collectNearbyDrops } = await import("../bot/navigation.js");
+    await collectNearbyDrops(bot, 5, 3000);
   }
   return mined > 0 ? `Mined ${mined} obsidian.` : "Cannot find obsidian within 32 blocks.";
 }

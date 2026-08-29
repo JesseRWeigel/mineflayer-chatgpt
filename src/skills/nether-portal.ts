@@ -236,6 +236,54 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     }
   }
 
+  // QUARRY THE STUBS. The frame demolition scattered its obsidian into
+  // despawned drops, so the stash rebuild fund is empty — but the old
+  // one-to-five-block stub frames from the casting era still stand in the
+  // world, deregistered and therefore legitimately minable. Harvest them
+  // toward the 10 the village placement needs. Entries self-retire when a
+  // visit finds nothing left.
+  {
+    const heldObs = () =>
+      bot.inventory
+        .items()
+        .filter((i) => i.name === "obsidian")
+        .reduce((s, i) => s + i.count, 0);
+    if (heldObs() < 10) {
+      const quarries = persistentRecord<{ x: number; y: number; z: number }>("obsidianQuarries");
+      const here0 = bot.entity.position;
+      const entries = Object.entries(quarries).sort(
+        (a, b) =>
+          Math.hypot(a[1].x - here0.x, a[1].y - here0.y, a[1].z - here0.z) -
+          Math.hypot(b[1].x - here0.x, b[1].y - here0.y, b[1].z - here0.z),
+      );
+      if (entries.length > 0) {
+        const [qKey, q] = entries[0];
+        const dist = () => bot.entity.position.distanceTo(new Vec3(q.x, q.y, q.z));
+        if (dist() > 20) {
+          console.log(`[Portal] ${bot.username}: quarrying stub frame at ${qKey} (${dist().toFixed(0)} away)`);
+          bot.pathfinder.setMovements(baseMoves(bot));
+          for (let leg = 0; leg < 2 && dist() > 20; leg++) {
+            if (timeLeft() < 60_000) return outOfTime("commuting to the obsidian quarry");
+            await safeGoto(bot, new goals.GoalNear(q.x, q.y, q.z, 8), 45_000, 12_000).catch(() => {});
+          }
+          if (dist() > 20) {
+            return `Commuting to the obsidian quarry at ${qKey} — still ${dist().toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+          }
+        }
+        const { mineObsidian } = await import("./obsidian.js");
+        const res = await mineObsidian(bot, 10 - heldObs());
+        console.log(`[Portal] ${bot.username}: quarry ${qKey}: ${res}`);
+        if (res.startsWith("Cannot find")) {
+          delete quarries[qKey];
+          persistRecord("obsidianQuarries", quarries);
+        }
+        if (heldObs() < 10 && Object.keys(quarries).length > 0) {
+          return `Quarried to ${heldObs()}/10 obsidian at ${qKey}. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+        }
+      }
+    }
+  }
+
   const names = bot.inventory.items().map((i) => i.name);
   let { ready, missing } = readinessOf(names);
 
