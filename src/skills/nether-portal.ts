@@ -273,6 +273,25 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
           // always walkable, and digDownTo is the proven descent.
           console.log(`[Portal] ${bot.username}: quarrying stub frame at ${qKey} (${dist().toFixed(0)} away)`);
           const xzGap = () => Math.hypot(bot.entity.position.x - q.x, bot.entity.position.z - q.z);
+          // DIRECT approach first, dig-enabled and time-budgeted: the 388/392
+          // stubs sit under an underground lake — run 402's overhead shafts
+          // all flooded ("standing in open water with no shore within 24").
+          // The stubs were BUILT from caves beside that water, so a cave path
+          // exists; the pathfinder with digging can thread it where a
+          // vertical shaft cannot.
+          {
+            const directDeadline = Date.now() + 90_000;
+            while (Date.now() < directDeadline && dist() > 20) {
+              if (timeLeft() < 90_000) return outOfTime("approaching the obsidian quarry");
+              const dm = baseMoves(bot);
+              dm.canDig = true;
+              bot.pathfinder.setMovements(dm);
+              await safeGoto(bot, new goals.GoalNear(q.x, q.y, q.z, 8), 45_000, 12_000).catch((e) => {
+                console.log(`[Portal] ${bot.username}: quarry direct leg failed: ${(e as Error).message}`);
+              });
+              if (dist() > 20) await new Promise((r) => setTimeout(r, 2000));
+            }
+          }
           // TIME budget, the full hike pattern: run 401's instrumentation
           // showed every fixed-count leg dying to "The goal was changed" —
           // three flee hijacks ended the whole trip. Interruptions now pause
