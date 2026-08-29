@@ -1110,7 +1110,13 @@ export class BotBrain {
         this.lastSmeltOverrideMs = Date.now();
         this.log.info("Brain", `OVERRIDE: ${rawMetal} raw metal aboard — running smelt_ores`);
         this.events.onThought("Raw ore does nothing in a pocket. To the furnace!");
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "smelt_ores" });
+        // stashPos unlocks the skill's fuel withdrawal — without it the whole
+        // Step 0 is skipped and a bot with ore but no coal loops "No fuel!"
+        // beside a stash holding a full stack of it (run 389, 4x in a row).
+        const result = await executeAction(this.bot, "invoke_skill", {
+          skill: "smelt_ores",
+          stashPos: this.roleConfig.stashPos,
+        });
         this.events.onAction("smelt_ores", result);
         this.lastAction = "smelt_ores";
         this.lastResult = result;
