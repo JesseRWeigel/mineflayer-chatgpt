@@ -203,6 +203,11 @@ export const MASON_CONFIG: BotRoleConfig = {
     "strip_mine",
     "craft_gear",
     "smelt_ores",
+    // The diamond pickaxe landed on Mason (he mined the 3-set himself, run
+    // 390) and the portal-breach override keys on this skill — without it the
+    // doorway-clearing tool was stranded on a bot who couldn't march it to
+    // the doorway. The skill self-supplies its bucket and igniter.
+    "build_nether_portal",
   ],
   keepItems: [
     { name: "sapling", minCount: 16 },
