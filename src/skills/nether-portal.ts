@@ -576,6 +576,23 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
         .filter((i) => i.name === "obsidian")
         .reduce((s, i) => s + i.count, 0);
       if (obsidianAboard >= 10) {
+        // VILLAGE-GATED: a full pocket at the lava mint must walk home
+        // first, or the portal gets built beside the lava — the exact
+        // outcome Jesse's directive exists to prevent.
+        const { STASH_POS: SPV } = await import("../bot/role.js");
+        const homeGap = () => Math.hypot(bot.entity.position.x - SPV.x, bot.entity.position.z - SPV.z);
+        if (homeGap() > 60) {
+          const homeDeadline = Date.now() + 150_000;
+          bot.pathfinder.setMovements(baseMoves(bot));
+          while (Date.now() < homeDeadline && homeGap() > 60) {
+            if (timeLeft() < 90_000) return outOfTime("carrying the frame home");
+            await safeGoto(bot, new goals.GoalXZ(SPV.x, SPV.z), 45_000, 12_000).catch(() => {});
+            if (homeGap() > 60) await new Promise((r) => setTimeout(r, 2000));
+          }
+          if (homeGap() > 60) {
+            return `Carrying ${obsidianAboard} obsidian home to build — still ${homeGap().toFixed(0)} blocks from the village. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+          }
+        }
         const here = bot.entity.position;
         const centre: Vec3Like = { x: Math.floor(here.x) + 2, y: Math.floor(here.y) + 1, z: Math.floor(here.z) };
         let site = findSiteFlexible(centre, probe, 16);
@@ -688,6 +705,61 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       recordLavaFellShort(lava.position);
       console.log(`[Portal] ${bot.username}: walk fell short — ${lavaGap.toFixed(0)} blocks from lava`);
       return `Walking to lava at ${lava.position.x},${lava.position.y},${lava.position.z} — still ${lavaGap.toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+    }
+
+    // MINT MODE — cast-and-carry, the quarry gap-filler. With the stub
+    // quarries exhausted (252 mined bare, the wet cluster lake-locked) and a
+    // diamond pick aboard, blocks get minted HERE at the lava as a loose row
+    // and mined immediately — unregistered cells carry no protection — then
+    // hauled home for the village build. Skipping the frame-siting below
+    // keeps deep frames from ever being born again.
+    {
+      const heldObsNow = () =>
+        bot.inventory
+          .items()
+          .filter((i) => i.name === "obsidian")
+          .reduce((s, i) => s + i.count, 0);
+      const mintPick = bot.inventory
+        .items()
+        .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+      if (mintPick && heldObsNow() < 10) {
+        const need = 10 - heldObsNow();
+        const base = bot.entity.position.floored();
+        // A row of cells on the shore beside the bot — solid ground below,
+        // air at the cell, never inside the lava itself.
+        const mintCells: Vec3Like[] = [];
+        for (let d = 1; d <= 8 && mintCells.length < need; d++) {
+          for (const [dx, dz] of [
+            [d, 0],
+            [-d, 0],
+            [0, d],
+            [0, -d],
+          ]) {
+            if (mintCells.length >= need) break;
+            const c = { x: base.x + dx, y: base.y, z: base.z + dz };
+            const at = bot.blockAt(new Vec3(c.x, c.y, c.z));
+            const below = bot.blockAt(new Vec3(c.x, c.y - 1, c.z));
+            if (
+              at?.name === "air" &&
+              below &&
+              below.name !== "air" &&
+              below.name !== "lava" &&
+              below.name !== "water"
+            ) {
+              mintCells.push(c);
+            }
+          }
+        }
+        if (mintCells.length > 0) {
+          console.log(`[Portal] ${bot.username}: MINT MODE — casting ${mintCells.length} loose blocks by the lava`);
+          const castRes = await acquireObsidian(bot, mintCells, runDeadline - 30_000, []);
+          console.log(`[Portal] ${bot.username}: mint cast: ${castRes}`);
+          const { mineObsidian } = await import("./obsidian.js");
+          const mineRes = await mineObsidian(bot, 10 - heldObsNow());
+          console.log(`[Portal] ${bot.username}: mint mine: ${mineRes}`);
+          return `Minted and pocketed to ${heldObsNow()}/10 obsidian at the lava. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+        }
+      }
     }
 
     // Start one above the bot's feet: the frame's floor row rests ON the
