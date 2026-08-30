@@ -279,7 +279,11 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
           // The stubs were BUILT from caves beside that water, so a cave path
           // exists; the pathfinder with digging can thread it where a
           // vertical shaft cannot.
-          {
+          // Near targets only: the direct leg exists to thread caves the
+          // last stretch. For the mountain stub 142 blocks out it burned its
+          // whole budget on goal-changed flee noise before the surface walk
+          // even started (run 404).
+          if (dist() < 60) {
             const directDeadline = Date.now() + 90_000;
             while (Date.now() < directDeadline && dist() > 20) {
               if (timeLeft() < 90_000) return outOfTime("approaching the obsidian quarry");
