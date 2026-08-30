@@ -265,7 +265,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       if (entries.length > 0) {
         const [qKey, q] = entries[0];
         const dist = () => bot.entity.position.distanceTo(new Vec3(q.x, q.y, q.z));
-        if (dist() > 20) {
+        if (dist() > 26) {
           // Surface first, then dig straight down — the strip-mine recipe.
           // A GoalNear on a target encased in rock at y=19 defeated the
           // direct walk completely: Mason looped "still 33 blocks away"
@@ -285,7 +285,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
           // even started (run 404).
           if (dist() < 60) {
             const directDeadline = Date.now() + 90_000;
-            while (Date.now() < directDeadline && dist() > 20) {
+            while (Date.now() < directDeadline && dist() > 26) {
               if (timeLeft() < 90_000) return outOfTime("approaching the obsidian quarry");
               const dm = baseMoves(bot);
               dm.canDig = true;
@@ -293,7 +293,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
               await safeGoto(bot, new goals.GoalNear(q.x, q.y, q.z, 8), 45_000, 12_000).catch((e) => {
                 console.log(`[Portal] ${bot.username}: quarry direct leg failed: ${(e as Error).message}`);
               });
-              if (dist() > 20) await new Promise((r) => setTimeout(r, 2000));
+              if (dist() > 26) await new Promise((r) => setTimeout(r, 2000));
             }
           }
           // TIME budget, the full hike pattern: run 401's instrumentation
@@ -340,7 +340,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
               console.log(`[Portal] ${bot.username}: quarry descent (shift ${sx},${sz}): ${dug}`);
             }
           }
-          if (dist() > 20) {
+          if (dist() > 26) {
             return `Commuting to the obsidian quarry at ${qKey} — still ${dist().toFixed(0)} blocks away. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
           }
         }
