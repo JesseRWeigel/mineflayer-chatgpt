@@ -192,8 +192,15 @@ async function executeActionInner(bot: Bot, action: string, params: Record<strin
         // granting it is the bot following its own plan — the same class as
         // the deterministic overrides in brain.ts, not a decision taken away
         // from the model. Bounded, and only while the skill keeps asking.
-        for (let cont = 0; cont < 3 && RESUMABLE_PROTOCOL.test(skillResult); cont++) {
-          console.log(`[Skill] auto-continue ${cont + 1}/3 for "${name}"`);
+        // 8 for the portal (up from 3 for everything else): the 142-block
+        // quarry trek covers huge ground per invocation (run 405: 146→31 in
+        // one march) but three continuations end one short of arrival, the
+        // bot yo-yos home on village chores, and the next attempt restarts
+        // from scratch. Each continuation only fires while the skill itself
+        // keeps asking, so the bound stays honest.
+        const contLimit = name === "build_nether_portal" ? 8 : 3;
+        for (let cont = 0; cont < contLimit && RESUMABLE_PROTOCOL.test(skillResult); cont++) {
+          console.log(`[Skill] auto-continue ${cont + 1}/${contLimit} for "${name}"`);
           skillResult = await runSkill(bot, skill, params);
         }
         // Voyager-style refinement: a dynamic skill that failed with a CODE
