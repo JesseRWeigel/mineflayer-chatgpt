@@ -349,12 +349,21 @@ export const stripMineSkill: Skill = {
       // the next column instead of giving the whole job up, the way a
       // player would. Nine surface tunnels in one hour ended on exactly
       // these single-column refusals.
+      // The far rungs are new: run 423's hikes landed over a cavern wider
+      // than the six-block ladder — every shift reported "open air below —
+      // a shaft, not a dig" and the trip ended at y=71. A cave system spans
+      // dozens of blocks; sidestepping eighteen is still cheaper than
+      // walking home empty.
       const SHIFTS = [
         [0, 0],
         [6, 0],
         [0, 6],
         [-6, 0],
         [0, -6],
+        [12, 0],
+        [0, 12],
+        [-12, 0],
+        [18, 0],
       ];
       // TIME-BOXED: five shifts of walk-plus-dig can total 400+ seconds,
       // which blew straight past the 240s skill watchdog and turned the
