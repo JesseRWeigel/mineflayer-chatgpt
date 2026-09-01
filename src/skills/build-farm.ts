@@ -98,6 +98,37 @@ export const buildFarmSkill: Skill = {
       hoe = bot.inventory.items().find((i) => i.name.endsWith("_hoe"));
     }
     if (!hoe) {
+      // The chest before the forest — the pickaxe lesson applied to
+      // farming: Flora stood hoeless beside 983 banked planks while this
+      // skill went hunting trees on deforested ground and the village
+      // starved. Ask the stash for a hoe, then for plank stock, before
+      // ever walking to a tree.
+      try {
+        const { withdrawStash } = await import("./stash.js");
+        const { STASH_POS } = await import("../bot/role.js");
+        const nearStash = Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z) < 60;
+        if (nearStash) {
+          for (const want of ["stone_hoe", "wooden_hoe", "iron_hoe"]) {
+            await Promise.race([
+              withdrawStash(bot, STASH_POS, want, 1),
+              new Promise<void>((r) => setTimeout(r, 45_000)),
+            ]).catch(() => {});
+            if (bot.inventory.items().some((i) => i.name.endsWith("_hoe"))) break;
+          }
+          if (!bot.inventory.items().some((i) => i.name.endsWith("_hoe"))) {
+            await Promise.race([
+              withdrawStash(bot, STASH_POS, "oak_planks", 8),
+              new Promise<void>((r) => setTimeout(r, 45_000)),
+            ]).catch(() => {});
+            await craftHoe(bot, signal);
+          }
+          hoe = bot.inventory.items().find((i) => i.name.endsWith("_hoe"));
+        }
+      } catch {
+        /* stash unavailable — the tree fallback below still applies */
+      }
+    }
+    if (!hoe) {
       // Self-sufficiency (same pattern that made build_house complete):
       // gather a couple of logs instead of failing on missing planks.
       onProgress({
