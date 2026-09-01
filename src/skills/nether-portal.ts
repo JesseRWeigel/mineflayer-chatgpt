@@ -1031,6 +1031,7 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     .items()
     .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
   let pluggedByObsidian = 0;
+  let clearFailures = 0;
   for (const pos of interiorPositions(origin, axis)) {
     const b = bot.blockAt(new Vec3(pos.x, pos.y, pos.z));
     if (!b || b.name === "air" || b.name === "nether_portal") continue;
@@ -1038,14 +1039,28 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
       pluggedByObsidian++;
       continue;
     }
+    // Two "did not light" runs in a row cleared nothing while the doorway
+    // stood full of scaffold dirt: every dig failed in silence, most likely
+    // from out of reach after a shrugged-off approach. Walk into reach and
+    // say what actually goes wrong.
+    if (bot.entity.position.distanceTo(new Vec3(pos.x, pos.y, pos.z)) > 4) {
+      await safeGoto(bot, new goals.GoalNear(pos.x, pos.y, pos.z, 2), 20_000).catch(() => {});
+    }
     try {
       await Promise.race([
         bot.dig(b),
         new Promise((_, rej) => setTimeout(() => rej(new Error("dig timeout")), 20_000)),
       ]);
-    } catch {
+    } catch (e) {
       bot.stopDigging();
+      clearFailures++;
+      console.log(
+        `[Portal] ${bot.username}: interior clear failed at ${pos.x},${pos.y},${pos.z} (${b.name}, dist ${bot.entity.position.distanceTo(new Vec3(pos.x, pos.y, pos.z)).toFixed(1)}): ${(e as Error).message}`,
+      );
     }
+  }
+  if (clearFailures > 0) {
+    return `Frame complete (10/10) but ${clearFailures} doorway blocks resisted clearing — see the log. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
   }
   if (pluggedByObsidian > 0) {
     return `Frame complete (10/10) but the doorway holds ${pluggedByObsidian} stray obsidian only a DIAMOND pickaxe can clear. Bring one and invoke_skill build_nether_portal again to continue.`;
