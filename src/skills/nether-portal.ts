@@ -144,7 +144,16 @@ async function placeFrame(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<
         // pack over exactly this. Borrow the cast's scaffold trick; the
         // interior clear that precedes ignition digs the scaffold back out.
         if (pos.y === origin.y + 3) {
-          await placeScaffold(bot, { x: pos.x, y: pos.y - 1, z: pos.z });
+          // One floating support cannot exist — its own below is interior
+          // air as well ("no scaffold blocks to support 293,74,-310" with a
+          // full pack of dirt). Build the column up from the floor; the
+          // interior clear before ignition digs it all back out.
+          for (let h = 0; h <= 2; h++) {
+            const cell = new Vec3(pos.x, origin.y + h, pos.z);
+            const cur = bot.blockAt(cell);
+            if (cur && cur.name !== "air" && cur.name !== "cave_air") continue;
+            await placeScaffold(bot, { x: cell.x, y: cell.y, z: cell.z });
+          }
           below = bot.blockAt(target.offset(0, -1, 0));
         }
         if (!below || below.name === "air") continue; // nothing to build off yet, catch it next pass
