@@ -199,11 +199,18 @@ export const stripMineSkill: Skill = {
     // rock" tunnel ending four blocks from the portal workings. When the
     // yaw cardinal points that way, pick the cardinal whose 70-block hike
     // lands farthest from the quarry instead.
+    // 110, up from 70: a full observed hour of 70-block hikes landed on
+    // honeycombed ground — every descent rung out to eighteen blocks hung
+    // over the same cave system and every trip ended at y=64-71 with no
+    // ore. The tunnels that actually produced iron sat at x=408-417, about
+    // 120-130 blocks out; land past the honeycomb instead of on it.
+    const HIKE_LEN = 110;
     const QUARRY = { x: 278, z: -243 };
     let forward = getCardinalDirection(bot.entity.yaw);
     {
       const p = bot.entity.position;
-      const landing = (d: { x: number; z: number }) => Math.hypot(p.x + d.x * 70 - QUARRY.x, p.z + d.z * 70 - QUARRY.z);
+      const landing = (d: { x: number; z: number }) =>
+        Math.hypot(p.x + d.x * HIKE_LEN - QUARRY.x, p.z + d.z * HIKE_LEN - QUARRY.z);
       const cardinals = [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)];
       // East/west first. The village sits in a north-south squeeze: the portal
       // quarry is ~70 south and the lake starts ~80 north, so both z headings
@@ -235,13 +242,13 @@ export const stripMineSkill: Skill = {
         };
       }
       if (nearStash && !signal.aborted) {
-        const tx = Math.floor(p.x + forward.x * 70);
-        const tz = Math.floor(p.z + forward.z * 70);
+        const tx = Math.floor(p.x + forward.x * HIKE_LEN);
+        const tz = Math.floor(p.z + forward.z * HIKE_LEN);
         onProgress({
           skillName: "strip_mine",
           phase: "Hiking out",
           progress: 0.03,
-          message: `Walking ${70} blocks ${dirName(forward)} to fresh rock...`,
+          message: `Walking ${HIKE_LEN} blocks ${dirName(forward)} to fresh rock...`,
           active: true,
         });
         // safeGoto, so the walk survives one-shot external stops. Two attempts:
@@ -275,7 +282,7 @@ export const stripMineSkill: Skill = {
             console.log(`[Skill] strip_mine hike attempt ${attempt + 1} failed: ${(err as Error).message}`);
             bot.pathfinder.stop();
           }
-          if (hikeDist() >= 40) break;
+          if (hikeDist() >= 80) break;
           await new Promise((r) => setTimeout(r, 2000)); // let a flee finish before rewalking
         }
         console.log(
@@ -285,7 +292,7 @@ export const stripMineSkill: Skill = {
         // honeycombed and every descent shift finds a cave drop (run 360:
         // tunnels of 3-18 blocks at y=67-73, zero at ore depth). Failing
         // honestly beats reporting "complete" on 5 mined blocks.
-        if (hikeDist() < 40) {
+        if (hikeDist() < 60) {
           // "again to continue" matches the RESUMABLE_PROTOCOL phrasing that
           // marks this a precondition failure, not a skill bug — three of
           // these honest aborts helped push strip_mine onto Forge's permanent
