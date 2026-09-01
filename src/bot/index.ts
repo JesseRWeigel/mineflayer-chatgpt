@@ -132,6 +132,25 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     spawnSafetyRunning = true;
     await new Promise((r) => setTimeout(r, 800));
 
+    // /spawnpoint and /tp issued by a bot standing in the Nether act IN the
+    // Nether — Forge died 58 times in one session because every respawn
+    // re-stamped a piglin-side spawnpoint at stash coordinates and teleported
+    // him straight back to it. Outside the overworld, repair the spawnpoint
+    // into the overworld explicitly and stop; the stranded-in-the-Nether
+    // override walks the bot home through the portal.
+    const dimNow = String(bot.game.dimension);
+    if (dimNow !== "overworld" && dimNow !== "minecraft:overworld") {
+      if (roleConfig.stashPos) {
+        const s = roleConfig.stashPos;
+        bot.chat(`/execute in minecraft:overworld run spawnpoint ${roleConfig.username} ${s.x} ${s.y} ${s.z}`);
+        console.log(
+          `[Bot] ${roleConfig.name} outside the overworld — spawnpoint repaired to the stash, safety skipped`,
+        );
+      }
+      spawnSafetyRunning = false;
+      return;
+    }
+
     // Go straight home when there is a base to go to.
     //
     // safeSpawn resolves to terrain at y=117-121 — a mountain. spreadplayers put
