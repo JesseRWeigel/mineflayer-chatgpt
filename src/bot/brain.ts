@@ -758,10 +758,22 @@ export class BotBrain {
       const holdsDoorwayPick = this.bot.inventory
         .items()
         .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+      // A full frame in the pack is a stronger signal than any pickaxe:
+      // Atlas carried all ten blocks through an entire run while this
+      // override ignored him because he never owned a diamond pick, and
+      // placement waited on the strategic model's whims.
+      const holdsFullFrame =
+        this.bot.inventory
+          .items()
+          .filter((i) => i.name === "obsidian")
+          .reduce((s, i) => s + i.count, 0) >= 10;
       const cooledDown = Date.now() - this.lastPortalOverrideMs > 300_000;
-      if (holdsDoorwayPick && cooledDown) {
+      if ((holdsDoorwayPick || holdsFullFrame) && cooledDown) {
         this.lastPortalOverrideMs = Date.now();
-        this.log.info("Brain", "OVERRIDE: diamond pickaxe in hand — running build_nether_portal");
+        this.log.info(
+          "Brain",
+          `OVERRIDE: ${holdsFullFrame ? "full portal frame in the pack" : "diamond pickaxe in hand"} — running build_nether_portal`,
+        );
         this.events.onThought("The pick that opens the Nether is in my hand. To the doorway!");
         const result = await executeAction(this.bot, "invoke_skill", { skill: "build_nether_portal" });
         this.events.onAction("build_nether_portal", result);
