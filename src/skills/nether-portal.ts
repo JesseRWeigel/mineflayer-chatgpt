@@ -1083,7 +1083,27 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   recordPortal(bot, origin, axis);
   plannedSites.delete(bot.username);
   savePlannedSites();
-  return `Portal built and lit at ${origin.x},${origin.y},${origin.z}.`;
+
+  // The advancement is earned by STANDING in the doorway — lighting alone
+  // scores nothing, and no other machinery ever walks in. Step through,
+  // wait out the transition, and come straight home so the bot is never
+  // stranded on the far side.
+  const doorway = interiorPositions(origin, axis)[0];
+  try {
+    await safeGoto(bot, new goals.GoalBlock(doorway.x, doorway.y, doorway.z), 20_000);
+  } catch {
+    // Standing beside the doorway can still catch the transition below.
+  }
+  const entryStart = Date.now();
+  while (Date.now() - entryStart < 12_000 && !isNether(dimensionOf(bot))) {
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (isNether(dimensionOf(bot))) {
+    console.log(`[Portal] ${bot.username}: crossed into the Nether!`);
+    const back = await returnThroughPortal(bot);
+    return `Portal built and lit at ${origin.x},${origin.y},${origin.z} — stepped through to the Nether. ${back}`;
+  }
+  return `Portal built and lit at ${origin.x},${origin.y},${origin.z} — walk into the doorway to cross.`;
 }
 
 // Read behind a function call so tsc does not narrow bot.game.dimension to a
