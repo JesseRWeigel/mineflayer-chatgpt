@@ -20,6 +20,12 @@ export function baseMoves(bot: Bot): InstanceType<typeof Movements> {
   const moves = new Movements(bot);
   moves.maxDropDown = 3; // 3 blocks = no fall damage, 4 = 1.5 hearts
   moves.allowParkour = false;
+  // The lit village portal sits where everyone idles, and any path that
+  // clips the doorway teleports the walker into the ghast gallery — Flora
+  // and Forge both took that trip by accident within an hour of ignition.
+  // Deliberate crossings use manual controls and are unaffected.
+  const portalId = bot.registry.blocksByName.nether_portal?.id;
+  if (portalId !== undefined) moves.blocksToAvoid.add(portalId);
   return moves;
 }
 

@@ -115,7 +115,10 @@ export const FLORA_CONFIG: BotRoleConfig = {
   // Matches Atlas safeSpawn — moved east to fresh territory away from the stripped X=30 zone
   safeSpawn: { x: 280, y: 0, z: -320 },
   allowedActions: ["craft", "eat", "sleep", "go_to", "place_block", "chat", "flee"],
-  allowedSkills: ["build_farm", "craft_gear", "smelt_ores", "light_area"],
+  // build_nether_portal doubles as the ride home for anyone who stumbles
+  // through the village doorway — Flora took the trip within an hour of
+  // ignition and had no way back.
+  allowedSkills: ["build_farm", "craft_gear", "smelt_ores", "light_area", "build_nether_portal"],
   keepItems: [
     { name: "hoe", minCount: 1 },
     { name: "food", minCount: 4 },
@@ -245,7 +248,7 @@ export const BLADE_CONFIG: BotRoleConfig = {
   // bot carrying saplings — the replanting branch lives inside gather_wood,
   // and the one bot who could reforest was the one bot barred from trying.
   allowedActions: ["attack", "flee", "go_to", "gather_wood", "eat", "sleep", "chat"],
-  allowedSkills: ["neural_combat", "craft_gear"],
+  allowedSkills: ["neural_combat", "craft_gear", "build_nether_portal"],
   keepItems: [
     { name: "sword", minCount: 1 },
     { name: "shield", minCount: 1 },

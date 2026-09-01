@@ -750,9 +750,12 @@ export class BotBrain {
     // finished pick anywhere: the doorway at 278,14,-243 would have waited on
     // the model to volunteer. Diamond pick + the portal skill = go clear it.
     // build_nether_portal handles the interior obsidian, ignition, and entry.
+    // An empty allowedSkills list is permissive (Atlas ran this skill all
+    // night on one), and the stranded-in-the-Nether rescue must reach every
+    // bot that can fall through the doorway.
     if (
       config.bot.allowStrategyOverrides &&
-      this.roleConfig.allowedSkills.includes("build_nether_portal") &&
+      (this.roleConfig.allowedSkills.length === 0 || this.roleConfig.allowedSkills.includes("build_nether_portal")) &&
       !isSkillRunning(this.bot)
     ) {
       const holdsDoorwayPick = this.bot.inventory
