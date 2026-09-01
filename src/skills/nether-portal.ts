@@ -215,12 +215,17 @@ async function carveSite(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<v
 // the approach, so this is a time-budgeted loop in the walk-armor pattern:
 // re-approach after a hijack, walk the last step on manual controls, stand
 // still inside until the dimension flips.
-async function crossPortal(bot: Bot, doorway: Vec3, budgetMs: number): Promise<boolean> {
+async function crossPortal(
+  bot: Bot,
+  doorway: Vec3,
+  budgetMs: number,
+  arrived: (dim: string) => boolean = isNether,
+): Promise<boolean> {
   const centre = new Vec3(doorway.x + 0.5, doorway.y + 0.5, doorway.z + 0.5);
   const inPortal = () => bot.blockAt(bot.entity.position)?.name === "nether_portal";
   const deadline = Date.now() + Math.max(20_000, budgetMs);
   while (Date.now() < deadline) {
-    if (isNether(dimensionOf(bot))) return true;
+    if (arrived(dimensionOf(bot))) return true;
     if (bot.entity.position.distanceTo(centre) > 2.5 && !inPortal()) {
       bot.pathfinder.setMovements(baseMoves(bot));
       await safeGoto(bot, new goals.GoalNear(doorway.x, doorway.y, doorway.z, 1), 20_000).catch(() => {});
@@ -235,7 +240,7 @@ async function crossPortal(bot: Bot, doorway: Vec3, budgetMs: number): Promise<b
     bot.setControlState("forward", false);
     const standStart = Date.now();
     while (Date.now() - standStart < 7_000) {
-      if (isNether(dimensionOf(bot))) return true;
+      if (arrived(dimensionOf(bot))) return true;
       if (!inPortal()) break; // knocked out — the outer loop re-approaches
       await new Promise((r) => setTimeout(r, 500));
     }
@@ -244,7 +249,7 @@ async function crossPortal(bot: Bot, doorway: Vec3, budgetMs: number): Promise<b
     );
     await new Promise((r) => setTimeout(r, 1000));
   }
-  return isNether(dimensionOf(bot));
+  return arrived(dimensionOf(bot));
 }
 
 export async function buildNetherPortal(bot: Bot): Promise<string> {
@@ -269,6 +274,12 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   // noise — the advancement wants a bot in the doorway, and the last three
   // runs reached the entry step with the clock spent and mobs biting. The
   // crossing gets the front of the window here rather than the leftovers.
+  // Already on the far side? Come home before anything else — the rest of
+  // this skill assumes overworld coordinates and an overworld stash.
+  if (isNether(dimensionOf(bot))) {
+    return await returnThroughPortal(bot);
+  }
+
   {
     const litPortal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 48 });
     if (litPortal && isOverworld(dimensionOf(bot))) {
@@ -1178,18 +1189,11 @@ export async function returnThroughPortal(bot: Bot): Promise<string> {
   const portal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 64 });
   if (!portal) return "Cannot find a nether_portal within 64 blocks.";
 
-  bot.pathfinder.setMovements(baseMoves(bot));
-  try {
-    await safeGoto(bot, new goals.GoalBlock(portal.position.x, portal.position.y, portal.position.z), 20000);
-  } catch {
-    // Best effort — still worth standing near the portal and waiting for the
-    // dimension change even if pathfinder gave up short of the exact block.
-  }
-
-  // Standing in the portal is what triggers the transition; give it time.
-  await new Promise((r) => setTimeout(r, 6000));
-  const home = isOverworld(dimensionOf(bot));
-  return home ? "Returned to the overworld." : "Stood in the portal but did not transition.";
+  // Same doorway physics as the outbound trip: the pathfinder refuses to
+  // path INTO a portal block, so the manual crossing loop does the walking.
+  // Forge earned the breach and then stood stranded on this exact line.
+  const home = await crossPortal(bot, portal.position, 90_000, isOverworld);
+  return home ? "Returned to the overworld." : "Stood at the portal but the return kept getting interrupted.";
 }
 
 export const buildNetherPortalSkill: Skill = {
