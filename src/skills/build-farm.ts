@@ -13,6 +13,12 @@ export const buildFarmSkill: Skill = {
   description:
     "Build a wheat farm near water. Crafts a hoe, collects seeds, tills soil, plants crops. If mature wheat exists nearby, harvests and replants instead. Takes ~2 minutes.",
   params: {},
+  // The clock doctrine, applied late: the hoe withdrawal plus a stash trip
+  // plus tilling walks blew the default 240s watchdog mid-planting the very
+  // first time the tool step succeeded — the run died at 48% with wheat
+  // half in the ground. Tilled and planted cells persist between visits, so
+  // a longer envelope converts straight into planted rows.
+  timeoutMs: 480_000,
 
   estimateMaterials(_bot, _params) {
     return {};
