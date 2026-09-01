@@ -894,6 +894,21 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     }
   }
 
+  // Seat carried obsidian into the frame before hunting for more. The
+  // village placement left Atlas adopting his own 5/10 frame with five
+  // blocks still in his pack, and acquireObsidian only knows how to mine
+  // (diamond pick) or cast (lava) — at the village he has neither.
+  // placeFrame skips cells that are already obsidian and stops when the
+  // pack runs dry, so this is safe on every visit.
+  const heldObs = bot.inventory
+    .items()
+    .filter((i) => i.name === "obsidian")
+    .reduce((s, i) => s + i.count, 0);
+  if (heldObs > 0) {
+    console.log(`[Portal] ${bot.username}: seating ${heldObs} carried obsidian into the frame first`);
+    await placeFrame(bot, origin, axis);
+  }
+
   const got = await acquireObsidian(bot, frame, runDeadline - 15_000, interiorPositions(origin, axis));
   console.log(`[Portal] ${bot.username} obsidian step: ${got}`);
 
