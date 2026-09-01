@@ -10,6 +10,9 @@ Designed for live streaming: includes a Mission Control dashboard, per-bot 3D vi
 
 > Formerly `mineflayer-chatgpt`. Renamed to reflect what it became: a multi-agent swarm running on local models, not a single ChatGPT bot.
 
+🏆 **The Advancement Ledger — every achievement the swarm has earned for itself, live:** [jesseweigel.com/minecraft-advancements](https://jesseweigel.com/minecraft-advancements)
+This is the project's main scoreboard and the clearest proof of progress: each of the 122 vanilla advancements, marked as the bots genuinely earn them.
+
 📖 **Project page, devlogs, and live scoreboard stats:** [jesseweigel.com/workshop/minecraft-agent-swarm](https://jesseweigel.com/workshop/minecraft-agent-swarm)
 
 ---
