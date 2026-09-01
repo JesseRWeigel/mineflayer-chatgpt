@@ -767,12 +767,18 @@ export class BotBrain {
           .items()
           .filter((i) => i.name === "obsidian")
           .reduce((s, i) => s + i.count, 0) >= 10;
+      // A bot stuck on the far side flails: Forge lost his whole kit to a
+      // ghast while his strategic model hunted for trees in the Nether. The
+      // portal skill starts with a return-home leg, so firing it IS the
+      // rescue.
+      const dimNow = String(this.bot.game.dimension);
+      const strandedInNether = dimNow === "the_nether" || dimNow === "minecraft:the_nether";
       const cooledDown = Date.now() - this.lastPortalOverrideMs > 300_000;
-      if ((holdsDoorwayPick || holdsFullFrame) && cooledDown) {
+      if ((holdsDoorwayPick || holdsFullFrame || strandedInNether) && cooledDown) {
         this.lastPortalOverrideMs = Date.now();
         this.log.info(
           "Brain",
-          `OVERRIDE: ${holdsFullFrame ? "full portal frame in the pack" : "diamond pickaxe in hand"} — running build_nether_portal`,
+          `OVERRIDE: ${strandedInNether ? "stranded in the Nether" : holdsFullFrame ? "full portal frame in the pack" : "diamond pickaxe in hand"} — running build_nether_portal`,
         );
         this.events.onThought("The pick that opens the Nether is in my hand. To the doorway!");
         const result = await executeAction(this.bot, "invoke_skill", { skill: "build_nether_portal" });

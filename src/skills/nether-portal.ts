@@ -280,16 +280,16 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     return await returnThroughPortal(bot);
   }
 
+  // With the breach earned, an overworld bot beside the lit portal has
+  // nothing left to do here. The first version of this leg crossed
+  // unconditionally, and Forge fell into a death loop: respawn at the
+  // village, auto-cross, ghast fireball, repeat — three deaths in forty
+  // seconds and a diamond pickaxe lost to the lava. Crossing on purpose
+  // becomes its own expedition skill someday; this one only builds.
   {
     const litPortal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 48 });
     if (litPortal && isOverworld(dimensionOf(bot))) {
-      const crossed = await crossPortal(bot, litPortal.position, Math.min(120_000, timeLeft() - 60_000));
-      if (crossed) {
-        console.log(`[Portal] ${bot.username}: crossed into the Nether!`);
-        const back = await returnThroughPortal(bot);
-        return `Stepped through the portal into the Nether. ${back}`;
-      }
-      return `A lit portal stands at ${litPortal.position.x},${litPortal.position.y},${litPortal.position.z} but the crossing kept getting interrupted. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+      return `The portal stands lit at ${litPortal.position.x},${litPortal.position.y},${litPortal.position.z} — the Nether breach is complete. Nothing to build.`;
     }
   }
 
