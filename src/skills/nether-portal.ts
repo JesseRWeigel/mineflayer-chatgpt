@@ -13,7 +13,7 @@ import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import type { Skill, SkillResult } from "./types.js";
 import { framePositions, interiorPositions, ignitionTarget } from "./portal-geometry.js";
-import { acquireObsidian } from "./obsidian.js";
+import { acquireObsidian, placeScaffold } from "./obsidian.js";
 import { craftFlintAndSteel } from "./flint-and-steel.js";
 import { fillBucket, isSourceBlock, LAVA_DEPTH, type Vec3Like } from "./fluid.js";
 import { digDownTo } from "./descend.js";
@@ -137,8 +137,18 @@ async function placeFrame(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<
       const held = bot.inventory.items().find((i) => i.name === "obsidian");
       if (!held) return; // out of obsidian; nothing left to place with
 
-      const below = bot.blockAt(target.offset(0, -1, 0));
-      if (!below || below.name === "air") continue; // nothing to build off yet, catch it next pass
+      let below = bot.blockAt(target.offset(0, -1, 0));
+      if (!below || below.name === "air") {
+        // The lintel spans the interior, so its support cells are air by
+        // definition — Atlas stalled at 8/10 with two spare blocks in his
+        // pack over exactly this. Borrow the cast's scaffold trick; the
+        // interior clear that precedes ignition digs the scaffold back out.
+        if (pos.y === origin.y + 3) {
+          await placeScaffold(bot, { x: pos.x, y: pos.y - 1, z: pos.z });
+          below = bot.blockAt(target.offset(0, -1, 0));
+        }
+        if (!below || below.name === "air") continue; // nothing to build off yet, catch it next pass
+      }
 
       await bot.equip(held, "hand");
       await bot.placeBlock(below, new Vec3(0, 1, 0)).catch(() => {});

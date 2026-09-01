@@ -27,7 +27,7 @@ const SCAFFOLD = ["cobblestone", "dirt", "stone", "netherrack", "andesite", "dio
 const NEEDS_SCAFFOLD = new Set(["air", "cave_air", "water", "flowing_water", "lava", "flowing_lava"]);
 
 /** Place a throwaway block at `at` so a fluid poured above it has support. */
-async function placeScaffold(bot: Bot, at: Vec3Like): Promise<boolean> {
+export async function placeScaffold(bot: Bot, at: Vec3Like): Promise<boolean> {
   // Spend the stone family FIRST and keep dirt and cobblestone in the pack:
   // those two are the pathfinder's only pillar currency, and supports were
   // eating the freshly dug tower budget — pour walk-backs kept reporting
