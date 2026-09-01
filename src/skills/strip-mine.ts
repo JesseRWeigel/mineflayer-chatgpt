@@ -142,6 +142,21 @@ export const stripMineSkill: Skill = {
         }
         if (bot.inventory.items().some((i) => i.name === want)) break;
       }
+      // Nine stone and nine wooden spares sat banked while Forge wandered
+      // pickless hunting trees on deforested ground — a broken pick must
+      // check the chest before the forest. Any pick beats none; the iron+
+      // preference above still upgrades whenever better tools are banked.
+      const holdsAnyPick = () => bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
+      if (!holdsAnyPick()) {
+        for (const want of ["stone_pickaxe", "wooden_pickaxe"]) {
+          try {
+            await raced(withdrawStash(bot, SP, want, 1), 60_000, "pick reclaim");
+          } catch {
+            /* none banked */
+          }
+          if (holdsAnyPick()) break;
+        }
+      }
     }
 
     // Pool banked diamonds into this diver's pocket. Halves of the 3-set
