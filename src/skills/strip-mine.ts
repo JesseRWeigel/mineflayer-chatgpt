@@ -434,6 +434,31 @@ export const stripMineSkill: Skill = {
       active: true,
     });
 
+    // A flooded pocket kills every tunnel at step 0 in the SAME heading —
+    // Forge's override retried into the same water every four minutes for an
+    // hour at y=-59 while three dry walls stood around him. Probe the four
+    // cardinals and take the first dry mouth, preferring the chosen heading.
+    {
+      const p0 = bot.entity.position.floored();
+      const mouths = [
+        forward,
+        new Vec3(-forward.x, 0, -forward.z),
+        new Vec3(forward.z, 0, forward.x),
+        new Vec3(-forward.z, 0, -forward.x),
+      ];
+      const wet = (v: Vec3) => {
+        const b = bot.blockAt(v);
+        return !!b && (b.name === "water" || b.name === "lava");
+      };
+      for (const cand of mouths) {
+        if (!wet(p0.offset(cand.x, 0, cand.z)) && !wet(p0.offset(cand.x, 1, cand.z))) {
+          if (cand !== forward) console.log(`[Skill] strip_mine tunnel mouth rotated to ${dirName(cand)} — dry ground`);
+          forward = cand;
+          break;
+        }
+      }
+    }
+
     for (let step = 0; step < TUNNEL_LENGTH && !signal.aborted; step++) {
       if (softExpired()) {
         console.log(`[Skill] strip_mine soft deadline at step ${step} — ending tunnel with cargo aboard`);
