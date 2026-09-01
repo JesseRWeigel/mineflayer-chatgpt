@@ -1090,13 +1090,32 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   // stranded on the far side.
   const doorway = interiorPositions(origin, axis)[0];
   try {
-    await safeGoto(bot, new goals.GoalBlock(doorway.x, doorway.y, doorway.z), 20_000);
+    await safeGoto(bot, new goals.GoalNear(doorway.x, doorway.y, doorway.z, 1), 20_000);
   } catch {
-    // Standing beside the doorway can still catch the transition below.
+    // Close enough may still work; the manual walk below finishes the job.
   }
+  // The pathfinder refuses to path INTO a portal block — both bots stood at
+  // the lit doorway reporting "walk into the doorway to cross". Walk in on
+  // manual controls, stop inside, and stand through the four-second delay.
+  bot.pathfinder.setGoal(null);
+  const doorwayCentre = new Vec3(doorway.x + 0.5, doorway.y + 0.5, doorway.z + 0.5);
+  const inPortal = () => bot.blockAt(bot.entity.position)?.name === "nether_portal";
+  await bot.lookAt(doorwayCentre, true).catch(() => {});
+  bot.setControlState("forward", true);
+  const walkStart = Date.now();
+  while (Date.now() - walkStart < 8_000 && !inPortal()) {
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  bot.setControlState("forward", false);
   const entryStart = Date.now();
-  while (Date.now() - entryStart < 12_000 && !isNether(dimensionOf(bot))) {
-    await new Promise((r) => setTimeout(r, 1000));
+  while (Date.now() - entryStart < 15_000 && !isNether(dimensionOf(bot))) {
+    if (!inPortal()) {
+      await bot.lookAt(doorwayCentre, true).catch(() => {});
+      bot.setControlState("forward", true);
+      await new Promise((r) => setTimeout(r, 400));
+      bot.setControlState("forward", false);
+    }
+    await new Promise((r) => setTimeout(r, 500));
   }
   if (isNether(dimensionOf(bot))) {
     console.log(`[Portal] ${bot.username}: crossed into the Nether!`);
