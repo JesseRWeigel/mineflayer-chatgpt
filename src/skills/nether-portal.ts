@@ -1186,8 +1186,31 @@ export async function returnThroughPortal(bot: Bot): Promise<string> {
   if (!isNether(dimensionOf(bot))) {
     return "Not in the Nether — nothing to return from.";
   }
-  const portal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 64 });
-  if (!portal) return "Cannot find a nether_portal within 64 blocks.";
+  const findPortalBlock = () => bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 64 });
+  let portal = findPortalBlock();
+  if (!portal) {
+    // Forge's panicked flights carried him ~250 blocks from the arrival
+    // portal, far beyond this search. The village frame's registry entry
+    // names the nether-side address by the 8:1 coordinate rule — march
+    // toward it on the walk-armor pattern until the doorway shows up.
+    const frames = Object.values(bankedFrames);
+    if (frames.length === 0) return "Cannot find a nether_portal within 64 blocks and no frame is registered.";
+    const target = { x: Math.floor(frames[0].origin.x / 8), z: Math.floor(frames[0].origin.z / 8) };
+    const gap = () => Math.hypot(bot.entity.position.x - target.x, bot.entity.position.z - target.z);
+    console.log(
+      `[Portal] ${bot.username}: no portal in sight — marching to the home doorway's nether side at ${target.x},~,${target.z} (${gap().toFixed(0)} away)`,
+    );
+    const marchDeadline = Date.now() + 240_000;
+    bot.pathfinder.setMovements(baseMoves(bot));
+    while (Date.now() < marchDeadline && !portal) {
+      await safeGoto(bot, new goals.GoalXZ(target.x, target.z), 45_000, 12_000).catch(() => {});
+      portal = findPortalBlock();
+      if (!portal) await new Promise((r) => setTimeout(r, 1500));
+    }
+    if (!portal) {
+      return `Marching home through the Nether — still ${gap().toFixed(0)} blocks from the doorway at ${target.x},~,${target.z}. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+    }
+  }
 
   // Same doorway physics as the outbound trip: the pathfinder refuses to
   // path INTO a portal block, so the manual crossing loop does the walking.
