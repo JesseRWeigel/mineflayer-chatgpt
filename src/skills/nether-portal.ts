@@ -210,6 +210,43 @@ async function carveSite(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<v
   }
 }
 
+// Walk INTO a lit portal and stand through the four-second transition. The
+// pathfinder refuses to path into portal blocks and village mobs interrupt
+// the approach, so this is a time-budgeted loop in the walk-armor pattern:
+// re-approach after a hijack, walk the last step on manual controls, stand
+// still inside until the dimension flips.
+async function crossPortal(bot: Bot, doorway: Vec3, budgetMs: number): Promise<boolean> {
+  const centre = new Vec3(doorway.x + 0.5, doorway.y + 0.5, doorway.z + 0.5);
+  const inPortal = () => bot.blockAt(bot.entity.position)?.name === "nether_portal";
+  const deadline = Date.now() + Math.max(20_000, budgetMs);
+  while (Date.now() < deadline) {
+    if (isNether(dimensionOf(bot))) return true;
+    if (bot.entity.position.distanceTo(centre) > 2.5 && !inPortal()) {
+      bot.pathfinder.setMovements(baseMoves(bot));
+      await safeGoto(bot, new goals.GoalNear(doorway.x, doorway.y, doorway.z, 1), 20_000).catch(() => {});
+    }
+    bot.pathfinder.setGoal(null);
+    await bot.lookAt(centre, true).catch(() => {});
+    bot.setControlState("forward", true);
+    const walkStart = Date.now();
+    while (Date.now() - walkStart < 4_000 && !inPortal()) {
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    bot.setControlState("forward", false);
+    const standStart = Date.now();
+    while (Date.now() - standStart < 7_000) {
+      if (isNether(dimensionOf(bot))) return true;
+      if (!inPortal()) break; // knocked out — the outer loop re-approaches
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    console.log(
+      `[Portal] ${bot.username}: crossing attempt — inPortal=${inPortal()}, dist=${bot.entity.position.distanceTo(centre).toFixed(1)}, dim=${dimensionOf(bot)}`,
+    );
+    await new Promise((r) => setTimeout(r, 1000));
+  }
+  return isNether(dimensionOf(bot));
+}
+
 export async function buildNetherPortal(bot: Bot): Promise<string> {
   // Own the clock. The executor's 240s watchdog killed eight runs in one
   // hour once the chain grew to water-charge + descent + closures + carve +
@@ -227,6 +264,23 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
     const p = bot.entity.position.floored();
     return `Out of run time while ${doing} (at ${p.x},${p.y},${p.z}) — progress is banked. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
   };
+
+  // CROSS FIRST. With a lit portal standing nearby, every other leg is
+  // noise — the advancement wants a bot in the doorway, and the last three
+  // runs reached the entry step with the clock spent and mobs biting. The
+  // crossing gets the front of the window here rather than the leftovers.
+  {
+    const litPortal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 48 });
+    if (litPortal && isOverworld(dimensionOf(bot))) {
+      const crossed = await crossPortal(bot, litPortal.position, Math.min(120_000, timeLeft() - 60_000));
+      if (crossed) {
+        console.log(`[Portal] ${bot.username}: crossed into the Nether!`);
+        const back = await returnThroughPortal(bot);
+        return `Stepped through the portal into the Nether. ${back}`;
+      }
+      return `A lit portal stands at ${litPortal.position.x},${litPortal.position.y},${litPortal.position.z} but the crossing kept getting interrupted. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
+    }
+  }
 
   // Reclaim banked obsidian first. The self-cannibalization bug demolished
   // the finished frame and the pre-mine deposits banked the pieces — up to
@@ -1089,40 +1143,17 @@ export async function buildNetherPortal(bot: Bot): Promise<string> {
   // wait out the transition, and come straight home so the bot is never
   // stranded on the far side.
   const doorway = interiorPositions(origin, axis)[0];
-  try {
-    await safeGoto(bot, new goals.GoalNear(doorway.x, doorway.y, doorway.z, 1), 20_000);
-  } catch {
-    // Close enough may still work; the manual walk below finishes the job.
-  }
-  // The pathfinder refuses to path INTO a portal block — both bots stood at
-  // the lit doorway reporting "walk into the doorway to cross". Walk in on
-  // manual controls, stop inside, and stand through the four-second delay.
-  bot.pathfinder.setGoal(null);
-  const doorwayCentre = new Vec3(doorway.x + 0.5, doorway.y + 0.5, doorway.z + 0.5);
-  const inPortal = () => bot.blockAt(bot.entity.position)?.name === "nether_portal";
-  await bot.lookAt(doorwayCentre, true).catch(() => {});
-  bot.setControlState("forward", true);
-  const walkStart = Date.now();
-  while (Date.now() - walkStart < 8_000 && !inPortal()) {
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  bot.setControlState("forward", false);
-  const entryStart = Date.now();
-  while (Date.now() - entryStart < 15_000 && !isNether(dimensionOf(bot))) {
-    if (!inPortal()) {
-      await bot.lookAt(doorwayCentre, true).catch(() => {});
-      bot.setControlState("forward", true);
-      await new Promise((r) => setTimeout(r, 400));
-      bot.setControlState("forward", false);
-    }
-    await new Promise((r) => setTimeout(r, 500));
-  }
-  if (isNether(dimensionOf(bot))) {
+  const crossed = await crossPortal(
+    bot,
+    new Vec3(doorway.x, doorway.y, doorway.z),
+    Math.min(90_000, Math.max(20_000, timeLeft() - 30_000)),
+  );
+  if (crossed) {
     console.log(`[Portal] ${bot.username}: crossed into the Nether!`);
     const back = await returnThroughPortal(bot);
     return `Portal built and lit at ${origin.x},${origin.y},${origin.z} — stepped through to the Nether. ${back}`;
   }
-  return `Portal built and lit at ${origin.x},${origin.y},${origin.z} — walk into the doorway to cross.`;
+  return `Portal built and lit at ${origin.x},${origin.y},${origin.z} — the crossing kept getting interrupted. invoke_skill {"skill":"build_nether_portal"} again to continue from here.`;
 }
 
 // Read behind a function call so tsc does not narrow bot.game.dimension to a
