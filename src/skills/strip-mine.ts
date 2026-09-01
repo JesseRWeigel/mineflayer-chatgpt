@@ -277,7 +277,19 @@ export const stripMineSkill: Skill = {
             // standing still, and computing a dig-enabled 70-block path takes
             // longer than that (thinkTimeout alone is 10s). The grace period
             // exists for exactly this; the hike never used it.
-            await safeGoto(bot, new goals.GoalXZ(tx, tz), Math.max(15_000, hikeDeadline - Date.now()), 12_000);
+            // Waypoint hops, the quarry march's cure: a full-length
+            // dig-enabled GoalXZ blows the pathfinder's compute budget and
+            // the walk dies standing still — run 425 logged four hikes that
+            // ended 2-7 blocks from the chest with all 150s spent. A
+            // 40-block hop computes fast; the attempt loop re-aims until
+            // the distance is made.
+            const px = bot.entity.position.x;
+            const pz = bot.entity.position.z;
+            const rem = Math.hypot(tx - px, tz - pz);
+            const step = Math.min(40, rem);
+            const wx = Math.floor(px + ((tx - px) / (rem || 1)) * step);
+            const wz = Math.floor(pz + ((tz - pz) / (rem || 1)) * step);
+            await safeGoto(bot, new goals.GoalXZ(wx, wz), 45_000, 12_000);
           } catch (err) {
             console.log(`[Skill] strip_mine hike attempt ${attempt + 1} failed: ${(err as Error).message}`);
             bot.pathfinder.stop();
