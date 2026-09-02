@@ -692,6 +692,7 @@ async function mineExposedOre(bot: Bot, pos: Vec3): Promise<{ mined: number; ore
       console.log(`[Skill] strip_mine leaving ${b.name} in the wall — no iron-tier pickaxe to harvest it`);
       continue;
     }
+    const minedBefore = mined;
     try {
       await equipBestPickaxe(bot);
       await digSafe(bot, b);
@@ -699,14 +700,14 @@ async function mineExposedOre(bot: Bot, pos: Vec3): Promise<{ mined: number; ore
       ores.push(b.name);
       // Follow the vein a little so we don't leave most of it in the wall.
       mined += await followVein(bot, t, b.name, ores);
-      // POCKET THE DROPS. This was the one dig path with no pickup sweep —
-      // the tunnel-ahead and spelunk-chase paths both collect, and run 388's
-      // TWO diamond strikes came through here: "Found: 1x
-      // deepslate_diamond_ore! Cargo: 3x raw_iron, 4x raw_copper" — mined
-      // from the wall, dropped on the floor, walked away from.
-      await collectNearbyDrops(bot, 5, 3000);
     } catch {
       /* out of reach or interrupted — skip */
+    } finally {
+      // POCKET THE DROPS, even when the vein-follow was interrupted. The
+      // sweep used to sit inside the try, and run 430's diamond strike dug
+      // clean and then vanished — one flee between the dig and the sweep
+      // left the stone on the floor to despawn.
+      if (mined > minedBefore) await collectNearbyDrops(bot, 5, 3000).catch(() => {});
     }
   }
   return { mined, ores };
