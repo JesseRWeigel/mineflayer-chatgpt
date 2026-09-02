@@ -215,6 +215,11 @@ export const MASON_CONFIG: BotRoleConfig = {
   keepItems: [
     { name: "sapling", minCount: 16 },
     { name: "axe", minCount: 1 },
+    // Mason is the team's second crafter-miner and twice ended up mining
+    // copper with a wooden pick while his iron and diamond pickaxes sat in
+    // the chest — his own deposits banked them because pickaxes were absent
+    // from this list (Forge's list always had them).
+    { name: "pickaxe", minCount: 1 },
     { name: "food", minCount: 4 },
     { name: "torch", minCount: 16 },
   ],
