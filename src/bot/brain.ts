@@ -734,7 +734,13 @@ export class BotBrain {
     // is mechanical, the LLM plans on top of it. Only idle bots get here
     // (skills re-queue strategic events), so nobody abandons a job to nap.
     const timeOfDay = this.bot.time?.timeOfDay ?? 0;
-    if (timeOfDay >= 12542 && timeOfDay <= 23458 && !(this.bot as any).isSleeping) {
+    // 11800, before beds unlock at 12542: the sleep action walks FIRST and
+    // clicks last, so a dusk invocation parks the bot beside its bed through
+    // twilight and the click lands the moment it becomes legal — winning the
+    // race against mob aggro that three straight 20-death nights kept losing
+    // (the reflex used to start the 75s bed-walk only after the mobs were
+    // already out).
+    if (timeOfDay >= 11800 && timeOfDay <= 23458 && !(this.bot as any).isSleeping) {
       const slept = await executeAction(this.bot, "sleep", {});
       this.log.info("Brain", `Night reflex: sleep → ${slept}`);
       if (/zzz|sleeping/i.test(slept)) return; // in bed — skip the LLM turn
