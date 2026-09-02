@@ -776,8 +776,17 @@ export class BotBrain {
       // rescue.
       const dimNow = String(this.bot.game.dimension);
       const strandedInNether = dimNow === "the_nether" || dimNow === "minecraft:the_nether";
+      // With the village portal lit, a diamond pick alone is no reason to
+      // run the builder — the skill returns "nothing to build" instantly and
+      // the override was firing that no-op every five minutes forever. A
+      // pick-holder only builds when no lit doorway stands nearby; the
+      // full-pocket and stranded triggers are unaffected.
+      const litPortalNearby =
+        holdsDoorwayPick &&
+        !strandedInNether &&
+        !!this.bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 48 });
       const cooledDown = Date.now() - this.lastPortalOverrideMs > 300_000;
-      if ((holdsDoorwayPick || holdsFullFrame || strandedInNether) && cooledDown) {
+      if (((holdsDoorwayPick && !litPortalNearby) || holdsFullFrame || strandedInNether) && cooledDown) {
         this.lastPortalOverrideMs = Date.now();
         this.log.info(
           "Brain",
