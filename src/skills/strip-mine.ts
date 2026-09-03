@@ -51,6 +51,29 @@ export const stripMineSkill: Skill = {
       pickaxe = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
     }
     if (!pickaxe) {
+      // The chest before the forge: thirty wooden and eighteen stone spares
+      // sat banked while this gate bounced pickless miners three times in a
+      // row — the reclaim preamble lives BELOW this early return and never
+      // ran for a bot holding no pick at all.
+      try {
+        const { withdrawStash } = await import("./stash.js");
+        const { STASH_POS: SP0 } = await import("../bot/role.js");
+        const nearHome = Math.hypot(bot.entity.position.x - SP0.x, bot.entity.position.z - SP0.z) < 60;
+        if (nearHome) {
+          for (const want of ["diamond_pickaxe", "iron_pickaxe", "stone_pickaxe", "wooden_pickaxe"]) {
+            await Promise.race([
+              withdrawStash(bot, SP0, want, 1),
+              new Promise<void>((resolve) => setTimeout(resolve, 45_000)),
+            ]).catch(() => {});
+            pickaxe = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+            if (pickaxe) break;
+          }
+        }
+      } catch {
+        /* stash unavailable — fall through to the honest failure */
+      }
+    }
+    if (!pickaxe) {
       return {
         success: false,
         message: "Need a pickaxe and could not craft one — stash is out of cobblestone or sticks.",
