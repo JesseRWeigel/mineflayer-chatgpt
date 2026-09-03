@@ -77,6 +77,23 @@ export function snapshotChest(
   });
 }
 
+/**
+ * Chest positions last seen holding an item whose name includes `matchName`,
+ * most-recently-snapshotted first. Lets a withdrawal walk to the chest that
+ * actually has the item instead of scanning a 60-chest sprawl in position
+ * order until the watchdog fires.
+ */
+export function chestsWithItem(matchName: string): { x: number; y: number; z: number }[] {
+  const hits: { pos: { x: number; y: number; z: number }; updatedAt: number }[] = [];
+  for (const chest of chests.values()) {
+    if (chest.items.some((i) => i.name.includes(matchName))) {
+      const [x, y, z] = chest.pos.split(",").map(Number);
+      hits.push({ pos: { x, y, z }, updatedAt: chest.updatedAt });
+    }
+  }
+  return hits.sort((a, b) => b.updatedAt - a.updatedAt).map((h) => h.pos);
+}
+
 export interface StashSummary {
   categories: Record<string, number>;
   freeSlots: number;

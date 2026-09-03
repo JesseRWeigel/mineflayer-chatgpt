@@ -1191,6 +1191,18 @@ export async function withdrawStash(
   // sixteen nearest happened to exclude the one holding the team's last two
   // sticks — the withdrawal reported empty shelves while the item sat
   // banked twenty blocks away. Scan them all.
+  // Chests the ledger last saw holding this item go to the FRONT, so a
+  // scattered item is found in the first chest or two instead of the
+  // sixtieth. The ledger snapshots contents on every open, so it is as
+  // fresh as the last visit — a miss just falls through to the full scan.
+  const { chestsWithItem } = await import("./stash-ledger.js");
+  for (const known of chestsWithItem(matchName)) {
+    const block = bot.blockAt(new Vec3(known.x, known.y, known.z));
+    if (block && (block.name === "chest" || block.name === "trapped_chest") && !chestsToTry.includes(block)) {
+      chestsToTry.push(block);
+    }
+  }
+
   const allChests = bot.findBlocks({
     matching: (b) => b.name === "chest" || b.name === "trapped_chest",
     maxDistance: 20,
@@ -1214,10 +1226,22 @@ export async function withdrawStash(
   let withdrawn = 0;
   const needed = count;
 
+  // Time-box the whole scan. The stash sprawled to 60+ chests, and walking
+  // to and opening every one blew the executor's 150s watchdog — 901
+  // withdraw timeouts in one run, leaving bots starving and pickless while
+  // the item sat in a chest the scan never reached. Stop at 110s and return
+  // whatever was gathered; a partial withdrawal beats a watchdog kill that
+  // returns nothing.
+  const scanDeadline = Date.now() + 110_000;
+
   for (const chest of chestsToTry) {
     if (withdrawn >= needed) break;
+    if (Date.now() > scanDeadline) {
+      console.log(`[Stash] withdraw scan hit its 110s budget after ${withdrawn}/${needed} ${matchName}`);
+      break;
+    }
     try {
-      await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 10000);
+      await safeGoto(bot, new goals.GoalNear(chest.position.x, chest.position.y, chest.position.z, 2), 8000);
       const container = await openContainerTimed(bot, chest);
 
       for (const slot of container.containerItems()) {
