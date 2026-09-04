@@ -31,13 +31,70 @@ export const goFishingSkill: Skill = {
 
     let rod = bot.inventory.items().find((i) => i.name === "fishing_rod");
     if (!rod) {
-      await craftFishingRod(bot, signal);
+      // Self-supply the rod: withdraw a spare or its string from the stash,
+      // then kill a loaded spider for string, before crafting. Without this
+      // the skill dead-ended on "need string" every time and never fished.
+      const held = (n: string) =>
+        bot.inventory
+          .items()
+          .filter((i) => i.name === n)
+          .reduce((s, i) => s + i.count, 0);
+      try {
+        const { withdrawStash } = await import("./stash.js");
+        const { STASH_POS } = await import("../bot/role.js");
+        if (Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z) < 60) {
+          await Promise.race([
+            withdrawStash(bot, STASH_POS, "fishing_rod", 1),
+            new Promise((r) => setTimeout(r, 30_000)),
+          ]).catch(() => {});
+          if (!bot.inventory.items().some((i) => i.name === "fishing_rod") && held("string") < 2) {
+            await Promise.race([
+              withdrawStash(bot, STASH_POS, "string", 2),
+              new Promise((r) => setTimeout(r, 30_000)),
+            ]).catch(() => {});
+          }
+        }
+      } catch {
+        /* stash unavailable */
+      }
       rod = bot.inventory.items().find((i) => i.name === "fishing_rod");
+      // Hunt a loaded spider for string when we still lack it.
+      if (!rod && held("string") < 2) {
+        const spider = bot.nearestEntity((e) => e.name === "spider" || e.name === "cave_spider");
+        if (spider && spider.position.distanceTo(bot.entity.position) < 24) {
+          onProgress({
+            skillName: "go_fishing",
+            phase: "Preparing",
+            progress: 0.02,
+            message: "Hunting a spider for string...",
+            active: true,
+          });
+          try {
+            const { baseMoves } = await import("../bot/navigation.js");
+            bot.pathfinder.setMovements(baseMoves(bot));
+            await bot.pathfinder.goto(new goals.GoalNear(spider.position.x, spider.position.y, spider.position.z, 2));
+            const sword = bot.inventory.items().find((i) => i.name.endsWith("_sword"));
+            if (sword) await bot.equip(sword, "hand").catch(() => {});
+            for (let s = 0; s < 10 && spider.isValid; s++) {
+              await bot.attack(spider);
+              await new Promise((r) => setTimeout(r, 600));
+            }
+            const { collectNearbyDrops } = await import("../bot/navigation.js");
+            await collectNearbyDrops(bot, 5, 3000);
+          } catch {
+            /* best effort */
+          }
+        }
+      }
+      if (!rod) {
+        await craftFishingRod(bot, signal);
+        rod = bot.inventory.items().find((i) => i.name === "fishing_rod");
+      }
       if (!rod) {
         return {
           success: false,
           message:
-            "Can't fish without a fishing rod! Need 3 sticks + 2 string. String comes from killing spiders or finding cobwebs.",
+            "Can't fish yet — need a fishing rod (3 sticks + 2 string). No string; kill a spider or find cobwebs, then invoke_skill go_fishing again.",
         };
       }
     }

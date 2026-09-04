@@ -163,6 +163,7 @@ export class BotBrain {
   private lastPortalOverrideMs = 0;
   private lastEnchantOverrideMs = 0;
   private lastBreedOverrideMs = 0;
+  private lastFishOverrideMs = 0;
   private lastToolReturnMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
@@ -1203,6 +1204,35 @@ export class BotBrain {
           { action: "setup_enchanting", params: {} },
           result,
           /enchant|Enchanter earned/i.test(result),
+        );
+        return;
+      }
+    }
+
+    // Fishing override — Fishy Business, a cheap husbandry point. Fires while
+    // it is unearned; the skill self-supplies a rod (stash string, else a
+    // spider hunt) and needs water nearby, handing back gracefully otherwise.
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("go_fishing") &&
+      !isSkillRunning(this.bot)
+    ) {
+      const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const fished = earned.has("husbandry/fishy_business") || earned.has("minecraft:husbandry/fishy_business");
+      const cooled = Date.now() - this.lastFishOverrideMs > 600_000;
+      if (!fished && cooled) {
+        this.lastFishOverrideMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: Fishy Business unearned — running go_fishing");
+        this.events.onThought("A rod, some water, and patience. Let's catch a fish.");
+        const result = await executeAction(this.bot, "invoke_skill", { skill: "go_fishing" });
+        this.events.onAction("go_fishing", result);
+        this.lastAction = "go_fishing";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:go_fishing",
+          { action: "go_fishing", params: {} },
+          result,
+          /caught|fish/i.test(result),
         );
         return;
       }
