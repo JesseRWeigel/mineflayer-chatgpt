@@ -31,15 +31,43 @@ export const buildFarmSkill: Skill = {
     // Bake any accumulated wheat (>=3) into bread — done inside the skill so it
     // bypasses the blacklisted `craft:bread` action.
     const harvested = await harvestMatureWheat(bot, signal, onProgress);
-    const baked = await bakeBread(bot, signal, onProgress, params?.stashPos as { x: number; y: number; z: number });
+    const stashPos = params?.stashPos as { x: number; y: number; z: number } | undefined;
+    const baked = await bakeBread(bot, signal, onProgress, stashPos);
     if (harvested > 0 || baked > 0) {
       const breadNote =
         baked > 0
           ? `Baked ${baked} bread — food secured! 🍞`
           : "Not enough wheat to bake bread yet (need 3+); farm is still growing.";
+      // STOCK THE PANTRY. Baking closed the wheat→bread gap, but the loaves
+      // sat in the baker's pack (shouldKeep holds 6 food) and never reached
+      // the shared chests — an RCON audit found 3 cooked items across 60
+      // chests while miners starved 300 blocks out. Deposit the surplus now,
+      // beside the crafting table where baking just happened. shouldKeep keeps
+      // the baker's own 6-food buffer; everything over that pools for the team.
+      let bankedNote = "";
+      const breadHeld = () =>
+        bot.inventory
+          .items()
+          .filter((i) => i.name === "bread")
+          .reduce((s, i) => s + i.count, 0);
+      if (stashPos && !signal.aborted && breadHeld() > 6) {
+        try {
+          const { depositStash } = await import("./stash.js");
+          const keep = [
+            { name: "sapling", minCount: 16 },
+            { name: "hoe", minCount: 1 },
+            { name: "sword", minCount: 1 },
+            { name: "axe", minCount: 1 },
+          ];
+          await depositStash(bot, stashPos, keep, 0, false);
+          bankedNote = " Surplus bread banked to the pantry.";
+        } catch {
+          /* stash unreachable this pass — bread stays in the pack, banks next time */
+        }
+      }
       return {
         success: true,
-        message: `${harvested > 0 ? `Harvested ${harvested} wheat. ` : ""}${breadNote} The farm cycle continues!`,
+        message: `${harvested > 0 ? `Harvested ${harvested} wheat. ` : ""}${breadNote}${bankedNote} The farm cycle continues!`,
         stats: { wheatHarvested: harvested, breadBaked: baked },
       };
     }
