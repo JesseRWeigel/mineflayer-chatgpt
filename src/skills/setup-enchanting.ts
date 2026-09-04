@@ -115,13 +115,52 @@ export const setupEnchantingSkill: Skill = {
         }
       }
 
-      // --- Materials for the table ---
+      // --- Obsidian: stash first, else mine the preserved deep-frame blocks ---
+      // The 9 banked obsidian is gone, but two rogue deep frames were struck
+      // from the registry back in the portal era specifically to keep their
+      // cast obsidian as the enchanting-table stock. Mining it needs a
+      // diamond-or-better pick, which is the real gate: the crafter needs 5
+      // diamonds (3 for the pick, 2 reserved for the table). Until then this
+      // hands back the honest prerequisite and the gear reflex mints the pick.
       step("Obsidian", 0.05, "Gathering 4 obsidian for the table...");
       if (count(bot, "obsidian") < 4) await tryWithdraw(bot, "obsidian", 4 - count(bot, "obsidian"));
       if (count(bot, "obsidian") < 4) {
+        const hasDiamondPick = bot.inventory
+          .items()
+          .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
+        if (!hasDiamondPick) {
+          return {
+            success: false,
+            message: resumable(
+              `Need 4 obsidian and no diamond pickaxe to mine it — mine diamonds for a pick (5 total: 3 craft the pick, 2 stay for the table), then continue.`,
+            ),
+          };
+        }
+        // Commute to a preserved deep frame and mine its obsidian.
+        const FRAMES: Vec3[] = [new Vec3(334, -53, -311), new Vec3(391, -54, -288)];
+        const frame = FRAMES.sort((a, b) => bot.entity.position.distanceTo(a) - bot.entity.position.distanceTo(b))[0];
+        step("Obsidian", 0.08, `Mining obsidian from the deep frame at ${frame.x},${frame.y},${frame.z}...`);
+        const marchDeadline = Date.now() + Math.min(180_000, timeLeft() - 60_000);
+        while (Date.now() < marchDeadline && bot.entity.position.distanceTo(frame) > 26) {
+          await safeGoto(bot, new goals.GoalNear(frame.x, frame.y, frame.z, 3), 45_000, 12_000).catch(() => {});
+          if (bot.entity.position.distanceTo(frame) > 26) await new Promise((r) => setTimeout(r, 1500));
+        }
+        if (bot.entity.position.distanceTo(frame) > 26) {
+          return {
+            success: false,
+            message: resumable(
+              `Commuting to the obsidian at ${frame.x},${frame.y},${frame.z} — still ${bot.entity.position.distanceTo(frame).toFixed(0)} blocks out.`,
+            ),
+          };
+        }
+        const { mineObsidian } = await import("./obsidian.js");
+        const mined = await mineObsidian(bot, 4 - count(bot, "obsidian"));
+        step("Obsidian", 0.12, `Obsidian: ${mined}`);
+      }
+      if (count(bot, "obsidian") < 4) {
         return {
           success: false,
-          message: resumable(`Need 4 obsidian for the enchanting table, have ${count(bot, "obsidian")}.`),
+          message: resumable(`Still gathering obsidian for the table, have ${count(bot, "obsidian")}/4.`),
         };
       }
 
