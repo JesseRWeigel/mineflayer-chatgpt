@@ -795,6 +795,25 @@ export async function depositStash(
       })
       .map((pos) => bot.blockAt(pos))
       .filter((b): b is NonNullable<typeof b> => b !== null);
+
+    // SPILL-OVER: when a category's own chests fill, the deposit used to give
+    // up on the load — 16 chest_full give-ups in one run while a 60-chest
+    // stash surely had space, and expansion couldn't rescue it (the bot
+    // carried no planks to craft a chest). Append chests the ledger last saw
+    // with free slots, emptiest first, so the load lands somewhere instead of
+    // riding back out. A category miss just means items scatter — findable
+    // again because every withdraw scans the ledger for the item.
+    const { chestsWithSpace } = await import("./stash-ledger.js");
+    for (const spot of chestsWithSpace()) {
+      const b = bot.blockAt(new Vec3(spot.x, spot.y, spot.z));
+      if (
+        b &&
+        (b.name === "chest" || b.name === "trapped_chest") &&
+        !candidates.some((c) => c.position.equals(b.position))
+      ) {
+        candidates.push(b);
+      }
+    }
     const chest = candidates[0] ?? null;
 
     if (!chest) {

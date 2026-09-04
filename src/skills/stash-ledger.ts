@@ -94,6 +94,25 @@ export function chestsWithItem(matchName: string): { x: number; y: number; z: nu
   return hits.sort((a, b) => b.updatedAt - a.updatedAt).map((h) => h.pos);
 }
 
+/**
+ * Chest positions the ledger last saw with at least one free slot, emptiest
+ * first. When a category's own chests are full, the deposit spills here
+ * instead of giving up on the load — the deposit-side mirror of
+ * chestsWithItem. Chests never yet opened this run are absent (the cache is
+ * per-process), so this augments the category scan rather than replacing it.
+ */
+export function chestsWithSpace(): { x: number; y: number; z: number }[] {
+  const open: { pos: { x: number; y: number; z: number }; free: number }[] = [];
+  for (const chest of chests.values()) {
+    const free = chest.totalSlots - chest.usedSlots;
+    if (free > 0) {
+      const [x, y, z] = chest.pos.split(",").map(Number);
+      open.push({ pos: { x, y, z }, free });
+    }
+  }
+  return open.sort((a, b) => b.free - a.free).map((o) => o.pos);
+}
+
 export interface StashSummary {
   categories: Record<string, number>;
   freeSlots: number;
