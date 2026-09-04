@@ -94,6 +94,27 @@ export const setupEnchantingSkill: Skill = {
     let table = bot.findBlock({ matching: (b) => b.name === "enchanting_table", maxDistance: 24 });
 
     if (!table) {
+      // Walk to the stash first — the banked obsidian, diamonds and book
+      // parts all live there, and tryWithdraw only fires within 60 blocks.
+      // The override can trigger from anywhere (Forge lands here from the
+      // mine 300 blocks out), so the first pass would withdraw nothing.
+      const homeGap = () => Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z);
+      if (homeGap() > 55) {
+        step("Home", 0.02, `Walking to the stash to gather materials (${homeGap().toFixed(0)} away)...`);
+        const walkDeadline = Date.now() + 150_000;
+        while (Date.now() < walkDeadline && homeGap() > 55) {
+          if (timeLeft() < 90_000) break;
+          await safeGoto(bot, new goals.GoalXZ(STASH_POS.x, STASH_POS.z), 45_000, 12_000).catch(() => {});
+          if (homeGap() > 55) await new Promise((r) => setTimeout(r, 2000));
+        }
+        if (homeGap() > 55) {
+          return {
+            success: false,
+            message: resumable(`Heading to the stash — still ${homeGap().toFixed(0)} blocks out.`),
+          };
+        }
+      }
+
       // --- Materials for the table ---
       step("Obsidian", 0.05, "Gathering 4 obsidian for the table...");
       if (count(bot, "obsidian") < 4) await tryWithdraw(bot, "obsidian", 4 - count(bot, "obsidian"));
