@@ -64,14 +64,32 @@ export const breedAnimalsSkill: Skill = {
       if (count(bot, food) < 2) await tryWithdraw(bot, food, 2);
       if (count(bot, food) < 2) continue;
 
-      const herd = Object.values(bot.entities)
-        .filter((e) => e.name && species.includes(e.name) && e.position.distanceTo(bot.entity.position) < 128)
-        // Babies can't be fed into love mode; metadata age < 0 marks a baby on
-        // most versions, but it is not always populated, so this is a best
-        // effort — feeding a baby is a harmless no-op and the next adult works.
-        .sort((a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position));
-
-      if (herd.length < 2) continue;
+      const loaded = Object.values(bot.entities).filter(
+        (e) => e.name && species.includes(e.name) && e.position.distanceTo(bot.entity.position) < 128,
+      );
+      // Breeding needs TWO OF THE SAME SPECIES — wheat feeds cows AND sheep,
+      // but a cow will not breed with a sheep. Pick the single species with at
+      // least two loaded, nearest cluster first, and only feed that one.
+      const bySpecies = new Map<string, typeof loaded>();
+      for (const e of loaded) bySpecies.set(e.name!, [...(bySpecies.get(e.name!) ?? []), e]);
+      let chosen: typeof loaded | null = null;
+      for (const [, group] of [...bySpecies].sort(
+        (a, b) =>
+          Math.min(...a[1].map((e) => e.position.distanceTo(bot.entity.position))) -
+          Math.min(...b[1].map((e) => e.position.distanceTo(bot.entity.position))),
+      )) {
+        if (group.length >= 2) {
+          chosen = group;
+          break;
+        }
+      }
+      if (!chosen) continue;
+      // Babies can't be fed into love mode; metadata age < 0 marks a baby on
+      // most versions, but it is not always populated, so this is best effort —
+      // feeding a baby is a harmless no-op and the next adult works.
+      const herd = chosen.sort(
+        (a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position),
+      );
 
       // Walk to the herd first if the nearest is beyond feeding range.
       if (herd[0].position.distanceTo(bot.entity.position) > 4 && !signal.aborted) {
@@ -117,12 +135,12 @@ export const breedAnimalsSkill: Skill = {
         await new Promise((r) => setTimeout(r, 2500));
         return {
           success: true,
-          message: `Fed two ${species[0]}s ${food.replace("_", " ")} — they should breed (The Parrots and the Bats).`,
+          message: `Fed two ${herd[0].name}s ${food.replace("_", " ")} — they should breed (The Parrots and the Bats).`,
           stats: { fed },
         };
       }
       if (fed === 1) {
-        return { success: false, message: resumable(`Fed one ${species[0]}, need a second nearby to breed.`) };
+        return { success: false, message: resumable(`Fed one ${herd[0].name}, need a second nearby to breed.`) };
       }
     }
 
