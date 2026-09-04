@@ -118,7 +118,7 @@ export const FLORA_CONFIG: BotRoleConfig = {
   // build_nether_portal doubles as the ride home for anyone who stumbles
   // through the village doorway — Flora took the trip within an hour of
   // ignition and had no way back.
-  allowedSkills: ["build_farm", "craft_gear", "smelt_ores", "light_area", "build_nether_portal"],
+  allowedSkills: ["build_farm", "craft_gear", "smelt_ores", "light_area", "build_nether_portal", "breed_animals"],
   keepItems: [
     { name: "hoe", minCount: 1 },
     { name: "food", minCount: 4 },

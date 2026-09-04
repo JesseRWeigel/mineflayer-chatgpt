@@ -162,6 +162,7 @@ export class BotBrain {
   private lastSmeltOverrideMs = 0;
   private lastPortalOverrideMs = 0;
   private lastEnchantOverrideMs = 0;
+  private lastBreedOverrideMs = 0;
   private lastToolReturnMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
@@ -1202,6 +1203,36 @@ export class BotBrain {
           { action: "setup_enchanting", params: {} },
           result,
           /enchant|Enchanter earned/i.test(result),
+        );
+        return;
+      }
+    }
+
+    // Breeding override — cheap husbandry point the model never assembles.
+    // Fires for a capable bot while "breed an animal" is unearned; the skill
+    // itself checks for food + nearby animals and hands back gracefully when
+    // either is missing, so a wrong-place firing costs one bounded attempt.
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("breed_animals") &&
+      !isSkillRunning(this.bot)
+    ) {
+      const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const bred = earned.has("husbandry/breed_an_animal") || earned.has("minecraft:husbandry/breed_an_animal");
+      const cooled = Date.now() - this.lastBreedOverrideMs > 600_000;
+      if (!bred && cooled) {
+        this.lastBreedOverrideMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: breeding advancement unearned — running breed_animals");
+        this.events.onThought("Two of a kind and a handful of wheat. Time to make some babies.");
+        const result = await executeAction(this.bot, "invoke_skill", { skill: "breed_animals" });
+        this.events.onAction("breed_animals", result);
+        this.lastAction = "breed_animals";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:breed_animals",
+          { action: "breed_animals", params: {} },
+          result,
+          /breed|Fed two/i.test(result),
         );
         return;
       }
