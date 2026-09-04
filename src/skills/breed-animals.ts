@@ -58,19 +58,37 @@ export const breedAnimalsSkill: Skill = {
       onProgress({ skillName: "breed_animals", phase: "Breeding", progress, message, active: true });
     bot.pathfinder.setMovements(baseMoves(bot));
 
-    // Pick the first food we hold (or can withdraw) whose species is nearby.
+    // Pick the first food we hold (or can withdraw) whose species is loaded
+    // anywhere in view — the herd is often 40-100 blocks out, not underfoot.
     for (const { food, species } of FEED) {
       if (count(bot, food) < 2) await tryWithdraw(bot, food, 2);
       if (count(bot, food) < 2) continue;
 
-      const nearby = Object.values(bot.entities)
-        .filter((e) => e.name && species.includes(e.name) && e.position.distanceTo(bot.entity.position) < 24)
+      const herd = Object.values(bot.entities)
+        .filter((e) => e.name && species.includes(e.name) && e.position.distanceTo(bot.entity.position) < 128)
         // Babies can't be fed into love mode; metadata age < 0 marks a baby on
         // most versions, but it is not always populated, so this is a best
         // effort — feeding a baby is a harmless no-op and the next adult works.
         .sort((a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position));
 
-      if (nearby.length < 2) continue;
+      if (herd.length < 2) continue;
+
+      // Walk to the herd first if the nearest is beyond feeding range.
+      if (herd[0].position.distanceTo(bot.entity.position) > 4 && !signal.aborted) {
+        const a = herd[0].position;
+        step(0.1, `Walking to a ${herd[0].name} herd (${a.distanceTo(bot.entity.position).toFixed(0)} away)...`);
+        const walkDeadline = Date.now() + 120_000;
+        while (Date.now() < walkDeadline && herd[0].isValid && herd[0].position.distanceTo(bot.entity.position) > 3) {
+          await safeGoto(bot, new goals.GoalNear(a.x, a.y, a.z, 2), 40_000, 12_000).catch(() => {});
+          if (herd[0].isValid && herd[0].position.distanceTo(bot.entity.position) > 3)
+            await new Promise((r) => setTimeout(r, 1500));
+        }
+      }
+
+      // Re-sort by distance now that we have arrived.
+      const nearby = herd
+        .filter((e) => e.isValid)
+        .sort((a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position));
 
       let fed = 0;
       for (const animal of nearby) {
