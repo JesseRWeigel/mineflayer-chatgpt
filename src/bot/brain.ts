@@ -1188,10 +1188,20 @@ export class BotBrain {
         .items()
         .filter((i) => i.name === "diamond")
         .reduce((s, i) => s + i.count, 0);
+      // Only fire when the skill can actually make progress: it needs a
+      // diamond pick to mine the table's obsidian, or obsidian already in
+      // hand, or the table already standing. Firing merely on held diamonds
+      // shadowed the gear reflex that crafts the pick — the skill would keep
+      // returning "need a pick" while the pick never got made. With the pick
+      // present (5 diamonds -> gear reflex mints it, 2 remain), this proceeds.
+      const canProgress =
+        this.bot.inventory.items().some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe") ||
+        this.bot.inventory.items().some((i) => i.name === "obsidian") ||
+        !!this.bot.findBlock({ matching: (b) => b.name === "enchanting_table", maxDistance: 24 });
       const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
       const enchanterDone = earned.has("story/enchant_item") || earned.has("minecraft:story/enchant_item");
       const cooled = Date.now() - this.lastEnchantOverrideMs > 300_000;
-      if (diamonds >= 2 && !enchanterDone && cooled) {
+      if (diamonds >= 2 && canProgress && !enchanterDone && cooled) {
         this.lastEnchantOverrideMs = Date.now();
         this.log.info("Brain", `OVERRIDE: ${diamonds} diamonds and no Enchanter yet — running setup_enchanting`);
         this.events.onThought("Time to build an enchanting table and finally enchant something.");

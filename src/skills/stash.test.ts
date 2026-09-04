@@ -341,11 +341,20 @@ test("a bot below the reserve still keeps enough to craft", () => {
   assert.equal(shouldKeep("iron_ingot", [], counts, 5), false, "now over the reserve");
 });
 
-test("the materials reserve is shared across metal types, not per item", () => {
+test("the ingot reserve is shared across iron and gold, not per item", () => {
   // Otherwise a bot keeps 8 of each and pools nothing.
   const counts = new Map<string, number>();
   assert.equal(shouldKeep("iron_ingot", [], counts, 8), true);
-  assert.equal(shouldKeep("diamond", [], counts, 8), false, "reserve already spent on iron");
+  assert.equal(shouldKeep("gold_ingot", [], counts, 8), false, "iron already spent the shared ingot reserve");
+});
+
+test("diamonds get their own reserve, never spent by ingots", () => {
+  // Forge's mining filled the shared reserve with iron/gold and his diamonds
+  // leaked to the stash, so no crafter ever held the 5 the diamond pick (3)
+  // plus the enchanting table (2) need. Diamonds are kept independently.
+  const counts = new Map<string, number>();
+  assert.equal(shouldKeep("iron_ingot", [], counts, 8), true);
+  assert.equal(shouldKeep("diamond", [], counts, 8), true, "diamonds are not spent by the ingot reserve");
 });
 
 test("iron TOOLS are still never deposited", () => {

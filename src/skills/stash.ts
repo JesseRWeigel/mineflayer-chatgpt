@@ -551,7 +551,21 @@ export function shouldKeep(
   // times, craft_gear seeing 0-2 ingots on every run, zero armour crafted, and
   // 13 of 18 deaths with no armour at all. Every link was working except this
   // one, which quietly held the input in the wrong bot's pocket.
-  const KEEP_MATERIALS = ["iron_ingot", "gold_ingot", "diamond"];
+  // Diamonds get their OWN reserve, never the shared ingot pool. Forge's
+  // mining fills the 8-material reserve with iron and gold, so his diamonds
+  // leaked to the stash and no crafter ever held the 5 that the diamond pick
+  // (3) plus the enchanting table (2) need — the whole Enchanter chain stalled
+  // at 0 held. Hold up to 5 diamonds so they accumulate toward both.
+  if (itemName === "diamond") {
+    const kept = currentCounts.get("__diamond") ?? 0;
+    if (kept < 5) {
+      currentCounts.set("__diamond", kept + itemCount);
+      return true;
+    }
+    return false;
+  }
+
+  const KEEP_MATERIALS = ["iron_ingot", "gold_ingot"];
   if (KEEP_MATERIALS.includes(itemName)) {
     const kept = currentCounts.get("__materials") ?? 0;
     if (kept < materialReserve) {
