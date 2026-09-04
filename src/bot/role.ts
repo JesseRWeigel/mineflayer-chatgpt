@@ -160,6 +160,7 @@ export const FORGE_CONFIG: BotRoleConfig = {
     "craft_flint_and_steel",
     "build_nether_portal",
     "return_from_nether",
+    "setup_enchanting",
   ],
   keepItems: [
     { name: "sapling", minCount: 16 },
@@ -211,6 +212,7 @@ export const MASON_CONFIG: BotRoleConfig = {
     // doorway-clearing tool was stranded on a bot who couldn't march it to
     // the doorway. The skill self-supplies its bucket and igniter.
     "build_nether_portal",
+    "setup_enchanting",
   ],
   keepItems: [
     { name: "sapling", minCount: 16 },

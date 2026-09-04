@@ -161,6 +161,7 @@ export class BotBrain {
   private lastLightOverrideMs = 0;
   private lastSmeltOverrideMs = 0;
   private lastPortalOverrideMs = 0;
+  private lastEnchantOverrideMs = 0;
   private lastToolReturnMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
@@ -1170,12 +1171,51 @@ export class BotBrain {
       }
     }
 
+    // Enchanter override — RUNS BEFORE craft_gear so 2 diamonds route to an
+    // enchanting table, not a third pickaxe. The strategic model is told
+    // "enchant an item" every cycle and never assembles the table; this fires
+    // the deterministic setup_enchanting skill for a crafter-miner holding the
+    // diamonds while the team has not yet earned Enchanter. Gated on the
+    // advancement itself so it stops the instant the point lands.
+    if (
+      config.bot.allowStrategyOverrides &&
+      this.roleConfig.allowedSkills.includes("setup_enchanting") &&
+      !isSkillRunning(this.bot)
+    ) {
+      const diamonds = this.bot.inventory
+        .items()
+        .filter((i) => i.name === "diamond")
+        .reduce((s, i) => s + i.count, 0);
+      const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const enchanterDone = earned.has("story/enchant_item") || earned.has("minecraft:story/enchant_item");
+      const cooled = Date.now() - this.lastEnchantOverrideMs > 300_000;
+      if (diamonds >= 2 && !enchanterDone && cooled) {
+        this.lastEnchantOverrideMs = Date.now();
+        this.log.info("Brain", `OVERRIDE: ${diamonds} diamonds and no Enchanter yet — running setup_enchanting`);
+        this.events.onThought("Time to build an enchanting table and finally enchant something.");
+        const result = await executeAction(this.bot, "invoke_skill", { skill: "setup_enchanting" });
+        this.events.onAction("setup_enchanting", result);
+        this.lastAction = "setup_enchanting";
+        this.lastResult = result;
+        this.trackFailure(
+          "skill:setup_enchanting",
+          { action: "setup_enchanting", params: {} },
+          result,
+          /enchant|Enchanter earned/i.test(result),
+        );
+        return;
+      }
+    }
+
     // Iron-pickaxe override — the rung the other pushes stop short of. The
     // strip_mine push stands down as soon as a bot HOLDS iron (correctly), but
     // nothing then converts it: Mason carried 9-11 iron_ingot for a full run,
     // shuffling them between slots, while the model never chose craft_gear.
     // Ingots in hand + no iron pick = craft now. This is the gate to the
     // diamond depth (strip_mine only descends to -58 with an iron pick).
+    // Diamond-reserve guard: while Enchanter is unearned and a crafter holds
+    // exactly the 2 diamonds the table needs, do not let those become a third
+    // pickaxe — the enchanting override above owns them.
     if (
       config.bot.allowStrategyOverrides &&
       this.roleConfig.allowedSkills.includes("craft_gear") &&
@@ -1207,7 +1247,15 @@ export class BotBrain {
         .items()
         .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
       const wantsIronPick = ingots >= 3 && !hasIronPick;
-      const wantsDiamondPick = diamondCount >= 3 && !hasDiamondPickax;
+      // Reserve 2 diamonds for the enchanting table until Enchanter is earned:
+      // a crafter with setup_enchanting only mints a diamond pick from a FIFTH
+      // diamond (3 for the pick + 2 held for the table), so the table's stock
+      // is never consumed. Bots without the skill keep the plain >=3 rule.
+      const reservesForTable =
+        this.roleConfig.allowedSkills.includes("setup_enchanting") &&
+        !readTeamEarned(BOT_ROSTER.map((b) => b.name)).has("story/enchant_item");
+      const diamondPickThreshold = reservesForTable ? 5 : 3;
+      const wantsDiamondPick = diamondCount >= diamondPickThreshold && !hasDiamondPickax;
       const cooledDown = Date.now() - this.lastGearOverrideMs > 180_000;
       if ((wantsIronPick || wantsDiamondPick) && cooledDown) {
         this.lastGearOverrideMs = Date.now();
