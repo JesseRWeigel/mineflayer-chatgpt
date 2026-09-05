@@ -220,14 +220,26 @@ export const buildFarmSkill: Skill = {
     // pond is ringed by cobble/sand (no dirt), so build_farm failed 'No tillable
     // dirt' every run as the base degraded. Scan many water sources and pick the
     // first with enough grass/dirt nearby (fresh grassland the bots explore).
+    // A plot is only tillable if its top face is CLEAR. The farm site sits in
+    // the built-up village, so most "dirt/grass" it found had a chest, cobble,
+    // or sapling sitting on it (FarmDebug: became=dirt above=chest/cobblestone)
+    // — a covered block never converts to farmland, which is why 4 of 5 plots
+    // silently failed and the team starved. Require air (or the short grass a
+    // seed placement clears) directly above.
+    const CLEAR_ABOVE = new Set(["air", "cave_air", "short_grass", "tall_grass", "grass", "fern"]);
+    const tillable = (pos: Vec3): boolean => {
+      const b = bot.blockAt(pos);
+      if (!b || (b.name !== "dirt" && b.name !== "grass_block")) return false;
+      const above = bot.blockAt(pos.offset(0, 1, 0));
+      return !!above && CLEAR_ABOVE.has(above.name);
+    };
     const scanTillable = (wp: Vec3): Vec3[] => {
       const targets: Vec3[] = [];
       for (let dx = -6; dx <= 6; dx++) {
         for (let dz = -6; dz <= 6; dz++) {
           if (dx === 0 && dz === 0) continue;
           const pos = wp.offset(dx, 0, dz);
-          const b = bot.blockAt(pos);
-          if (b && (b.name === "dirt" || b.name === "grass_block")) targets.push(pos.clone());
+          if (tillable(pos)) targets.push(pos.clone());
         }
       }
       return targets;
@@ -292,17 +304,15 @@ export const buildFarmSkill: Skill = {
       for (let dz = -6; dz <= 6; dz++) {
         if (dx === 0 && dz === 0) continue; // skip water block itself
         const pos = waterPos.offset(dx, 0, dz);
-        const block = bot.blockAt(pos);
-        if (block && (block.name === "dirt" || block.name === "grass_block")) {
-          farmTargets.push(pos.clone());
-        }
+        if (tillable(pos)) farmTargets.push(pos.clone());
       }
     }
 
     if (farmTargets.length === 0) {
       return {
         success: false,
-        message: "No tillable dirt near the water! The shore may be sand or stone. Explore to find grass near a river.",
+        message:
+          "No CLEAR tillable dirt near the water — the plots here are built over (chests, cobble) or the shore is sand/stone. Explore to open grass near a river.",
       };
     }
 
