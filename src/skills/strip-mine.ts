@@ -182,6 +182,18 @@ export const stripMineSkill: Skill = {
       }
     }
 
+    // Carry a SPARE iron pick down the diamond dive. An iron pick lasts ~250
+    // uses; a descent to y=-58 plus a tunnel routinely outlasts one, and the
+    // moment it shatters the diver is on stone at diamond depth — canHarvest
+    // rejects diamond ore for a stone pick, so Forge stood inside a
+    // deepslate_diamond_ore he could not mine and left it in the wall. A second
+    // iron pick means equipBestPickaxe still finds iron-tier after the first
+    // breaks. The iron reserve fix now keeps the ingots in his pocket to craft
+    // it from.
+    if (!signal.aborted) {
+      await ensureSparePick(bot, raced).catch(() => {});
+    }
+
     // Pool banked diamonds into this diver's pocket. Halves of the 3-set
     // scattered in chests (a non-miner's returned stone, another diver's
     // banked find) only become the doorway pickaxe once they sit together in
@@ -645,6 +657,72 @@ const PICK_TIER: Record<string, number> = {
   diamond_pickaxe: 3,
   netherite_pickaxe: 4,
 };
+
+/**
+ * Ensure the diver carries a spare iron+ pickaxe before a deep dive. One iron
+ * pick (~250 uses) rarely survives a descent to y=-58 plus a tunnel, and a
+ * broken pick strands the diver on stone unable to harvest the diamond ore it
+ * finds. Crafts a second iron pick from the iron the reserve now keeps in the
+ * pocket (3 iron_ingot + 2 stick at a crafting table). Best-effort: any failure
+ * leaves the existing single pick and the dive proceeds.
+ */
+async function ensureSparePick(
+  bot: Bot,
+  raced: <T>(p: Promise<T>, ms: number, label: string) => Promise<T | string>,
+): Promise<void> {
+  const PICK_MAX: Record<string, number> = { iron_pickaxe: 250, diamond_pickaxe: 1561, netherite_pickaxe: 2031 };
+  const count = (n: string) =>
+    bot.inventory
+      .items()
+      .filter((i) => i.name === n)
+      .reduce((s, i) => s + i.count, 0);
+  const usableIronPlus = () =>
+    bot.inventory
+      .items()
+      .filter((i) => (PICK_TIER[i.name] ?? 0) >= 2 && (PICK_MAX[i.name] ?? 250) - (i.durabilityUsed ?? 0) >= 100)
+      .length;
+
+  // A diamond pick, or two serviceable iron+ picks, is already enough backup.
+  if (bot.inventory.items().some((i) => i.name === "diamond_pickaxe")) return;
+  if (usableIronPlus() >= 2) return;
+
+  // Prefer a banked spare over spending iron on a fresh craft.
+  try {
+    const { withdrawStash } = await import("./stash.js");
+    const { STASH_POS: SP } = await import("../bot/role.js");
+    if (Math.hypot(bot.entity.position.x - SP.x, bot.entity.position.z - SP.z) < 60) {
+      await raced(withdrawStash(bot, SP, "iron_pickaxe", 1), 45_000, "spare pick reclaim");
+    }
+  } catch {
+    /* none banked */
+  }
+  if (usableIronPlus() >= 2) return;
+
+  // Craft one from held iron. Needs 3 ingots + 2 sticks and a crafting table.
+  if (count("iron_ingot") < 3) return;
+  const mcDataLoader = (await import("minecraft-data")).default;
+  const mcData = mcDataLoader(bot.version);
+  if (count("stick") < 2) {
+    const stickItem = mcData.itemsByName["stick"];
+    const stickRecipe = stickItem && bot.recipesFor(stickItem.id, null, 1, null)[0];
+    if (stickRecipe) await bot.craft(stickRecipe, 1, undefined).catch(() => {});
+  }
+  if (count("stick") < 2) return;
+  const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 32 });
+  if (!table) return;
+  try {
+    await raced(
+      bot.pathfinder.goto(new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2)),
+      15_000,
+      "walk to table",
+    );
+  } catch {
+    /* try the craft from wherever we are */
+  }
+  const pickItem = mcData.itemsByName["iron_pickaxe"];
+  const recipe = pickItem && bot.recipesFor(pickItem.id, null, 1, table)[0];
+  if (recipe) await bot.craft(recipe, 1, table).catch(() => {});
+}
 
 async function equipBestPickaxe(bot: Bot): Promise<void> {
   // BEST means best: the old find() grabbed the first pickaxe in the pack,

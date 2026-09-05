@@ -565,7 +565,24 @@ export function shouldKeep(
     return false;
   }
 
-  const KEEP_MATERIALS = ["iron_ingot", "gold_ingot"];
+  // Iron gets its own reserve, never shared with gold. Iron is the tool
+  // material — every pickaxe, and diamond ore only drops for an iron+ pick —
+  // and a crafter-miner burns ~one iron pick per diamond dive. When gold
+  // (from bartering runs and deep veins) crowded the shared reserve, Forge's
+  // iron leaked to the stash, he dived on a worn pick that broke into stone,
+  // and could not mine the diamond ore he was standing in. Holding the full
+  // reserve (8) covers two picks (6) with room to spare, so a dive can carry
+  // a spare and still have iron for repairs.
+  if (itemName === "iron_ingot") {
+    const kept = currentCounts.get("__iron") ?? 0;
+    if (kept < materialReserve) {
+      currentCounts.set("__iron", kept + itemCount);
+      return true;
+    }
+    return false;
+  }
+
+  const KEEP_MATERIALS = ["gold_ingot"];
   if (KEEP_MATERIALS.includes(itemName)) {
     const kept = currentCounts.get("__materials") ?? 0;
     if (kept < materialReserve) {

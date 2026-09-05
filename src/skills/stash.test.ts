@@ -333,19 +333,25 @@ test("iron pools to the team once a bot can craft for itself", () => {
 
 test("a bot below the reserve still keeps enough to craft", () => {
   const counts = new Map<string, number>();
-  // 8 ingots is an iron chestplate; a bot must be able to reach that alone.
+  // 8 ingots is an iron chestplate (or two picks); a bot must be able to reach
+  // that alone. Gold has its own reserve now, so it cannot crowd iron out.
   // Raw ore is excluded from the reserve entirely — it must reach the smelter.
   assert.equal(shouldKeep("iron_ingot", [], counts, 3), true);
   assert.equal(shouldKeep("gold_ingot", [], counts, 4), true);
-  assert.equal(shouldKeep("iron_ingot", [], counts, 1), true, "still under 8 total");
-  assert.equal(shouldKeep("iron_ingot", [], counts, 5), false, "now over the reserve");
+  assert.equal(shouldKeep("iron_ingot", [], counts, 5), true, "iron still under its own 8 (3+5=8)");
+  assert.equal(shouldKeep("iron_ingot", [], counts, 1), false, "now at iron's own reserve");
 });
 
-test("the ingot reserve is shared across iron and gold, not per item", () => {
-  // Otherwise a bot keeps 8 of each and pools nothing.
+test("iron keeps its own reserve, independent of gold", () => {
+  // Iron is the tool material — every pickaxe, and diamond ore only drops for
+  // an iron+ pick. When iron shared an 8-item reserve with gold, a gold rush
+  // filled it and Forge's iron leaked to the stash; he then dived on a worn
+  // pick that broke to stone and could not mine the diamond ore he found.
+  // Iron and gold each get their own reserve so gold can never starve tools.
   const counts = new Map<string, number>();
-  assert.equal(shouldKeep("iron_ingot", [], counts, 8), true);
-  assert.equal(shouldKeep("gold_ingot", [], counts, 8), false, "iron already spent the shared ingot reserve");
+  assert.equal(shouldKeep("gold_ingot", [], counts, 8), true, "gold fills its own reserve");
+  assert.equal(shouldKeep("iron_ingot", [], counts, 8), true, "iron is untouched by gold's reserve");
+  assert.equal(shouldKeep("iron_ingot", [], counts, 8), false, "iron's own reserve is now spent");
 });
 
 test("diamonds get their own reserve, never spent by ingots", () => {
