@@ -1117,8 +1117,15 @@ export class BotBrain {
       // crafter-miner (Mason) then hoarded 2 ingots while Forge sat at 2 — the
       // team's 4 split so neither reached the 3 a pickaxe needs, and nothing
       // pushed Mason to hand his over. Route all non-smith iron to the smith.
+      // RAW iron routes to the smith too, now that the smith owns a furnace.
+      // The old doctrine sent raw ore through the stash because "the smelter is
+      // usually a different bot" — but the smelter IS the primary smith, and
+      // the stash round-trip left Atlas walking around with 6 raw_iron while
+      // Forge sat one ingot short of the iron pick. A direct hand-off puts the
+      // ore where the "raw metal aboard" smelt override fires on it.
       const holdsSpareIron =
-        !this.roleConfig.primarySmith && this.bot.inventory.items().some((i) => i.name === "iron_ingot");
+        !this.roleConfig.primarySmith &&
+        this.bot.inventory.items().some((i) => i.name === "iron_ingot" || i.name === "raw_iron");
       const wantsReturn = (holdsPick && !canMine) || (holdsDiamond && !(canMine && roleCanCraft)) || holdsSpareIron;
       // 5min, down from 10: every attempt is a lottery ticket on a quiet
       // window between mob waves — run 380 got five tickets and no winner.
@@ -1156,7 +1163,9 @@ export class BotBrain {
             ? "diamond"
             : returnablePick
               ? (this.bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"))?.name ?? "iron_ingot")
-              : "iron_ingot";
+              : this.bot.inventory.items().some((i) => i.name === "iron_ingot")
+                ? "iron_ingot"
+                : "raw_iron";
           this.log.info("Brain", `OVERRIDE: handing ${itemToGive} to ${nearbyMiner} (miner nearby)`);
           this.events.onThought(`${nearbyMiner} can actually use this. Here, catch!`);
           const result = await executeAction(this.bot, "give_item", { to: nearbyMiner, item: itemToGive, count: 64 });
