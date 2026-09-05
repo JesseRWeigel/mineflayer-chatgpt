@@ -49,6 +49,15 @@ export interface BotRoleConfig {
    * five generalists each starving alone.
    */
   seasonGoal?: string;
+  /**
+   * The team's single iron sink. Two crafter-miners (Forge, Mason) each kept up
+   * to a full iron reserve, so the swarm's scarce iron split across two pockets
+   * and neither ever reached the 3 ingots an iron pickaxe needs — the whole
+   * diamond→obsidian→enchanting chain stalled on a stone pick. Only the primary
+   * smith keeps iron now; every other bot pools it to the stash, where the
+   * smith's craft_gear withdraws and consolidates it.
+   */
+  primarySmith?: boolean;
 }
 
 /**
@@ -188,6 +197,9 @@ export const FORGE_CONFIG: BotRoleConfig = {
 8. Need wood for tools? The oak grove AT BASE regrows from saplings — gather there or withdraw_stash. NEVER roam far searching for trees.`,
   seasonGoal:
     "You are the TOOLSMITH. Withdraw raw_iron and coal from the stash, smelt_ores into iron_ingot, craft iron_pickaxe and iron tools, DEPOSIT spare tools in the stash. Once you hold an iron_pickaxe: strip_mine reaches DIAMOND depth — get 3 diamonds and craft a diamond_pickaxe.",
+  // The team's single iron sink — every other bot pools iron so it consolidates
+  // here into the pickaxes the whole diamond→enchanting chain depends on.
+  primarySmith: true,
 };
 
 /** Mason: Builder and architect. Constructs structures, lights areas, keeps the base beautiful. */

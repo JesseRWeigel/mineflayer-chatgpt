@@ -1123,7 +1123,10 @@ export class BotBrain {
         const result = await executeAction(this.bot, "deposit_stash", {
           stashPos: this.roleConfig.stashPos,
           keepItems: this.roleConfig.keepItems,
-          ...(roleCanCraft && canMine ? {} : { materialReserve: 0 }),
+          // Only the primary smith keeps iron; every other bot pools it so the
+          // team's scarce iron consolidates into one pocket instead of splitting
+          // across two crafter-miners and never reaching a pickaxe's 3 ingots.
+          ...(roleCanCraft && canMine && this.roleConfig.primarySmith ? {} : { materialReserve: 0 }),
           canMine,
         });
         this.events.onAction("deposit_stash", result);
@@ -1584,7 +1587,10 @@ export class BotBrain {
         this.roleConfig.allowedActions.includes("craft") || this.roleConfig.allowedSkills.includes("craft_gear");
       const canMine =
         this.roleConfig.allowedActions.includes("mine_block") || this.roleConfig.allowedSkills.includes("strip_mine");
-      if (!(canCraft && canMine)) normalizedParams.materialReserve = 0;
+      // Only the primary smith keeps iron; a second crafter-miner hoarding its
+      // own reserve is what split the team's 4 ingots 2-and-2 so neither could
+      // craft a pickaxe. Everyone else pools it for the smith to consolidate.
+      if (!(canCraft && canMine && this.roleConfig.primarySmith)) normalizedParams.materialReserve = 0;
       normalizedParams.canMine = canMine;
     }
 
