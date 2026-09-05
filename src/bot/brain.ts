@@ -995,19 +995,31 @@ export class BotBrain {
         .items()
         .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
       const wantsDive = holdsIronPick && !hasDiamondPick && diamonds < 3;
+      // A pickless miner MUST mine — strip_mine self-supplies a pick (crafts a
+      // wooden one, withdraws a banked spare). Without this, a crafter-miner who
+      // wears out his pick mid-dive and holds a single leftover ingot lands in a
+      // dead zone: that 1 ingot marks him "iron-rich" so the push stands down,
+      // 1 ingot is short of a pickaxe's 3, and pickless he cannot mine more — so
+      // the model flails (Forge chased an ender-eye quest for an hour). Any bot
+      // with strip_mine that holds no pickaxe re-arms first.
+      const pickless = !this.bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
       const cooledDown = Date.now() - this.lastIronOverrideMs > 180_000;
-      if ((!hasIron || wantsDive) && cooledDown) {
+      if ((!hasIron || wantsDive || pickless) && cooledDown) {
         this.lastIronOverrideMs = Date.now();
         this.log.info(
           "Brain",
           wantsDive
             ? `OVERRIDE: iron pick + ${diamonds}/3 diamonds — diving to diamond depth`
-            : "OVERRIDE: no iron yet — running strip_mine for ore",
+            : pickless
+              ? "OVERRIDE: pickless — running strip_mine to re-arm and mine"
+              : "OVERRIDE: no iron yet — running strip_mine for ore",
         );
         this.events.onThought(
           wantsDive
             ? "Iron pick in hand and diamonds waiting at the bottom of the world. DIVE."
-            : "The deep calls. Time to carve for iron — pickaxe in hand, downward!",
+            : pickless
+              ? "No pickaxe in hand — back to the mine to forge a fresh one."
+              : "The deep calls. Time to carve for iron — pickaxe in hand, downward!",
         );
         const result = await executeAction(this.bot, "invoke_skill", { skill: "strip_mine" });
         this.events.onAction("strip_mine", result);
