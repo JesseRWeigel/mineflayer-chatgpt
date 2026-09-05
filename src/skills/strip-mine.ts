@@ -256,7 +256,15 @@ export const stripMineSkill: Skill = {
       // then the landing farthest from the quarry.
       const safe = cardinals.filter((c) => landing(c) >= 80);
       const pool = safe.length ? safe : cardinals;
-      forward = pool.sort((a, b) => Math.abs(b.x) - Math.abs(a.x) || landing(b) - landing(a))[0];
+      // Prefer the x-axis (the north lake and south quarry ruin z hikes), but
+      // break ties RANDOMLY instead of always taking the landing farthest from
+      // the quarry. That deterministic tiebreak sent every diamond dive ~110
+      // blocks due east into the x=400+ aquifer, where seven descents in a row
+      // this hour flooded or broke into caves ("water 3 below", "shaft would
+      // flood", "standing in open water") and none reached diamond depth.
+      // Sampling east AND west each run gives a dry column a chance; depth is
+      // reachable (a diamond ore sits recorded at x=345, y=-49).
+      forward = pool.sort((a, b) => Math.abs(b.x) - Math.abs(a.x) || Math.random() - 0.5)[0];
     }
     console.log(`[Skill] Strip mine direction: ${dirName(forward)}, starting Y=${bot.entity.position.y.toFixed(0)}`);
 
