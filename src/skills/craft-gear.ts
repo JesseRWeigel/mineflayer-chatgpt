@@ -352,9 +352,7 @@ export const craftGearSkill: Skill = {
           table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 8 });
         }
 
-        const recipe = table
-          ? bot.recipesFor(mcItem.id, null, 1, table)[0]
-          : bot.recipesFor(mcItem.id, null, 1, null)[0];
+        let recipe = table ? bot.recipesFor(mcItem.id, null, 1, table)[0] : bot.recipesFor(mcItem.id, null, 1, null)[0];
 
         // Thirty-six full craft runs produced zero pickaxes with materials
         // visibly aboard — name the exact tier verdicts so the next failure
@@ -391,6 +389,21 @@ export const craftGearSkill: Skill = {
             ]);
           } catch {
             /* try anyway */
+          }
+        }
+
+        // The found table may be walled off, and a pickless miner cannot dig to
+        // it — so the navigate above leaves the bot out of reach and bot.craft
+        // silently no-ops (recipe=yes, table=yes, yet nothing is produced: the
+        // exact stall that stranded Forge for an hour with 18 cobble and 13
+        // planks aboard). If we still are not beside a table, place a fresh one
+        // adjacent (crafted from planks) and craft against that.
+        if (!table || table.position.distanceTo(bot.entity.position) > 3.5) {
+          await placeCraftingTable(bot);
+          const fresh = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 4 });
+          if (fresh) {
+            table = fresh;
+            recipe = bot.recipesFor(mcItem.id, null, 1, fresh)[0] ?? recipe;
           }
         }
 
