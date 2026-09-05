@@ -8,7 +8,7 @@
     "build": "tsup src/index.ts --format esm --dts",
     "typecheck": "tsc --noEmit",
     "dev": "tsx watch src/index.ts",
-    "start": "tsx --max-old-space-size=6144 src/index.ts",
+    "start": "tsx --max-old-space-size=8192 src/index.ts",
     "server": "cd server && java -Xmx2G -Xms1G -jar paper.jar --nogui",
     "download-skills": "node scripts/download-voyager-skills.mjs",
     "test": "node --import tsx --test src/**/*.test.ts",
