@@ -1081,7 +1081,14 @@ export class BotBrain {
       // guard never fired for him. A diamond leaves any bot that cannot
       // complete the set itself.
       const holdsDiamond = this.bot.inventory.items().some((i) => i.name === "diamond");
-      const wantsReturn = (holdsPick && !canMine) || (holdsDiamond && !(canMine && roleCanCraft));
+      // Iron consolidation: a bot that is NOT the primary smith should not sit on
+      // iron. Making iron its own reserve stopped the leak, but a second
+      // crafter-miner (Mason) then hoarded 2 ingots while Forge sat at 2 — the
+      // team's 4 split so neither reached the 3 a pickaxe needs, and nothing
+      // pushed Mason to hand his over. Route all non-smith iron to the smith.
+      const holdsSpareIron =
+        !this.roleConfig.primarySmith && this.bot.inventory.items().some((i) => i.name === "iron_ingot");
+      const wantsReturn = (holdsPick && !canMine) || (holdsDiamond && !(canMine && roleCanCraft)) || holdsSpareIron;
       // 5min, down from 10: every attempt is a lottery ticket on a quiet
       // window between mob waves — run 380 got five tickets and no winner.
       const cooledDown = Date.now() - this.lastToolReturnMs > 300_000;
@@ -1099,14 +1106,26 @@ export class BotBrain {
             (r.allowedActions.includes("mine_block") || r.allowedSkills.includes("strip_mine")) &&
             (r.allowedActions.includes("craft") || r.allowedSkills.includes("craft_gear")),
         ).map((r) => r.name);
-        const nearbyMiner = minerNames.find((n) => {
+        // A returnable pick is one this role cannot swing (non-miner); iron is
+        // returned only when there is no diamond or unusable pick also aboard,
+        // so a crafter-miner keeps the pickaxe it mines with and still ships its
+        // spare iron. Iron must reach the SINGLE smith who consolidates it; a
+        // diamond or spare pick can go to any crafter-miner. Handing iron to the
+        // other crafter-miner would just re-split the pile it is meant to gather.
+        const returnablePick = holdsPick && !canMine;
+        const ironReturn = holdsSpareIron && !holdsDiamond && !returnablePick;
+        const smithNames = BOT_ROSTER.filter((r) => r.primarySmith).map((r) => r.name);
+        const targetNames = ironReturn ? smithNames : minerNames;
+        const nearbyMiner = targetNames.find((n) => {
           const e = this.bot.players[n]?.entity;
           return e && this.bot.entity.position.distanceTo(e.position) < 24;
         });
         if (nearbyMiner) {
           const itemToGive = holdsDiamond
             ? "diamond"
-            : (this.bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"))?.name ?? "diamond");
+            : returnablePick
+              ? (this.bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"))?.name ?? "iron_ingot")
+              : "iron_ingot";
           this.log.info("Brain", `OVERRIDE: handing ${itemToGive} to ${nearbyMiner} (miner nearby)`);
           this.events.onThought(`${nearbyMiner} can actually use this. Here, catch!`);
           const result = await executeAction(this.bot, "give_item", { to: nearbyMiner, item: itemToGive, count: 64 });
