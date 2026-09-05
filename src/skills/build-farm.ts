@@ -419,6 +419,13 @@ export const buildFarmSkill: Skill = {
 
         // Check if it became farmland
         const result = bot.blockAt(targetPos);
+        // INSTRUMENTATION: 4 of 5 dirt/grass plots never became farmland even at
+        // reach — pin down whether the till itself fails (result still dirt), a
+        // block overhead blocks it, or the seed placement is the loser.
+        const above = bot.blockAt(targetPos.offset(0, 1, 0));
+        console.log(
+          `[FarmDebug] till ${targetPos.x},${targetPos.y},${targetPos.z}: was=${currentBlock.name} became=${result?.name} above=${above?.name} dist=${targetPos.distanceTo(bot.entity.position).toFixed(1)}`,
+        );
         if (result && result.name === "farmland") {
           const seeds = bot.inventory.items().find((it) => it.name === "wheat_seeds");
           if (seeds) {
@@ -433,8 +440,8 @@ export const buildFarmSkill: Skill = {
                 message: `Planted ${planted}/${target} wheat`,
                 active: true,
               });
-            } catch {
-              /* skip this spot */
+            } catch (e) {
+              console.log(`[FarmDebug] plant failed at ${targetPos.x},${targetPos.z}: ${(e as Error).message}`);
             }
           }
         }
