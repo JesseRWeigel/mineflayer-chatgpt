@@ -1283,10 +1283,28 @@ export class BotBrain {
       const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
       const fished = earned.has("husbandry/fishy_business") || earned.has("minecraft:husbandry/fishy_business");
       const cooled = Date.now() - this.lastFishOverrideMs > 600_000;
-      if (!fished && cooled) {
+      // Fishing is also the team's FALLBACK PANTRY. The farm has failed six
+      // distinct ways while the whole swarm starved (bots burning hours
+      // seeking bread that does not exist); go_fishing is the one food path
+      // proven end-to-end — it earned Fishy Business and lands 3-5 edible
+      // catches a run with no terrain luck. A fisher who is hungry with
+      // nothing edible aboard goes fishing even after the advancement banked.
+      const edible =
+        /(bread|cooked_|raw_cod|raw_salmon|apple|carrot|potato|baked|melon_slice|cookie|beef|porkchop|mutton)/;
+      const starving = this.bot.food < 12 && !this.bot.inventory.items().some((i) => edible.test(i.name));
+      if ((!fished || starving) && cooled) {
         this.lastFishOverrideMs = Date.now();
-        this.log.info("Brain", "OVERRIDE: Fishy Business unearned — running go_fishing");
-        this.events.onThought("A rod, some water, and patience. Let's catch a fish.");
+        this.log.info(
+          "Brain",
+          fished
+            ? "OVERRIDE: starving with nothing aboard — fishing for dinner"
+            : "OVERRIDE: Fishy Business unearned — running go_fishing",
+        );
+        this.events.onThought(
+          fished
+            ? "The pantry is bare and my stomach is growling. The lake will feed me."
+            : "A rod, some water, and patience. Let's catch a fish.",
+        );
         const result = await executeAction(this.bot, "invoke_skill", { skill: "go_fishing" });
         this.events.onAction("go_fishing", result);
         this.lastAction = "go_fishing";
