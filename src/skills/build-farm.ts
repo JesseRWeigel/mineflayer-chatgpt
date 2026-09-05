@@ -102,7 +102,11 @@ export const buildFarmSkill: Skill = {
       // violated the no-cheat rule (it was the ONLY command not gated behind
       // allowInterventions); now it's gated like every other intervention.
       // With interventions off the bot either walks there or reports failure.
-      if (bot.entity.position.distanceTo(new Vec3(fx0, bot.entity.position.y, fz0)) > 6) {
+      // 9, aligned above the walk's own GoalNear radius of 8: the walk can
+      // SUCCEED at 7-8 blocks out and the old >6 check then failed the whole
+      // run as "couldn't reach" — a spurious loss, since the water search that
+      // follows scans 96 blocks anyway.
+      if (bot.entity.position.distanceTo(new Vec3(fx0, bot.entity.position.y, fz0)) > 9) {
         if (config.bot.allowInterventions) {
           bot.chat(`/tp ${bot.username} ${fx0} ${Number(params.y) + 1 || 64} ${fz0}`);
           await new Promise((r) => setTimeout(r, 2500));

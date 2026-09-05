@@ -68,11 +68,15 @@ export interface BotRoleConfig {
 export const STASH_POS = { x: 286, y: 70, z: -314 };
 
 /**
- * The farm site — on the river nearest the village (located via
- * `locate biome minecraft:river`; the earlier "lake" coords were wrong).
- * build_farm travels here first; rivers sit at sea level, hence y=63.
+ * The farm site — the open waterline BELOW the village where build_farm's
+ * clear-plot scan actually found tillable ground and tilled it (FarmDebug,
+ * cycle 351: farmland made at 302-305, y=57). The old site (290,71,-312) was
+ * the village center: its dirt is covered by stash chests and cobble paths,
+ * and bots eventually could not even path to the coordinate — every farm run
+ * died at "Couldn't reach the farm site" while the real field sat 15 blocks
+ * away.
  */
-export const FARM_SITE = { x: 290, y: 71, z: -312 };
+export const FARM_SITE = { x: 302, y: 58, z: -307 };
 
 /** Renewable tree farm east of the village (saplings + torches, RCON-provisioned). */
 export const TREE_FARM = { x: 306, y: 71, z: -316 };
@@ -144,8 +148,8 @@ export const FLORA_CONFIG: BotRoleConfig = {
   priorities: `FLORA PRIORITIES — THE FARM IS YOUR LIFE'S WORK:
 1. If health < 6 and hostile mob nearby: flee
 2. If hungry (food < 14) AND you CARRY food: eat. No food in inventory? Do NOT pick eat again — withdraw_stash if the stash has food, otherwise keep working your trade while the cook restocks.
-3. NO FARM YET? This is your #1 job and it MUST be near water. The village
-   has no water — there is an irrigation bed with water at the village (290, 71, -312). go_to it,
+3. NO FARM YET? This is your #1 job and it MUST be near water. The field is
+   at the waterline BELOW the village (302, 58, -307). go_to it,
    THEN invoke_skill build_farm. It crafts the hoe and finds seeds itself.
 4. If the farm exists and wheat is mature: build_farm again (harvests + replants).
 5. If inventory has raw ore: smelt_ores
