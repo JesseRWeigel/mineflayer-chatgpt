@@ -75,21 +75,29 @@ export const breedAnimalsSkill: Skill = {
       return [...bySpec.values()].some((n) => n >= 2);
     };
     if (feedableSpecies.length && !visiblePair()) {
+      // Commit to ONE outward direction for the whole scout, varied per run.
+      // The first version cycled cardinals per hop (E, S, W), a zigzag whose net
+      // displacement was near zero — Flora scouted three times and never left
+      // the village, so the herds 128-256 blocks out stayed invisible. A single
+      // heading covers ~210 blocks in three hops; a fresh random heading each
+      // invocation sweeps the ring around the village across successive runs.
       const cardinals = [
         [1, 0],
         [0, 1],
         [-1, 0],
         [0, -1],
       ];
+      const [ddx, ddz] = cardinals[Math.floor(Math.random() * cardinals.length)];
       for (let hop = 0; hop < 3 && !visiblePair() && !signal.aborted; hop++) {
         const nearest = Object.values(bot.entities)
           .filter((e) => e.name && feedableSpecies.includes(e.name))
           .sort((a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position))[0];
         const p = bot.entity.position;
-        const [dx, dz] = cardinals[hop % 4];
-        const destX = nearest ? nearest.position.x : p.x + dx * 70;
+        // Head to a lone animal if one is now visible (it pulls its neighbours
+        // into range); otherwise keep pressing outward along the chosen heading.
+        const destX = nearest ? nearest.position.x : p.x + ddx * 70;
         const destY = nearest ? nearest.position.y : p.y;
-        const destZ = nearest ? nearest.position.z : p.z + dz * 70;
+        const destZ = nearest ? nearest.position.z : p.z + ddz * 70;
         step(
           0.02 + hop * 0.02,
           nearest
