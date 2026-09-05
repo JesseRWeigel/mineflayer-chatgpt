@@ -419,6 +419,39 @@ export const buildFarmSkill: Skill = {
         ]);
         if (targetPos.distanceTo(bot.entity.position) > 4.4) continue; // out of till reach
 
+        // Step OFF the plot before tilling. GoalNear(2) happily parks the bot
+        // ON the target block, and a bot standing on its own fresh farmland
+        // tramples it back to dirt with the pathfinder's constant hops — every
+        // FarmDebug failure this run tilled farmland that was gone by the seed
+        // placement ("blockUpdate did not fire"), and RCON found neither wheat
+        // nor farmland there afterward. Till from beside, never from on top.
+        const feet = bot.entity.position.floored();
+        if (feet.x === targetPos.x && feet.z === targetPos.z) {
+          for (const [ox, oz] of [
+            [1, 0],
+            [-1, 0],
+            [0, 1],
+            [0, -1],
+          ] as const) {
+            const ground = bot.blockAt(targetPos.offset(ox, 0, oz));
+            const standIn = bot.blockAt(targetPos.offset(ox, 1, oz));
+            if (!ground || ground.name === "water" || ground.name === "air") continue;
+            if (!standIn || (standIn.name !== "air" && !standIn.name.includes("grass"))) continue;
+            await Promise.race([
+              bot.pathfinder.goto(new goals.GoalBlock(targetPos.x + ox, targetPos.y + 1, targetPos.z + oz)),
+              new Promise<void>((_, rej) =>
+                setTimeout(() => {
+                  bot.pathfinder.stop();
+                  rej(new Error("timeout"));
+                }, 5000),
+              ),
+            ]).catch(() => {});
+            break;
+          }
+          const f2 = bot.entity.position.floored();
+          if (f2.x === targetPos.x && f2.z === targetPos.z) continue; // still on it — skip, don't trample
+        }
+
         // Equip hoe and till
         hoe = bot.inventory.items().find((it) => it.name.endsWith("_hoe"));
         if (!hoe) break;
@@ -451,7 +484,15 @@ export const buildFarmSkill: Skill = {
                 active: true,
               });
             } catch (e) {
-              console.log(`[FarmDebug] plant failed at ${targetPos.x},${targetPos.z}: ${(e as Error).message}`);
+              // placeBlock's confirmation event can miss even when the seed
+              // landed — trust the world, not the event, before calling it lost.
+              await bot.waitForTicks(4);
+              const crop = bot.blockAt(targetPos.offset(0, 1, 0));
+              if (crop && crop.name === "wheat") {
+                planted++;
+              } else {
+                console.log(`[FarmDebug] plant failed at ${targetPos.x},${targetPos.z}: ${(e as Error).message}`);
+              }
             }
           }
         }
