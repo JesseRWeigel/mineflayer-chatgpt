@@ -1294,7 +1294,13 @@ export class BotBrain {
       const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
       const bred = earned.has("husbandry/breed_an_animal") || earned.has("minecraft:husbandry/breed_an_animal");
       const cooled = Date.now() - this.lastBreedOverrideMs > 600_000;
-      if (!bred && cooled) {
+      // DAYTIME ONLY. The scout marches Flora ~210 blocks out to reach the
+      // dispersed herds, and at night that is a walk into open-field zombies —
+      // she died five times in one night on futile scouts that never found a
+      // pair anyway. By day the same walk is safe and animals are easier to
+      // spot; at night she stays home. timeOfDay 0-12000 is day.
+      const isDay = this.bot.time.timeOfDay < 12000;
+      if (!bred && cooled && isDay) {
         this.lastBreedOverrideMs = Date.now();
         this.log.info("Brain", "OVERRIDE: breeding advancement unearned — running breed_animals");
         this.events.onThought("Two of a kind and a handful of wheat. Time to make some babies.");
