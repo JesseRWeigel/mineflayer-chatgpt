@@ -91,7 +91,13 @@ export const buildFarmSkill: Skill = {
         active: true,
       });
       try {
-        await safeGoto(bot, new goals.GoalNear(fx0, Number(params.y) || 64, fz0, 8), 60000);
+        // XZ-only arrival: the site sits at a waterline BELOW the village
+        // (y=58 vs ground 71), and a 3D GoalNear demanded the bot also reach
+        // that exact depth — the slope down defeated the pathfinder and every
+        // farm run died "Couldn't reach the farm site" at the NEW site too.
+        // The farm only needs to be near the spot horizontally; the 96-block
+        // water search finds the pond from whatever height the bot walks in at.
+        await safeGoto(bot, new goals.GoalNearXZ(fx0, fz0, 8), 60000);
       } catch {
         /* walk failed — exact teleport below */
       }
