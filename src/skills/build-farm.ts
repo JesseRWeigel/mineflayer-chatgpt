@@ -394,8 +394,12 @@ export const buildFarmSkill: Skill = {
 
       try {
         setMovements(bot);
+        // Reach 2, not 1: tilling only needs the block within arm's reach
+        // (~4.5), and demanding a cell exactly one block away made the
+        // pathfinder fail to stand on ~80% of shore plots (planted 1 of 5 per
+        // run, "navigation or tilling failed"). Standing two out still tills.
         await Promise.race([
-          bot.pathfinder.goto(new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 1)),
+          bot.pathfinder.goto(new goals.GoalNear(targetPos.x, targetPos.y, targetPos.z, 2)),
           new Promise<void>((_, rej) =>
             setTimeout(() => {
               bot.pathfinder.stop();
@@ -403,6 +407,7 @@ export const buildFarmSkill: Skill = {
             }, 8000),
           ),
         ]);
+        if (targetPos.distanceTo(bot.entity.position) > 4.4) continue; // out of till reach
 
         // Equip hoe and till
         hoe = bot.inventory.items().find((it) => it.name.endsWith("_hoe"));
