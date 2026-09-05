@@ -182,16 +182,27 @@ export const breedAnimalsSkill: Skill = {
       await equipFood();
 
       // Both should now be trailing within follow range. Give the first a moment
-      // to close the gap, then feed the two nearest same-species adults.
+      // to close the gap, then feed two DISTINCT same-species adults. Track fed
+      // entity ids: the loop recomputed "nearest within 6" each round with no
+      // memory, so when only one animal trailed it fed that SAME one twice and
+      // reported "fed two" — one animal cannot breed with itself, so the baby
+      // never spawned and the advancement never fired. Breeding needs two
+      // separate adults in love mode, so count separate entities.
       await new Promise((r) => setTimeout(r, 1500));
       const speciesName = best.a.name!;
-      let fed = 0;
-      for (let round = 0; round < 3 && fed < 2 && !signal.aborted; round++) {
+      const fedIds = new Set<number>();
+      for (let round = 0; round < 4 && fedIds.size < 2 && !signal.aborted; round++) {
         const nearby = Object.values(bot.entities)
-          .filter((e) => e.name === speciesName && e.isValid && e.position.distanceTo(bot.entity.position) < 6)
+          .filter(
+            (e) =>
+              e.name === speciesName &&
+              e.isValid &&
+              !fedIds.has(e.id) &&
+              e.position.distanceTo(bot.entity.position) < 6,
+          )
           .sort((x, y) => x.position.distanceTo(bot.entity.position) - y.position.distanceTo(bot.entity.position));
         for (const animal of nearby) {
-          if (fed >= 2) break;
+          if (fedIds.size >= 2) break;
           if (animal.position.distanceTo(bot.entity.position) > 4) {
             await safeGoto(
               bot,
@@ -199,19 +210,20 @@ export const breedAnimalsSkill: Skill = {
               12_000,
             ).catch(() => {});
           }
-          if (!animal.isValid || animal.position.distanceTo(bot.entity.position) > 4) continue;
+          if (!animal.isValid || fedIds.has(animal.id) || animal.position.distanceTo(bot.entity.position) > 4) continue;
           if (!(await equipFood())) break;
           try {
             await bot.activateEntity(animal);
-            fed++;
-            step(0.6 + fed * 0.15, `Fed ${fed}/2 ${speciesName}s...`);
+            fedIds.add(animal.id);
+            step(0.6 + fedIds.size * 0.15, `Fed ${fedIds.size}/2 ${speciesName}s...`);
             await new Promise((r) => setTimeout(r, 600));
           } catch {
             /* moved or full — retry next round */
           }
         }
-        if (fed < 2) await new Promise((r) => setTimeout(r, 1500));
+        if (fedIds.size < 2) await new Promise((r) => setTimeout(r, 1500));
       }
+      const fed = fedIds.size;
 
       if (fed >= 2) {
         await new Promise((r) => setTimeout(r, 2500));
