@@ -46,7 +46,7 @@ export const breedAnimalsSkill: Skill = {
   description:
     "Breed two farm animals (feed two cows/sheep wheat, or chickens seeds) to earn the breeding advancement. Uses held or stashed food.",
   params: {},
-  timeoutMs: 240_000,
+  timeoutMs: 300_000,
 
   estimateMaterials() {
     return {};
@@ -58,95 +58,132 @@ export const breedAnimalsSkill: Skill = {
       onProgress({ skillName: "breed_animals", phase: "Breeding", progress, message, active: true });
     bot.pathfinder.setMovements(baseMoves(bot));
 
-    // Pick the first food we hold (or can withdraw) whose species is loaded
-    // anywhere in view — the herd is often 40-100 blocks out, not underfoot.
+    // Pick the first food we hold (or can withdraw) whose species has at least
+    // two animals loaded. The map's animals are almost never in a natural
+    // cluster — a census found zero same-species pairs within 32 blocks of each
+    // other — so passively hoping for two-underfoot never fired. Instead we
+    // LURE: an animal follows a player holding its food within ~10 blocks, so
+    // Flora equips the food, walks to the nearest of the pair, then to the
+    // second, and both trail her into feeding range.
     for (const { food, species } of FEED) {
       if (count(bot, food) < 2) await tryWithdraw(bot, food, 2);
       if (count(bot, food) < 2) continue;
 
       const loaded = Object.values(bot.entities).filter(
-        (e) => e.name && species.includes(e.name) && e.position.distanceTo(bot.entity.position) < 128,
+        (e) => e.name && species.includes(e.name) && e.position.distanceTo(bot.entity.position) < 220,
       );
-      // Breeding needs TWO OF THE SAME SPECIES — wheat feeds cows AND sheep,
-      // but a cow will not breed with a sheep. Pick the single species with at
-      // least two loaded, nearest cluster first, and only feed that one.
       const bySpecies = new Map<string, typeof loaded>();
       for (const e of loaded) bySpecies.set(e.name!, [...(bySpecies.get(e.name!) ?? []), e]);
-      let chosen: typeof loaded | null = null;
-      for (const [, group] of [...bySpecies].sort(
-        (a, b) =>
-          Math.min(...a[1].map((e) => e.position.distanceTo(bot.entity.position))) -
-          Math.min(...b[1].map((e) => e.position.distanceTo(bot.entity.position))),
-      )) {
-        if (group.length >= 2) {
-          chosen = group;
-          break;
+
+      // Choose the species+pair with the SMALLEST lure walk: distance from Flora
+      // to the nearer animal plus the distance between the two. A tight pair
+      // 150 blocks out beats a scattered pair 40 blocks out — the lure only has
+      // to bridge the gap between the two once Flora reaches them.
+      let best: { food: string; a: (typeof loaded)[number]; b: (typeof loaded)[number]; cost: number } | null = null;
+      for (const [, group] of bySpecies) {
+        if (group.length < 2) continue;
+        for (let i = 0; i < group.length; i++) {
+          for (let j = i + 1; j < group.length; j++) {
+            const a =
+              group[i].position.distanceTo(bot.entity.position) <= group[j].position.distanceTo(bot.entity.position)
+                ? group[i]
+                : group[j];
+            const b = a === group[i] ? group[j] : group[i];
+            const cost = a.position.distanceTo(bot.entity.position) + a.position.distanceTo(b.position);
+            if (!best || cost < best.cost) best = { food, a, b, cost };
+          }
         }
       }
-      if (!chosen) continue;
-      // Babies can't be fed into love mode; metadata age < 0 marks a baby on
-      // most versions, but it is not always populated, so this is best effort —
-      // feeding a baby is a harmless no-op and the next adult works.
-      const herd = chosen.sort(
-        (a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position),
+      if (!best) continue;
+
+      // Equip the food up front: this is what makes the animals follow.
+      const equipFood = async () => {
+        const item = bot.inventory.items().find((i) => i.name === best!.food);
+        if (item) await bot.equip(item, "hand").catch(() => {});
+        return !!item;
+      };
+      if (!(await equipFood())) continue;
+
+      // Lead to the first animal, then to the second; the first trails on the
+      // food. walkTo keeps re-issuing the goal because the target entity drifts.
+      const walkTo = async (target: (typeof loaded)[number], deadlineMs: number) => {
+        const end = Date.now() + deadlineMs;
+        while (
+          Date.now() < end &&
+          target.isValid &&
+          target.position.distanceTo(bot.entity.position) > 3 &&
+          !signal.aborted
+        ) {
+          const p = target.position;
+          await safeGoto(bot, new goals.GoalNear(p.x, p.y, p.z, 2), 30_000, 12_000).catch(() => {});
+          if (target.isValid && target.position.distanceTo(bot.entity.position) > 3)
+            await new Promise((r) => setTimeout(r, 800));
+        }
+      };
+
+      step(
+        0.1,
+        `Luring a ${best.a.name} pair (nearer ${best.a.position.distanceTo(bot.entity.position).toFixed(0)} away)...`,
       );
+      await walkTo(best.a, 100_000);
+      await equipFood();
+      step(0.4, `Leading it to its mate (${best.a.position.distanceTo(best.b.position).toFixed(0)} apart)...`);
+      await walkTo(best.b, 100_000);
+      await equipFood();
 
-      // Walk to the herd first if the nearest is beyond feeding range.
-      if (herd[0].position.distanceTo(bot.entity.position) > 4 && !signal.aborted) {
-        const a = herd[0].position;
-        step(0.1, `Walking to a ${herd[0].name} herd (${a.distanceTo(bot.entity.position).toFixed(0)} away)...`);
-        const walkDeadline = Date.now() + 120_000;
-        while (Date.now() < walkDeadline && herd[0].isValid && herd[0].position.distanceTo(bot.entity.position) > 3) {
-          await safeGoto(bot, new goals.GoalNear(a.x, a.y, a.z, 2), 40_000, 12_000).catch(() => {});
-          if (herd[0].isValid && herd[0].position.distanceTo(bot.entity.position) > 3)
-            await new Promise((r) => setTimeout(r, 1500));
-        }
-      }
-
-      // Re-sort by distance now that we have arrived.
-      const nearby = herd
-        .filter((e) => e.isValid)
-        .sort((a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position));
-
+      // Both should now be trailing within follow range. Give the first a moment
+      // to close the gap, then feed the two nearest same-species adults.
+      await new Promise((r) => setTimeout(r, 1500));
+      const speciesName = best.a.name!;
       let fed = 0;
-      for (const animal of nearby) {
-        if (fed >= 2 || signal.aborted) break;
-        step(0.2 + fed * 0.3, `Feeding ${food.replace("_", " ")} to a ${animal.name} (${fed}/2)...`);
-        try {
-          await safeGoto(bot, new goals.GoalNear(animal.position.x, animal.position.y, animal.position.z, 2), 20_000);
-        } catch {
-          continue;
+      for (let round = 0; round < 3 && fed < 2 && !signal.aborted; round++) {
+        const nearby = Object.values(bot.entities)
+          .filter((e) => e.name === speciesName && e.isValid && e.position.distanceTo(bot.entity.position) < 6)
+          .sort((x, y) => x.position.distanceTo(bot.entity.position) - y.position.distanceTo(bot.entity.position));
+        for (const animal of nearby) {
+          if (fed >= 2) break;
+          if (animal.position.distanceTo(bot.entity.position) > 4) {
+            await safeGoto(
+              bot,
+              new goals.GoalNear(animal.position.x, animal.position.y, animal.position.z, 2),
+              12_000,
+            ).catch(() => {});
+          }
+          if (!animal.isValid || animal.position.distanceTo(bot.entity.position) > 4) continue;
+          if (!(await equipFood())) break;
+          try {
+            await bot.activateEntity(animal);
+            fed++;
+            step(0.6 + fed * 0.15, `Fed ${fed}/2 ${speciesName}s...`);
+            await new Promise((r) => setTimeout(r, 600));
+          } catch {
+            /* moved or full — retry next round */
+          }
         }
-        if (animal.position.distanceTo(bot.entity.position) > 3.5 || !animal.isValid) continue;
-        const foodItem = bot.inventory.items().find((i) => i.name === food);
-        if (!foodItem) break;
-        try {
-          await bot.equip(foodItem, "hand");
-          await bot.activateEntity(animal);
-          fed++;
-          await new Promise((r) => setTimeout(r, 600));
-        } catch {
-          /* animal moved or full — try the next one */
-        }
+        if (fed < 2) await new Promise((r) => setTimeout(r, 1500));
       }
 
       if (fed >= 2) {
-        // Two fed adults enter love mode and produce a baby within a moment.
         await new Promise((r) => setTimeout(r, 2500));
         return {
           success: true,
-          message: `Fed two ${herd[0].name}s ${food.replace("_", " ")} — they should breed (The Parrots and the Bats).`,
+          message: `Fed two ${speciesName}s ${best.food.replace("_", " ")} — they should breed (The Parrots and the Bats).`,
           stats: { fed },
         };
       }
       if (fed === 1) {
-        return { success: false, message: resumable(`Fed one ${herd[0].name}, need a second nearby to breed.`) };
+        return {
+          success: false,
+          message: resumable(`Fed one ${speciesName}; its mate drifted out of range before I could feed it.`),
+        };
       }
     }
 
     return {
       success: false,
-      message: resumable("No breedable animals within reach of the food I hold — move near cows/sheep/chickens first."),
+      message: resumable(
+        "No two same-species animals I have food for are loaded nearby — explore toward a herd first.",
+      ),
     };
   },
 };
