@@ -592,6 +592,30 @@ export function shouldKeep(
     return false;
   }
 
+  // Crafting floor: keep a few planks and sticks IN POCKET, always. Bots
+  // banked every scrap of wood, then stranded themselves — craft_gear found a
+  // stone-pick recipe with 30 cobble aboard and could not use it because the
+  // nearby table was walled off and placing a fresh one needs 4 planks the bot
+  // had just deposited (GearDebug: planks=0, "No new tools crafted" while
+  // materials sat everywhere). Eight planks = a table plus a stick batch;
+  // eight sticks covers two tools. Any *_planks counts toward the one floor.
+  if (itemName.endsWith("_planks")) {
+    const kept = currentCounts.get("__planks") ?? 0;
+    if (kept < 8) {
+      currentCounts.set("__planks", kept + itemCount);
+      return true;
+    }
+    return false;
+  }
+  if (itemName === "stick") {
+    const kept = currentCounts.get("__sticks") ?? 0;
+    if (kept < 8) {
+      currentCounts.set("__sticks", kept + itemCount);
+      return true;
+    }
+    return false;
+  }
+
   // Seeds: always keep (needed to replant).
   if (itemName === "wheat_seeds") return true;
   // Wheat: keep only a tiny reserve, DEPOSIT the surplus so it POOLS in the
