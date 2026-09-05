@@ -58,6 +58,48 @@ export const breedAnimalsSkill: Skill = {
       onProgress({ skillName: "breed_animals", phase: "Breeding", progress, message, active: true });
     bot.pathfinder.setMovements(baseMoves(bot));
 
+    // A bot only perceives entities the server streams to it — roughly an
+    // 80-block tracking range — but this map's animals sit 128-256 blocks out
+    // and fully dispersed, so bot.entities is usually EMPTY of them and the lure
+    // below has nothing to work with (the skill returned "none nearby" every
+    // run). Before luring, EXPLORE to pull a herd into perception range: walk
+    // toward the nearest lone feedable animal we can see, or scout cardinally
+    // when we see none, rescanning after each hop. Bounded so it cannot hang.
+    for (const { food } of FEED) if (count(bot, food) < 2) await tryWithdraw(bot, food, 2);
+    const feedableSpecies = FEED.filter((f) => count(bot, f.food) >= 2).flatMap((f) => f.species);
+    const visiblePair = () => {
+      const bySpec = new Map<string, number>();
+      for (const e of Object.values(bot.entities))
+        if (e.name && feedableSpecies.includes(e.name) && e.position.distanceTo(bot.entity.position) < 220)
+          bySpec.set(e.name, (bySpec.get(e.name) ?? 0) + 1);
+      return [...bySpec.values()].some((n) => n >= 2);
+    };
+    if (feedableSpecies.length && !visiblePair()) {
+      const cardinals = [
+        [1, 0],
+        [0, 1],
+        [-1, 0],
+        [0, -1],
+      ];
+      for (let hop = 0; hop < 3 && !visiblePair() && !signal.aborted; hop++) {
+        const nearest = Object.values(bot.entities)
+          .filter((e) => e.name && feedableSpecies.includes(e.name))
+          .sort((a, b) => a.position.distanceTo(bot.entity.position) - b.position.distanceTo(bot.entity.position))[0];
+        const p = bot.entity.position;
+        const [dx, dz] = cardinals[hop % 4];
+        const destX = nearest ? nearest.position.x : p.x + dx * 70;
+        const destY = nearest ? nearest.position.y : p.y;
+        const destZ = nearest ? nearest.position.z : p.z + dz * 70;
+        step(
+          0.02 + hop * 0.02,
+          nearest
+            ? `Heading to a lone ${nearest.name} to gather a herd...`
+            : `Scouting for a herd (hop ${hop + 1}/3)...`,
+        );
+        await safeGoto(bot, new goals.GoalNear(destX, destY, destZ, 3), 45_000, 12_000).catch(() => {});
+      }
+    }
+
     // Pick the first food we hold (or can withdraw) whose species has at least
     // two animals loaded. The map's animals are almost never in a natural
     // cluster — a census found zero same-species pairs within 32 blocks of each
