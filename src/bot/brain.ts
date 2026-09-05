@@ -1351,7 +1351,13 @@ export class BotBrain {
       const hasDiamondPickax = this.bot.inventory
         .items()
         .some((i) => i.name === "diamond_pickaxe" || i.name === "netherite_pickaxe");
-      const wantsIronPick = ingots >= 3 && !hasIronPick;
+      // Only the primary smith turns ingots into a pickaxe. A second
+      // crafter-miner (Mason) that reached 3 iron minted his OWN iron pick,
+      // spending the scarce iron the routing reflex was busy funnelling to
+      // Forge — the two competed for a supply barely enough for one. Non-smiths
+      // re-arm with a wooden pick via the pickless override and ship their iron
+      // onward; the smith alone forges the iron and diamond picks.
+      const wantsIronPick = ingots >= 3 && !hasIronPick && !!this.roleConfig.primarySmith;
       // Reserve 2 diamonds for the enchanting table until Enchanter is earned:
       // a crafter with setup_enchanting only mints a diamond pick from a FIFTH
       // diamond (3 for the pick + 2 held for the table), so the table's stock
@@ -1360,7 +1366,8 @@ export class BotBrain {
         this.roleConfig.allowedSkills.includes("setup_enchanting") &&
         !readTeamEarned(BOT_ROSTER.map((b) => b.name)).has("story/enchant_item");
       const diamondPickThreshold = reservesForTable ? 5 : 3;
-      const wantsDiamondPick = diamondCount >= diamondPickThreshold && !hasDiamondPickax;
+      const wantsDiamondPick =
+        diamondCount >= diamondPickThreshold && !hasDiamondPickax && !!this.roleConfig.primarySmith;
       const cooledDown = Date.now() - this.lastGearOverrideMs > 180_000;
       if ((wantsIronPick || wantsDiamondPick) && cooledDown) {
         this.lastGearOverrideMs = Date.now();
