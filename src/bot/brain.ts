@@ -939,11 +939,30 @@ export class BotBrain {
       // No day-gate: a Minecraft day is only ~20 real minutes, so day-gating
       // meant the farm rarely got a window — crops grow fine at night and the
       // skill handles its own safety. Cooldown alone prevents thrash.
-      const cooledDown = Date.now() - this.lastFarmOverrideMs > 240_000;
-      if (!hasFarm && cooledDown) {
+      //
+      // HARVEST, not just build. The override used to fire only when NO farm
+      // existed, so the farm was built once and never revisited — wheat grew to
+      // maturity and rotted in place because the model never chose build_farm to
+      // harvest it, and the team starved beside a full field (census: zero bread
+      // anywhere, bots hunting nonexistent food for a whole hour). build_farm
+      // already harvests mature wheat and bakes it into bread when re-run, so
+      // fire it periodically once a farm exists too — slower (8 min, matched to
+      // crop growth) than the initial build (4 min).
+      const cooldownMs = hasFarm ? 480_000 : 240_000;
+      const cooledDown = Date.now() - this.lastFarmOverrideMs > cooldownMs;
+      if (cooledDown) {
         this.lastFarmOverrideMs = Date.now();
-        this.log.info("Brain", "OVERRIDE: no farm exists — running build_farm (self-sufficient)");
-        this.events.onThought("The fields call to me. Today the farm gets BUILT — no more excuses.");
+        this.log.info(
+          "Brain",
+          hasFarm
+            ? "OVERRIDE: tending the farm — running build_farm to harvest and bake"
+            : "OVERRIDE: no farm exists — running build_farm (self-sufficient)",
+        );
+        this.events.onThought(
+          hasFarm
+            ? "The wheat is calling. Time to harvest and bake the team some bread."
+            : "The fields call to me. Today the farm gets BUILT — no more excuses.",
+        );
         const result = await executeAction(this.bot, "invoke_skill", { skill: "build_farm", ...FARM_SITE });
         this.events.onAction("build_farm", result);
         this.lastAction = "build_farm";
