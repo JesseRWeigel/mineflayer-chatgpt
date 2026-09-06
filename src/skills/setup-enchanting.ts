@@ -202,7 +202,22 @@ export const setupEnchantingSkill: Skill = {
             // open shore the farm's clear-plot scan validated.
             step("Book", 0.29, "Planting spare sugar cane by the water to farm more...");
             const { FARM_SITE } = await import("../bot/role.js");
-            await safeGoto(bot, new goals.GoalNearXZ(FARM_SITE.x, FARM_SITE.z, 6), 45_000, 12_000).catch(() => {});
+            // ARRIVE before planting — a single unverified walk left Forge
+            // planting from the village stash, where the only waters are the
+            // cobble-rimmed well and the old irrigation bed (PlantDebug:
+            // cobblestone x8, chest x3, farmland x2 — zero plantable ground).
+            const siteGap = () => Math.hypot(bot.entity.position.x - FARM_SITE.x, bot.entity.position.z - FARM_SITE.z);
+            const plantMarch = Date.now() + 90_000;
+            while (Date.now() < plantMarch && siteGap() > 10 && !signal.aborted && timeLeft() > 90_000) {
+              await safeGoto(bot, new goals.GoalNearXZ(FARM_SITE.x, FARM_SITE.z, 6), 45_000, 12_000).catch(() => {});
+              if (siteGap() > 10) await new Promise((r) => setTimeout(r, 1500));
+            }
+            if (siteGap() > 10) {
+              return {
+                success: false,
+                message: resumable(`Carrying cane to the farm waterline — still ${siteGap().toFixed(0)} blocks out.`),
+              };
+            }
             const caneBefore = count(bot, "sugar_cane");
             const waters = bot.findBlocks({ matching: (b) => b.name === "water", maxDistance: 24, count: 8 });
             const sides = [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)];
