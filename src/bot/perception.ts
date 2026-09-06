@@ -1,9 +1,29 @@
+/**
+ * Converts live Mineflayer state into compact text consumed by the decision
+ * prompts.
+ *
+ * @remarks
+ * Extend perception by deriving a bounded signal from the bot, then appending
+ * one concise line to `parts` in `getWorldContext`. Keep scans small because
+ * this function runs in the decision loop. Add globally interesting blocks to
+ * `NOTABLE_BLOCKS`; add entity families through `HOSTILE_MOBS` or
+ * `PASSIVE_MOBS`. New wording should be covered in `perception.test.ts` because
+ * it becomes part of the model's behavioral contract.
+ */
 import type { Bot } from "mineflayer";
 import type { Entity } from "prismarine-entity";
 import { recordOre } from "./memory.js";
 import { miningReachLine, bestPickaxeName } from "./mining-reach.js";
 import { undergroundNote } from "./underground.js";
 
+/**
+ * Builds the newline-delimited world snapshot supplied to the LLM.
+ *
+ * @param bot - Bot whose position, vitals, inventory, entities, and blocks are read.
+ * @param role - Optional role name used to make underground guidance role-aware.
+ * @returns Stable, human-readable context with urgent warnings included only
+ * when their conditions are present.
+ */
 export function getWorldContext(bot: Bot, role?: string): string {
   const pos = bot.entity.position;
   const health = bot.health;
@@ -181,10 +201,12 @@ function entityName(entity: Entity): string {
   }
 }
 
+/** Returns whether an entity's canonical Mineflayer name is a hostile mob. */
 export function isHostile(entity: Entity): boolean {
   return HOSTILE_MOBS.has(entityName(entity));
 }
 
+/** Returns whether an entity's canonical Mineflayer name is a passive mob. */
 export function isPassive(entity: Entity): boolean {
   return PASSIVE_MOBS.has(entityName(entity));
 }

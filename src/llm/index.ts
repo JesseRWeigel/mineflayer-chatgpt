@@ -1,3 +1,17 @@
+/**
+ * Public LLM query facade for strategic, reactive, critic, legacy decision,
+ * and conversational calls.
+ *
+ * @remarks
+ * Decision queries build role-specific prompts, call the configured provider,
+ * and normalize output through `extractJSON` and `parseDecision` before it
+ * reaches the action dispatcher. `extractJSON` removes thinking/code fences,
+ * finds the first balanced object, and attempts to close truncated objects.
+ * The legacy `queryLLM` path retries one short response with a smaller fallback
+ * prompt; other query paths return conservative fallbacks on errors. Add a new
+ * decision query by reusing these normalization helpers so aliases, parameter
+ * hoisting, JSON repair, and failure behavior remain consistent.
+ */
 import { chat } from "./provider.js";
 import { config } from "../config.js";
 import { getSkillPromptLines } from "../skills/registry.js";
@@ -24,12 +38,14 @@ function thinkFor(model: string): boolean | "low" | "medium" | "high" {
 
 const llmLog = createLogger();
 
+/** Tool schema that can be rendered into an LLM prompt. */
 export interface LLMTool {
   name: string;
   description: string;
   parameters: Record<string, { type: string; description: string }>;
 }
 
+/** Provider-neutral chat message used by all query functions. */
 export interface LLMMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -38,7 +54,12 @@ export interface LLMMessage {
 // ─── JSON extraction helpers ────────────────────────────────────────────────
 // Shared across all query functions to handle LLM output quirks.
 
-/** Extract the first complete JSON object from an LLM response string. */
+/**
+ * Extracts the first complete JSON object from an LLM response string.
+ * Thinking tags and Markdown fences are removed first. If output is truncated,
+ * a trailing partial field is discarded and missing closing braces are added;
+ * unrecoverable text returns `null` instead of reaching `JSON.parse`.
+ */
 function extractJSON(raw: string): string | null {
   let content = raw.trim();
   content = content.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
@@ -221,6 +242,12 @@ function parseDecision(
 /**
  * Strategic decision — uses the strong model (32b) for goal-setting.
  * Called infrequently (~every 10s or on goal complete).
+ *
+ * @param context - Current world snapshot from perception.
+ * @param recentMessages - Recent decision history; only the last four are used.
+ * @param memoryContext - Long-term bot memory to prepend when present.
+ * @param role - Role prompt context and allowed capabilities.
+ * @returns A normalized action decision; provider errors fall back to `idle`.
  */
 export async function queryStrategic(
   context: string,
@@ -288,6 +315,11 @@ export async function queryStrategic(
  * Reactive decision — uses the fast model (8b) for urgent responses.
  * Called when hostiles spotted, damage taken, health/hunger critical.
  * Tiny prompt, fast response.
+ *
+ * @param name - Bot display name used in the reactive system prompt.
+ * @param situation - Concise urgent event description.
+ * @param allowedActions - Optional role-specific actions exposed to the model.
+ * @returns A normalized urgent decision; provider errors fall back to `flee`.
  */
 export async function queryReactive(
   name: string,
@@ -328,6 +360,11 @@ export async function queryReactive(
 /**
  * Critic — verifies action results and suggests next step.
  * Uses fast model. Called after every action completes.
+ *
+ * @param name - Bot display name used in the critic prompt.
+ * @param actionContext - Completed action and observed result to evaluate.
+ * @param allowedActions - Optional actions the critic may recommend next.
+ * @returns The verdict, normalized follow-up action, and goal-completion flag.
  */
 export async function queryCritic(
   name: string,
@@ -484,6 +521,14 @@ DYNAMIC SKILLS: ${(() => {
 /**
  * Legacy query — still used by old code paths.
  * Uses the FAST model (8b) for quick decisions.
+ * A short or empty response is retried once with a compact fallback prompt;
+ * provider or parsing failures return an `idle` decision.
+ *
+ * @param context - Current decision context.
+ * @param recentMessages - Conversation history included without truncation.
+ * @param memoryContext - Optional remembered facts to prepend to the request.
+ * @param roleConfig - Optional legacy role and capability configuration.
+ * @returns A repaired and normalized action decision.
  */
 export async function queryLLM(
   context: string,
@@ -552,6 +597,14 @@ export async function queryLLM(
   }
 }
 
+/**
+ * Produces short conversational text without action JSON parsing.
+ *
+ * @param prompt - Player message or conversational instruction.
+ * @param context - World and role context for the chat prompt.
+ * @param roleConfig - Optional bot identity.
+ * @returns Thinking tags removed from provider text, or a short fallback on error.
+ */
 export async function chatWithLLM(prompt: string, context: string, roleConfig?: { name: string }): Promise<string> {
   try {
     const response = await chat({
