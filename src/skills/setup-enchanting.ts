@@ -182,8 +182,41 @@ export const setupEnchantingSkill: Skill = {
         // Paper from sugar cane.
         if (count(bot, "paper") < 3) {
           await tryWithdraw(bot, "paper", 3 - count(bot, "paper"));
-          if (count(bot, "paper") < 3 && count(bot, "sugar_cane") >= 1) {
-            await craft(bot, "paper", Math.floor(count(bot, "sugar_cane") / 1), false);
+          // The stash can hold CANE too — the ledger found 2 banked while this
+          // step only ever asked for finished paper and then swept the map.
+          if (count(bot, "paper") < 3 && count(bot, "sugar_cane") < 3) {
+            await tryWithdraw(bot, "sugar_cane", 3 - count(bot, "sugar_cane"));
+          }
+          if (count(bot, "paper") < 3 && count(bot, "sugar_cane") >= 3) {
+            await craft(bot, "paper", 1, false);
+          }
+          // 1-2 cane cannot craft (the recipe takes 3 at once) but they can
+          // FARM: cane planted beside water regrows forever. Plant the
+          // shortfall at the waterline and let the resumable refires harvest
+          // the regrowth — turns a dead-end pair of stalks into a supply.
+          if (count(bot, "paper") < 3 && count(bot, "sugar_cane") >= 1 && count(bot, "sugar_cane") < 3) {
+            const water = bot.findBlock({ matching: (b) => b.name === "water", maxDistance: 64 });
+            if (water) {
+              step("Book", 0.29, "Planting spare sugar cane by the water to farm more...");
+              const sides = [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)];
+              for (const d of sides) {
+                if (count(bot, "sugar_cane") < 1) break;
+                const groundPos = water.position.plus(d);
+                const ground = bot.blockAt(groundPos);
+                const above = bot.blockAt(groundPos.offset(0, 1, 0));
+                if (!ground || !/^(dirt|grass_block|sand)$/.test(ground.name)) continue;
+                if (!above || above.name !== "air") continue;
+                try {
+                  await safeGoto(bot, new goals.GoalNear(groundPos.x, groundPos.y + 1, groundPos.z, 2), 20_000);
+                  const caneItem = bot.inventory.items().find((i) => i.name === "sugar_cane");
+                  if (!caneItem) break;
+                  await bot.equip(caneItem, "hand");
+                  await bot.placeBlock(ground, new Vec3(0, 1, 0)).catch(() => {});
+                } catch {
+                  /* next side */
+                }
+              }
+            }
           }
           if (count(bot, "paper") < 3) {
             // Harvest sugar cane if any is in reach.
@@ -217,9 +250,19 @@ export const setupEnchantingSkill: Skill = {
                 step("Book", 0.3, "Harvesting sugar cane for paper...");
                 try {
                   await safeGoto(bot, new goals.GoalNear(cane.position.x, cane.position.y, cane.position.z, 1), 30_000);
-                  const b = bot.blockAt(cane.position);
-                  if (b) await bot.dig(b).catch(() => {});
-                  await collectNearbyDrops(bot, 4, 3000);
+                  // Cut the STALK, never the base: a planted base regrows
+                  // forever, and digging it kills the farm the planting step
+                  // just made. If the found block sits on another cane it IS
+                  // stalk — cut it; if it is a base, cut the growth above it,
+                  // and leave a still-growing 1-tall base alone.
+                  const below = bot.blockAt(cane.position.offset(0, -1, 0));
+                  const above = bot.blockAt(cane.position.offset(0, 1, 0));
+                  const target = below?.name === "sugar_cane" ? cane : above?.name === "sugar_cane" ? above : null;
+                  if (target) {
+                    const b = bot.blockAt(target.position);
+                    if (b) await bot.dig(b).catch(() => {});
+                    await collectNearbyDrops(bot, 4, 3000);
+                  }
                 } catch {
                   /* best effort */
                 }
