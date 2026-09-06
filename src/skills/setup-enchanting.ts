@@ -4,7 +4,7 @@ import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import mcDataLoader from "minecraft-data";
-import { baseMoves, safeGoto, collectNearbyDrops } from "../bot/navigation.js";
+import { baseMoves, explorerMoves, safeGoto, collectNearbyDrops } from "../bot/navigation.js";
 
 /**
  * setup_enchanting — earn the Enchanter advancement deterministically.
@@ -310,6 +310,11 @@ export const setupEnchantingSkill: Skill = {
                   // into an empty catch and the count never moved. Same
                   // arrival-verified loop as every other leg of this skill.
                   const gap = () => bot.entity.position.distanceTo(cane.position);
+                  // Swim-capable movements: the march stalled at 5.3 blocks —
+                  // just past dig reach — because the stalk sits across a
+                  // water gap at the shore that the cautious move-set refuses
+                  // to wade. Waterline harvesting means getting wet.
+                  bot.pathfinder.setMovements(explorerMoves(bot));
                   const cutMarch = Date.now() + 90_000;
                   while (Date.now() < cutMarch && gap() > 3 && !signal.aborted && timeLeft() > 60_000) {
                     await safeGoto(
@@ -339,6 +344,8 @@ export const setupEnchantingSkill: Skill = {
                   );
                 } catch (e) {
                   console.log(`[HarvestDebug] harvest failed: ${(e as Error).message}`);
+                } finally {
+                  bot.pathfinder.setMovements(baseMoves(bot));
                 }
                 if (count(bot, "sugar_cane") >= 3) await craft(bot, "paper", 1, false);
               }
