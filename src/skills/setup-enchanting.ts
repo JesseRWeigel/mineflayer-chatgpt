@@ -194,7 +194,15 @@ export const setupEnchantingSkill: Skill = {
           // FARM: cane planted beside water regrows forever. Plant the
           // shortfall at the waterline and let the resumable refires harvest
           // the regrowth — turns a dead-end pair of stalks into a supply.
-          if (count(bot, "paper") < 3 && count(bot, "sugar_cane") >= 1 && count(bot, "sugar_cane") < 3) {
+          // HARVEST BEFORE PLANTING: the PlantDebug tally exposed a live
+          // 2-tall cane stalk already standing beside the water (ground
+          // sugar_cane + above sugar_cane in the side verdicts) while this
+          // step was busy failing to plant from a ridge 14 blocks above the
+          // shore. One cut of an existing stalk beats all of that pathing —
+          // with 2 held, a single harvested stalk completes the 3-cane paper
+          // craft. Planting is the fallback when no live stalk is in reach.
+          const liveStalk = bot.findBlock({ matching: (b) => b.name === "sugar_cane", maxDistance: 48 });
+          if (count(bot, "paper") < 3 && count(bot, "sugar_cane") >= 1 && count(bot, "sugar_cane") < 3 && !liveStalk) {
             // Plant at the PROVEN waterline, never the nearest puddle: from
             // the village the nearest "water" is the cobble-rimmed well, where
             // every side fails the dirt/grass/sand test — the planting step
