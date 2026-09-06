@@ -1020,11 +1020,24 @@ async function giveItem(bot: Bot, to: string, itemName: string, count: number): 
   // the drops got picked up. The first version reported success while the
   // recipient walked away and the items rotted on the ground — Flora got
   // "given" 115 planks and received zero.
+  //
+  // CLOSE the gap before throwing: the pickup magnet only reaches ~1-2
+  // blocks, so a toss from 4 blocks at a stationary recipient lands on the
+  // floor between them — Mason threw 3 diamonds "toward Forge" twice and
+  // both times the stones sat on the ground until a bystander wandered
+  // through (Flora walked off with one and earned Diamonds! doing it).
   const tgt = bot.players[to]?.entity;
   if (!tgt || bot.entity.position.distanceTo(tgt.position) > 4) {
     return `${to} moved away before the handoff — NOTHING was given. Get next to them and try again.`;
   }
-  await bot.lookAt(tgt.position.offset(0, 1, 0));
+  if (bot.entity.position.distanceTo(tgt.position) > 2) {
+    await safeGoto(bot, new goals.GoalNear(tgt.position.x, tgt.position.y, tgt.position.z, 1), 15000).catch(() => {});
+  }
+  const tgt2 = bot.players[to]?.entity;
+  if (!tgt2 || bot.entity.position.distanceTo(tgt2.position) > 3) {
+    return `${to} moved away before the handoff — NOTHING was given. Get next to them and try again.`;
+  }
+  await bot.lookAt(tgt2.position.offset(0, 1, 0));
   const toGive = Math.min(count, item.count);
   await bot.toss(item.type, null, toGive);
   await new Promise((r) => setTimeout(r, 2500)); // pickup time
@@ -1032,7 +1045,12 @@ async function giveItem(bot: Bot, to: string, itemName: string, count: number): 
     (e) => e.name === "item" && e.position.distanceTo(bot.entity.position) < 5,
   ).length;
   if (leftovers > 0) {
-    return `Tossed ${toGive}x ${item.name} toward ${to} but items are still on the ground — delivery NOT confirmed. Tell them to pick the items up.`;
+    // Take the goods BACK rather than abandoning them: three diamonds left
+    // "for Forge to pick up" are three diamonds for whoever strolls past.
+    // Custody plus a retry on the next cooldown beats scatter.
+    const { collectNearbyDrops } = await import("./navigation.js");
+    await collectNearbyDrops(bot, 6, 5000).catch(() => {});
+    return `Tossed ${toGive}x ${item.name} toward ${to} but they didn't catch it — took the items back into my own pack to retry later.`;
   }
   return `Gave ${toGive}x ${item.name} to ${to} — delivery confirmed.`;
 }
