@@ -113,7 +113,9 @@ See the [README](README.md) for full architecture details.
 
 This is one of the easiest ways to contribute:
 
-1. Create `src/skills/my-skill.ts` exporting an async function: `async function mySkill(bot: Bot): Promise<string>`
+Follow the [skill authoring guide](docs/skill-authoring-guide.md) for a complete example and tests.
+
+1. Create `src/skills/my-skill.ts` exporting a `Skill` object (`src/skills/types.ts`) whose `execute` method returns `Promise<SkillResult>`
 2. Register it in `src/skills/registry.ts`
 3. Add it to the appropriate bot's `allowedSkills` in `src/bot/role.ts`
 4. Add a test in `src/skills/my-skill.test.ts`

@@ -545,7 +545,10 @@ npm run build   # Compile TypeScript
 
 ### Adding a New TypeScript Skill
 
-1. Create `src/skills/my-skill.ts` implementing `async function mySkill(bot: Bot): Promise<string>`
+Read the [skill authoring guide](docs/skill-authoring-guide.md) for a tested example,
+cancellation, Voyager loading, and dynamic generation.
+
+1. Create `src/skills/my-skill.ts` exporting a `Skill` object from `src/skills/types.ts`; its `execute` method returns `Promise<SkillResult>`
 2. Register it in `src/skills/registry.ts`
 3. Add it to the appropriate bot's `allowedSkills` in `src/bot/role.ts`
 
