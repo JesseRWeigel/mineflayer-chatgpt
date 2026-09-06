@@ -32,6 +32,13 @@ const openaiConfig = {
   fastModel: process.env.OPENAI_FAST_MODEL || process.env.OPENAI_MODEL || "",
 };
 
+export function parseCommandWhitelist(value: string | undefined): string[] {
+  return (value || "")
+    .split(",")
+    .map((player) => player.trim())
+    .filter(Boolean);
+}
+
 export const config = {
   mc: {
     host: process.env.MC_HOST || "localhost",
@@ -58,6 +65,8 @@ export const config = {
     name: process.env.BOT_NAME || "Atlas",
     decisionIntervalMs: parseInt(process.env.BOT_DECISION_INTERVAL_MS || "500"),
     chatCooldownMs: parseInt(process.env.BOT_CHAT_COOLDOWN_MS || "3000"),
+    /** Players allowed to control bots through in-game `!` commands. */
+    commandWhitelist: parseCommandWhitelist(process.env.BOT_COMMAND_WHITELIST),
     /**
      * When false (default): NO interventions that act for the bots or hand them
      * unearned resources — deterministic skill overrides, survival rations, and

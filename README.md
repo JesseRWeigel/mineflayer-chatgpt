@@ -92,6 +92,14 @@ Each bot has its own personality, allowed actions, allowed skills, memory file, 
 | TTS | `src/stream/tts.ts` | Text-to-speech for bot thoughts |
 | Safety filter | `src/safety/filter.ts` | Blocks harmful chat/thoughts |
 
+### In-game commands
+
+Set `BOT_COMMAND_WHITELIST` to a comma-separated list of Minecraft usernames
+that may control the bots. An empty value disables commands. Authorized players
+can use `!status`, `!come`, `!stay`, `!resume`, `!goal set <text>`, `!goal show`,
+`!goal clear`, and `!inventory`. Command arguments pass through the same safety
+filter as viewer messages, and other players' command-shaped messages are ignored.
+
 ---
 
 ## Setup

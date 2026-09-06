@@ -84,6 +84,7 @@ export class BotBrain {
   // Processing state
   private processing = false;
   private stopped = false;
+  private paused = false;
   private rescuingFromWater = false;
   private eventQueue: BrainEvent[] = [];
 
@@ -94,6 +95,7 @@ export class BotBrain {
 
   // Decision state (migrated from the old decide() function)
   private currentGoal = "";
+  private activeAction = "";
   private goalStepsLeft = 0;
   private lastAction = "";
   private lastResultSig = "";
@@ -258,7 +260,9 @@ export class BotBrain {
 
     // 0. Auto-equip armor on spawn and every 20s thereafter
     this.equipBestArmor().catch(() => {});
-    const armorTimer = setInterval(() => this.equipBestArmor().catch(() => {}), 20_000);
+    const armorTimer = setInterval(() => {
+      if (!this.paused) this.equipBestArmor().catch(() => {});
+    }, 20_000);
     armorTimer.unref?.();
 
     // 0b. Self-unstick: if boxed into a hole, dig out (own hands, not a TP).
@@ -281,6 +285,7 @@ export class BotBrain {
     let stuckState = freshState(this.bot.entity?.position ?? { x: 0, y: 0, z: 0 }, Date.now());
 
     const unstickTimer = setInterval(() => {
+      if (this.paused) return;
       const pos = this.bot.entity?.position;
       if (!pos) return;
 
@@ -311,6 +316,7 @@ export class BotBrain {
     // pit. Drowning kills in ~15s, so check often and swim out even mid-action
     // (this overrides whatever the bot is doing — staying alive comes first).
     const drownTimer = setInterval(() => {
+      if (this.paused) return;
       if (this.rescuingFromWater) return;
       this.rescuingFromWater = true;
       escapeWaterIfDrowning(this.bot)
@@ -374,6 +380,32 @@ export class BotBrain {
     if (this.overlayInterval) clearInterval(this.overlayInterval);
   }
 
+  /** Pause autonomous decisions and discard queued work that has not started. */
+  pause(): void {
+    this.paused = true;
+    this.eventQueue = [];
+    if (this.idleTimer) clearTimeout(this.idleTimer);
+    this.idleTimer = null;
+  }
+
+  /** Resume autonomous decisions with a fresh strategic plan. */
+  resume(): void {
+    if (!this.paused || this.stopped) return;
+    this.paused = false;
+    this.resetIdleTimer();
+    this.triggerReplan();
+  }
+
+  /** Current state used by the in-game status command. */
+  getStatus(): { paused: boolean; action: string; goal: string } {
+    const activeSkill = getActiveSkillName(this.bot);
+    return {
+      paused: this.paused,
+      action: (activeSkill ?? this.activeAction) || (this.processing ? "planning" : "idle"),
+      goal: this.currentGoal || this.memStore.getSeasonGoal() || "none",
+    };
+  }
+
   /** Queue a chat message for processing. */
   queueChat(msg: ChatMessage): void {
     const viewerFilter = filterViewerMessage(msg.message);
@@ -403,7 +435,7 @@ export class BotBrain {
 
   private resetIdleTimer(): void {
     if (this.idleTimer) clearTimeout(this.idleTimer);
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     this.idleTimer = setTimeout(() => {
       this.pushEvent({ type: "strategic", priority: 5, timestamp: Date.now() });
       this.resetIdleTimer();
@@ -411,7 +443,7 @@ export class BotBrain {
   }
 
   private pushEvent(event: BrainEvent): void {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
 
     // Deduplicate: don't queue same type if already pending with equal/higher priority
     const existingIdx = this.eventQueue.findIndex((e) => e.type === event.type);
@@ -429,7 +461,7 @@ export class BotBrain {
   }
 
   private async processNext(): Promise<void> {
-    if (this.processing || this.stopped) return;
+    if (this.processing || this.stopped || this.paused) return;
     const event = this.eventQueue.shift();
     if (!event) return;
 
@@ -475,7 +507,7 @@ export class BotBrain {
       this.processing = false;
       this.resetIdleTimer();
       // Process next queued event
-      if (this.eventQueue.length > 0 && !this.stopped) {
+      if (this.eventQueue.length > 0 && !this.stopped && !this.paused) {
         setImmediate(() => this.processNext());
       }
     }
@@ -484,7 +516,7 @@ export class BotBrain {
   // ─── Hostile scanning ─────────────────────────────────────────────────────
 
   private scanHostiles(): void {
-    if (this.processing || this.stopped) return;
+    if (this.processing || this.stopped || this.paused) return;
     if (isSkillRunning(this.bot)) return; // Don't interrupt skills
 
     const myPos = this.bot.entity?.position;
@@ -523,7 +555,7 @@ export class BotBrain {
   }
 
   private checkVitals(): void {
-    if (this.stopped) return;
+    if (this.stopped || this.paused) return;
     const now = Date.now();
     if (now - this.lastReactiveMs < this.REACTIVE_COOLDOWN_MS) return;
 
@@ -701,6 +733,7 @@ export class BotBrain {
     }
 
     const decision = await queryReactive(this.roleConfig.name, situation, this.roleConfig.allowedActions);
+    if (this.paused) return;
     await this.executeDecision(decision);
   }
 
@@ -712,6 +745,7 @@ export class BotBrain {
     const response = await chatWithLLM(`[${msg.source}] ${msg.username}: ${msg.message}`, activity, {
       name: this.roleConfig.name,
     });
+    if (this.paused) return;
 
     const chatFilter = filterChatMessage(response);
     const safeResponse = chatFilter.safe ? response : chatFilter.cleaned;
@@ -744,7 +778,7 @@ export class BotBrain {
     // (the reflex used to start the 75s bed-walk only after the mobs were
     // already out).
     if (timeOfDay >= 11800 && timeOfDay <= 23458 && !(this.bot as any).isSleeping) {
-      const slept = await executeAction(this.bot, "sleep", {});
+      const slept = await this.executeActionUnlessPaused("sleep", {});
       this.log.info("Brain", `Night reflex: sleep → ${slept}`);
       if (/zzz|sleeping/i.test(slept)) return; // in bed — skip the LLM turn
       // Sleep failed (no bed, hostiles nearby) — fall through to normal planning.
@@ -813,7 +847,7 @@ export class BotBrain {
           `OVERRIDE: ${strandedInNether ? "stranded in the Nether" : holdsFullFrame ? "full portal frame in the pack" : "diamond pickaxe in hand"} — running build_nether_portal`,
         );
         this.events.onThought("The pick that opens the Nether is in my hand. To the doorway!");
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "build_nether_portal" });
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "build_nether_portal" });
         this.events.onAction("build_nether_portal", result);
         this.lastAction = "build_nether_portal";
         this.lastResult = result;
@@ -873,7 +907,7 @@ export class BotBrain {
       const dist = Math.sqrt(dx * dx + dz * dz);
       if (dist >= this.roleConfig.leashRadius * 1.5) {
         this.log.info("Brain", `LEASH: ${dist.toFixed(0)} blocks away — forcing return home`);
-        const result = await executeAction(this.bot, "go_to", this.homePos);
+        const result = await this.executeActionUnlessPaused("go_to", this.homePos);
         this.events.onAction("go_to", result);
         return;
       }
@@ -909,7 +943,7 @@ export class BotBrain {
       if (nearStash && !chestAtStash && (logsAndPlanks >= 16 || chestsHeld >= 2)) {
         this.log.info("Brain", "OVERRIDE: materials ready and no stash chest — running setup_stash");
         this.events.onThought("The Stash must rise. I have the materials. No more excuses.");
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "setup_stash", x, y, z });
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "setup_stash", x, y, z });
         this.events.onAction("setup_stash", result);
         this.lastAction = "setup_stash";
         this.lastResult = result;
@@ -974,7 +1008,7 @@ export class BotBrain {
             ? "The wheat is calling. Time to harvest and bake the team some bread."
             : "The fields call to me. Today the farm gets BUILT — no more excuses.",
         );
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "build_farm", ...FARM_SITE });
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "build_farm", ...FARM_SITE });
         this.events.onAction("build_farm", result);
         this.lastAction = "build_farm";
         this.lastResult = result;
@@ -1074,7 +1108,7 @@ export class BotBrain {
               ? "No pickaxe in hand — back to the mine to forge a fresh one."
               : "The deep calls. Time to carve for iron — pickaxe in hand, downward!",
         );
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "strip_mine" });
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "strip_mine" });
         this.events.onAction("strip_mine", result);
         this.lastAction = "strip_mine";
         this.lastResult = result;
@@ -1111,7 +1145,7 @@ export class BotBrain {
         this.lastLightOverrideMs = Date.now();
         this.log.info("Brain", "OVERRIDE: daylight at the unlit village — running light_area");
         this.events.onThought("Enough midnight ambushes. Today this village gets TORCHES.");
-        const result = await executeAction(this.bot, "invoke_skill", {
+        const result = await this.executeActionUnlessPaused("invoke_skill", {
           skill: "light_area",
           stashPos: this.roleConfig.stashPos,
         });
@@ -1214,7 +1248,11 @@ export class BotBrain {
                 : "raw_iron";
           this.log.info("Brain", `OVERRIDE: handing ${itemToGive} to ${nearbyMiner} (miner nearby)`);
           this.events.onThought(`${nearbyMiner} can actually use this. Here, catch!`);
-          const result = await executeAction(this.bot, "give_item", { to: nearbyMiner, item: itemToGive, count: 64 });
+          const result = await this.executeActionUnlessPaused("give_item", {
+            to: nearbyMiner,
+            item: itemToGive,
+            count: 64,
+          });
           this.events.onAction("give_item", result);
           this.lastAction = "give_item";
           this.lastResult = result;
@@ -1225,7 +1263,7 @@ export class BotBrain {
         // Honest capability flags: Atlas (a plain miner banking a diamond)
         // still keeps his best pickaxe; the reserve-zero override is what
         // sends the diamond to the chest.
-        const result = await executeAction(this.bot, "deposit_stash", {
+        const result = await this.executeActionUnlessPaused("deposit_stash", {
           stashPos: this.roleConfig.stashPos,
           keepItems: this.roleConfig.keepItems,
           // Only the primary smith keeps iron; every other bot pools it so the
@@ -1264,7 +1302,7 @@ export class BotBrain {
         // stashPos unlocks the skill's fuel withdrawal — without it the whole
         // Step 0 is skipped and a bot with ore but no coal loops "No fuel!"
         // beside a stash holding a full stack of it (run 389, 4x in a row).
-        const result = await executeAction(this.bot, "invoke_skill", {
+        const result = await this.executeActionUnlessPaused("invoke_skill", {
           skill: "smelt_ores",
           stashPos: this.roleConfig.stashPos,
         });
@@ -1313,7 +1351,7 @@ export class BotBrain {
         this.lastEnchantOverrideMs = Date.now();
         this.log.info("Brain", `OVERRIDE: ${diamonds} diamonds and no Enchanter yet — running setup_enchanting`);
         this.events.onThought("Time to build an enchanting table and finally enchant something.");
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "setup_enchanting" });
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "setup_enchanting" });
         this.events.onAction("setup_enchanting", result);
         this.lastAction = "setup_enchanting";
         this.lastResult = result;
@@ -1360,7 +1398,7 @@ export class BotBrain {
             ? "The pantry is bare and my stomach is growling. The lake will feed me."
             : "A rod, some water, and patience. Let's catch a fish.",
         );
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "go_fishing" });
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "go_fishing" });
         this.events.onAction("go_fishing", result);
         this.lastAction = "go_fishing";
         this.lastResult = result;
@@ -1396,7 +1434,7 @@ export class BotBrain {
         this.lastBreedOverrideMs = Date.now();
         this.log.info("Brain", "OVERRIDE: breeding advancement unearned — running breed_animals");
         this.events.onThought("Two of a kind and a handful of wheat. Time to make some babies.");
-        const result = await executeAction(this.bot, "invoke_skill", { skill: "breed_animals" });
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "breed_animals" });
         this.events.onAction("breed_animals", result);
         this.lastAction = "breed_animals";
         this.lastResult = result;
@@ -1480,7 +1518,7 @@ export class BotBrain {
             ? "THREE DIAMONDS. The doorway-clearing pickaxe gets crafted RIGHT NOW."
             : "Enough iron in my pack for a REAL pickaxe. To the crafting table!",
         );
-        const result = await executeAction(this.bot, "invoke_skill", {
+        const result = await this.executeActionUnlessPaused("invoke_skill", {
           skill: "craft_gear",
           stashPos: this.roleConfig.stashPos,
         });
@@ -1510,6 +1548,7 @@ export class BotBrain {
     };
 
     const decision = await queryStrategic(context, this.recentHistory, memoryCtx, role);
+    if (this.paused) return;
     await this.executeDecision(decision);
 
     // Capture the trajectory for fine-tuning: exact prompt -> decision -> outcome
@@ -1546,6 +1585,7 @@ export class BotBrain {
     ].join("\n");
 
     const verdict = await queryCritic(this.roleConfig.name, criticContext, this.roleConfig.allowedActions);
+    if (this.paused) return;
 
     // Update thought display
     if (verdict.thought) {
@@ -1575,6 +1615,16 @@ export class BotBrain {
 
   // ─── Action execution ─────────────────────────────────────────────────────
 
+  private async executeActionUnlessPaused(action: string, params: Record<string, any>): Promise<string> {
+    if (this.paused) return "Paused by player command";
+    this.activeAction = action;
+    try {
+      return await executeAction(this.bot, action, params);
+    } finally {
+      this.activeAction = "";
+    }
+  }
+
   private async executeDecision(decision: {
     thought: string;
     action: string;
@@ -1582,6 +1632,7 @@ export class BotBrain {
     goal?: string;
     goalSteps?: number;
   }): Promise<void> {
+    if (this.paused) return;
     // Filter thought for safety
     const thoughtFilter = filterContent(decision.thought);
     if (!thoughtFilter.safe) {
@@ -1832,7 +1883,7 @@ export class BotBrain {
       }
     }
 
-    const result = await executeAction(this.bot, decision.action, normalizedParams);
+    const result = await this.executeActionUnlessPaused(decision.action, normalizedParams);
     this.lastAction = decision.action;
     this.lastResult = result;
     this.events.onAction(decision.action, result);
