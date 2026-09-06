@@ -540,6 +540,7 @@ export const stripMineSkill: Skill = {
 
         await equipBestPickaxe(bot);
         try {
+          const diamondsBefore = /diamond_ore$/.test(b.name) ? countDiamonds(bot) : -1;
           await digSafe(bot, b);
           mined++;
           if (b.name.includes("ore")) {
@@ -548,6 +549,7 @@ export const stripMineSkill: Skill = {
             // misses early drops, and the first tunnel-struck iron in weeks
             // evaporated exactly this way (found 2x iron_ore, cargo empty).
             await collectNearbyDrops(bot, 4, 3000);
+            if (diamondsBefore >= 0) await ensureDiamondPickup(bot, diamondsBefore);
           }
         } catch {
           /* skip */
@@ -589,11 +591,13 @@ export const stripMineSkill: Skill = {
           }
           await equipBestPickaxe(bot);
           try {
+            const diamondsBefore = /diamond_ore$/.test(blk.name) ? countDiamonds(bot) : -1;
             await digSafe(bot, blk);
             mined++;
             oresFound.push(blk.name);
             mined += (await followVein(bot, op, blk.name, oresFound)) as number;
             await collectNearbyDrops(bot, 6, 4000);
+            if (diamondsBefore >= 0) await ensureDiamondPickup(bot, diamondsBefore);
           } catch {
             /* next */
           }
@@ -732,6 +736,27 @@ async function ensureSparePick(
   if (recipe) await bot.craft(recipe, 1, table).catch(() => {});
 }
 
+/** Count diamonds in the pack — the campaign's scarcest currency. */
+function countDiamonds(bot: Bot): number {
+  return bot.inventory
+    .items()
+    .filter((i) => i.name === "diamond")
+    .reduce((s, i) => s + i.count, 0);
+}
+
+/** A mined diamond ore whose drop bounces into a crevice is a dive wasted —
+ *  at least three tunnels reported "Found: 1x deepslate_diamond_ore! Cargo:
+ *  no ore items", losing exactly the diamonds the enchanting table needs.
+ *  After digging a diamond ore, verify the diamond actually landed in the
+ *  pack; if it did not, sweep again wider and longer before walking away. */
+async function ensureDiamondPickup(bot: Bot, before: number): Promise<void> {
+  if (countDiamonds(bot) > before) return;
+  await collectNearbyDrops(bot, 8, 8000).catch(() => {});
+  if (countDiamonds(bot) <= before) {
+    console.log(`[Skill] strip_mine dug a diamond ore but the drop never reached the pack — swept twice, giving up`);
+  }
+}
+
 async function equipBestPickaxe(bot: Bot): Promise<void> {
   // BEST means best: the old find() grabbed the first pickaxe in the pack,
   // so a bot carrying stone and iron could mine with stone.
@@ -802,6 +827,7 @@ async function mineExposedOre(bot: Bot, pos: Vec3): Promise<{ mined: number; ore
       continue;
     }
     const minedBefore = mined;
+    const diamondsBefore = /diamond_ore$/.test(b.name) ? countDiamonds(bot) : -1;
     try {
       await equipBestPickaxe(bot);
       await digSafe(bot, b);
@@ -816,7 +842,10 @@ async function mineExposedOre(bot: Bot, pos: Vec3): Promise<{ mined: number; ore
       // sweep used to sit inside the try, and run 430's diamond strike dug
       // clean and then vanished — one flee between the dig and the sweep
       // left the stone on the floor to despawn.
-      if (mined > minedBefore) await collectNearbyDrops(bot, 5, 3000).catch(() => {});
+      if (mined > minedBefore) {
+        await collectNearbyDrops(bot, 5, 3000).catch(() => {});
+        if (diamondsBefore >= 0) await ensureDiamondPickup(bot, diamondsBefore);
+      }
     }
   }
   return { mined, ores };
