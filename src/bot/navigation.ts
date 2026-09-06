@@ -101,6 +101,20 @@ function getNavGeneration(bot: Bot): number {
  * - `stallStartDelayMs`: grace period before stall detection activates (use when thinkTimeout is high)
  */
 export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStartDelayMs = 0): Promise<void> {
+  // CLAMP the search for height-only goals at the one chokepoint every walk
+  // passes through. GoalY asks A* for "any block at that height" — a frontier
+  // that is the whole map — and with dig-enabled movements the successor
+  // branching is worst-case. Heap crash #5 fired seconds after an
+  // underground-ascent GoalY(70): the water-escape wrap from crash #3 only
+  // covered one of seven GoalY call sites. A vertical trip never legitimately
+  // needs more than a few dozen blocks of search.
+  const isGoalY = goal && goal.constructor && goal.constructor.name === "GoalY";
+  const pf = bot.pathfinder as unknown as { searchRadius: number } | undefined;
+  const priorRadius = isGoalY && pf ? pf.searchRadius : null;
+  if (isGoalY && pf) pf.searchRadius = 48;
+  const restoreRadius = () => {
+    if (priorRadius !== null && pf) pf.searchRadius = priorRadius;
+  };
   return new Promise<void>((resolve, reject) => {
     let lastPos = bot.entity.position.clone();
     let stallTicks = 0;
@@ -220,7 +234,7 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
         });
     };
     attempt();
-  });
+  }).finally(restoreRadius);
 }
 
 /**

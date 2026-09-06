@@ -188,7 +188,7 @@ export const setupEnchantingSkill: Skill = {
             await tryWithdraw(bot, "sugar_cane", 3 - count(bot, "sugar_cane"));
           }
           if (count(bot, "paper") < 3 && count(bot, "sugar_cane") >= 3) {
-            await craft(bot, "paper", 1, false);
+            await craft(bot, "paper", 1, true);
           }
           // 1-2 cane cannot craft (the recipe takes 3 at once) but they can
           // FARM: cane planted beside water regrows forever. Plant the
@@ -347,7 +347,7 @@ export const setupEnchantingSkill: Skill = {
                 } finally {
                   bot.pathfinder.setMovements(baseMoves(bot));
                 }
-                if (count(bot, "sugar_cane") >= 3) await craft(bot, "paper", 1, false);
+                if (count(bot, "sugar_cane") >= 3) await craft(bot, "paper", 1, true);
               }
             }
           }
