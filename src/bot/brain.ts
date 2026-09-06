@@ -1033,8 +1033,15 @@ export class BotBrain {
       // the model flails (Forge chased an ender-eye quest for an hour). Any bot
       // with strip_mine that holds no pickaxe re-arms first.
       const pickless = !this.bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
+      // A non-smith carrying a diamond must NOT start another 15-minute mining
+      // trip: this override sits above the tool-return reflex in the decision
+      // order, so an iron-less Mason with 3 vein diamonds re-entered strip_mine
+      // on every tick and the hand-off to the smith never got a turn. Skip
+      // mining for one tick and let the diamond route first.
+      const carryingDiamondForSmith =
+        !this.roleConfig.primarySmith && this.bot.inventory.items().some((i) => i.name === "diamond");
       const cooledDown = Date.now() - this.lastIronOverrideMs > 180_000;
-      if ((!hasIron || wantsDive || pickless) && cooledDown) {
+      if ((!hasIron || wantsDive || pickless) && !carryingDiamondForSmith && cooledDown) {
         this.lastIronOverrideMs = Date.now();
         this.log.info(
           "Brain",
