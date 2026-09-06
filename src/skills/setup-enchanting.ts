@@ -305,7 +305,21 @@ export const setupEnchantingSkill: Skill = {
               if (cane) {
                 step("Book", 0.3, "Harvesting sugar cane for paper...");
                 try {
-                  await safeGoto(bot, new goals.GoalNear(cane.position.x, cane.position.y, cane.position.z, 1), 30_000);
+                  // MARCH to the stalk — a single 30s goto could not descend
+                  // the ridge to the waterline, so the dig threw out-of-reach
+                  // into an empty catch and the count never moved. Same
+                  // arrival-verified loop as every other leg of this skill.
+                  const gap = () => bot.entity.position.distanceTo(cane.position);
+                  const cutMarch = Date.now() + 90_000;
+                  while (Date.now() < cutMarch && gap() > 3 && !signal.aborted && timeLeft() > 60_000) {
+                    await safeGoto(
+                      bot,
+                      new goals.GoalNear(cane.position.x, cane.position.y, cane.position.z, 1),
+                      30_000,
+                      12_000,
+                    ).catch(() => {});
+                    if (gap() > 3) await new Promise((r) => setTimeout(r, 1500));
+                  }
                   // Cut the STALK, never the base: a planted base regrows
                   // forever, and digging it kills the farm the planting step
                   // just made. If the found block sits on another cane it IS
@@ -314,13 +328,17 @@ export const setupEnchantingSkill: Skill = {
                   const below = bot.blockAt(cane.position.offset(0, -1, 0));
                   const above = bot.blockAt(cane.position.offset(0, 1, 0));
                   const target = below?.name === "sugar_cane" ? cane : above?.name === "sugar_cane" ? above : null;
+                  const beforeCut = count(bot, "sugar_cane");
                   if (target) {
                     const b = bot.blockAt(target.position);
                     if (b) await bot.dig(b).catch(() => {});
                     await collectNearbyDrops(bot, 4, 3000);
                   }
-                } catch {
-                  /* best effort */
+                  console.log(
+                    `[HarvestDebug] stalk at ${cane.position} dist=${gap().toFixed(1)} target=${target ? (target === cane ? "found-block" : "above") : "1-tall-left-growing"} cane ${beforeCut}->${count(bot, "sugar_cane")}`,
+                  );
+                } catch (e) {
+                  console.log(`[HarvestDebug] harvest failed: ${(e as Error).message}`);
                 }
                 if (count(bot, "sugar_cane") >= 3) await craft(bot, "paper", 1, false);
               }
