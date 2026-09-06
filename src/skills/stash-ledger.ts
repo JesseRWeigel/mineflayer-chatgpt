@@ -7,6 +7,8 @@
  * hardcoded "--" stub) reads the aggregate from here.
  */
 
+import fs from "node:fs";
+
 export interface ChestSnapshot {
   /** "x,y,z" */
   pos: string;
@@ -17,6 +19,48 @@ export interface ChestSnapshot {
 }
 
 const chests = new Map<string, ChestSnapshot>();
+
+// ── Disk persistence ────────────────────────────────────────────────────────
+// The ledger used to be per-process, and the swarm restarts hourly — every
+// restart wiped all chest knowledge, so withdrawals fell back to blind
+// position-order scans that exhaust their 110s budget a dozen chests into a
+// 60-chest sprawl. That is how the team's ONLY diamond pickaxe sat banked
+// and unfindable while Forge logged "0/1 diamond_pickaxe" scan after scan.
+// Entries can go stale (contents change while unobserved); the withdraw
+// verifies on open, so a stale hint still beats no hint.
+const LEDGER_FILE = new URL("../../logs/stash-ledger.json", import.meta.url).pathname;
+let saveTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function persistLedger(): Promise<void> {
+  try {
+    await fs.promises.writeFile(LEDGER_FILE, JSON.stringify([...chests.values()]), "utf8");
+  } catch {
+    /* best effort — an unsaved ledger just means a blind scan next run */
+  }
+}
+
+function schedulePersist(): void {
+  if (saveTimer) return;
+  saveTimer = setTimeout(() => {
+    saveTimer = null;
+    void persistLedger();
+  }, 5_000);
+  saveTimer.unref?.();
+}
+
+(function hydrateLedger() {
+  try {
+    // Synchronous on purpose: module init, before any bot logic runs.
+    const raw = fs.readFileSync(LEDGER_FILE, "utf8");
+    const snapshots = JSON.parse(raw) as ChestSnapshot[];
+    for (const s of snapshots) {
+      if (s && typeof s.pos === "string" && Array.isArray(s.items)) chests.set(s.pos, s);
+    }
+    if (chests.size > 0) console.log(`[Stash] ledger hydrated: ${chests.size} chests known from previous runs`);
+  } catch {
+    /* no ledger yet — first run or wiped logs */
+  }
+})();
 
 const CATEGORY_MATCHERS: { key: string; match: (n: string) => boolean }[] = [
   {
@@ -75,6 +119,7 @@ export function snapshotChest(
     totalSlots,
     updatedAt: Date.now(),
   });
+  schedulePersist();
 }
 
 /**
