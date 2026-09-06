@@ -206,14 +206,32 @@ export const setupEnchantingSkill: Skill = {
             const caneBefore = count(bot, "sugar_cane");
             const waters = bot.findBlocks({ matching: (b) => b.name === "water", maxDistance: 24, count: 8 });
             const sides = [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)];
+            // INSTRUMENTATION: the plant step has failed silently twice — name
+            // the reasons. Every side of every water gets a verdict so the log
+            // says whether the shore is farmland, the walk failed, or no water
+            // was found at all.
+            const rejects = new Map<string, number>();
+            const p0 = bot.entity.position;
+            console.log(
+              `[PlantDebug] at ${p0.x.toFixed(0)},${p0.y.toFixed(0)},${p0.z.toFixed(0)} — ${waters.length} waters within 24`,
+            );
             planting: for (const wp of waters) {
               for (const d of sides) {
                 if (count(bot, "sugar_cane") < 1) break planting;
                 const groundPos = wp.plus(d);
                 const ground = bot.blockAt(groundPos);
                 const above = bot.blockAt(groundPos.offset(0, 1, 0));
-                if (!ground || !/^(dirt|grass_block|sand)$/.test(ground.name)) continue;
-                if (!above || above.name !== "air") continue;
+                if (!ground || !/^(dirt|grass_block|sand)$/.test(ground.name)) {
+                  rejects.set(ground?.name ?? "unloaded", (rejects.get(ground?.name ?? "unloaded") ?? 0) + 1);
+                  continue;
+                }
+                if (!above || above.name !== "air") {
+                  rejects.set(
+                    `above:${above?.name ?? "unloaded"}`,
+                    (rejects.get(`above:${above?.name ?? "unloaded"}`) ?? 0) + 1,
+                  );
+                  continue;
+                }
                 try {
                   await safeGoto(bot, new goals.GoalNear(groundPos.x, groundPos.y + 1, groundPos.z, 2), 20_000);
                   const caneItem = bot.inventory.items().find((i) => i.name === "sugar_cane");
@@ -226,8 +244,12 @@ export const setupEnchantingSkill: Skill = {
               }
             }
             const planted = caneBefore - count(bot, "sugar_cane");
-            if (planted > 0)
+            if (planted > 0) {
               console.log(`[Skill] setup_enchanting planted ${planted} sugar cane at the farm waterline`);
+            } else {
+              const why = [...rejects.entries()].map(([k, v]) => `${k}x${v}`).join(" ");
+              console.log(`[PlantDebug] planted nothing — side verdicts: ${why || "no waters/sides examined"}`);
+            }
           }
           if (count(bot, "paper") < 3) {
             // Harvest sugar cane if any is in reach.
