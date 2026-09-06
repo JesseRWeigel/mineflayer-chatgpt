@@ -126,6 +126,13 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // but absent from the plugin's type declarations, hence the cast.)
   bot.once("spawn", () => {
     (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 256;
+    // 1500ms of A* think, down from the plugin's 5000ms default. The radius
+    // cap alone did NOT stop the heap bombs: a water-movement search packs
+    // millions of nodes into a 5-second think, and goto-retry churn across
+    // five bots stacks those contexts faster than GC reclaims them (216MB to
+    // 8GB between two heap readings, crash #4). Shorter thinks mean partial
+    // paths recomputed as the bot walks — same destinations, bounded cost.
+    bot.pathfinder.thinkTimeout = 1500;
   });
 
   // ── Create the event-driven brain ──

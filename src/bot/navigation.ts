@@ -208,7 +208,10 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
           if (interrupted && retries < 2 && getNavGeneration(bot) === genAtStart) {
             retries++;
             console.log(`[Nav] ${bot.username} goto interrupted externally — retry ${retries}/2`);
-            setTimeout(attempt, 1000);
+            // 3s, up from 1: interruption tug-of-wars produced retry storms
+            // that each spawn a fresh A* context — the storm rate is what
+            // stacked pathfinder allocations into the heap crashes.
+            setTimeout(attempt, 3000);
             return;
           }
           settled = true;
