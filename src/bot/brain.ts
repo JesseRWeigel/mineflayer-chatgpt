@@ -794,8 +794,19 @@ export class BotBrain {
         holdsDoorwayPick &&
         !strandedInNether &&
         !!this.bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 48 });
+      // Once the Nether has been ENTERED, a diamond pick is never again a
+      // reason to build a portal. The 48-block proximity guard fails deep
+      // underground (the village portal is unseeable from y=-36), and this
+      // zombie trigger hijacked Forge for 3 minutes the moment diamond pick
+      // #2 landed — right when the enchanting endgame needed him, and the 2
+      // table diamonds left his pocket somewhere inside that portal run. The
+      // stranded and full-frame triggers stay: those are reactive rescues.
+      const netherEntered = readTeamEarned(BOT_ROSTER.map((b) => b.name)).has("story/enter_the_nether");
       const cooledDown = Date.now() - this.lastPortalOverrideMs > 300_000;
-      if (((holdsDoorwayPick && !litPortalNearby) || holdsFullFrame || strandedInNether) && cooledDown) {
+      if (
+        ((holdsDoorwayPick && !litPortalNearby && !netherEntered) || holdsFullFrame || strandedInNether) &&
+        cooledDown
+      ) {
         this.lastPortalOverrideMs = Date.now();
         this.log.info(
           "Brain",
