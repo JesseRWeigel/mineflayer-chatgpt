@@ -7,7 +7,7 @@
   "scripts": {
     "build": "tsup src/index.ts --format esm --dts",
     "typecheck": "tsc --noEmit",
-    "dev": "tsx watch src/index.ts",
+    "dev": "tsx watch --exclude \"src/skills/**\" --exclude \"skills/voyager/**\" --exclude \"skills/generated/**\" src/index.ts --hot-reload-skills",
     "start": "tsx --max-old-space-size=8192 src/index.ts",
     "server": "cd server && java -Xmx2G -Xms1G -jar paper.jar --nogui",
     "download-skills": "node scripts/download-voyager-skills.mjs",

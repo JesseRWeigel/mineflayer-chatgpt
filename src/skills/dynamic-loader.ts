@@ -15,6 +15,7 @@ const SKILL_DIRS = [path.join(PROJECT_ROOT, "skills/voyager"), path.join(PROJECT
 // All Voyager skills concatenated — used as a helper library in the vm context so skills
 // can call each other (e.g. smeltFiveRawIron calls craftFurnace, placeItem, smeltItem)
 let voyagerHelperBundle = "";
+const voyagerSources = new Map<string, string>();
 
 // Primitive functions that Voyager skills expect in the global scope.
 // These are the Voyager framework utilities, implemented with Mineflayer's API.
@@ -179,18 +180,21 @@ export function loadDynamicSkills(): void {
   // Build the Voyager helper bundle first (all Voyager skills concatenated)
   // so that when any skill runs it can call helpers like craftFurnace, placeItem, smeltItem
   const voyagerDir = SKILL_DIRS[0];
+  voyagerSources.clear();
   if (fs.existsSync(voyagerDir)) {
-    const parts: string[] = [];
     for (const file of fs.readdirSync(voyagerDir)) {
       if (!file.endsWith(".js")) continue;
       try {
-        parts.push(fs.readFileSync(path.join(voyagerDir, file), "utf-8"));
-      } catch {
-        /* skip unreadable files */
+        const filePath = path.join(voyagerDir, file);
+        const code = fs.readFileSync(filePath, "utf-8");
+        new vm.Script(code);
+        voyagerSources.set(filePath, code);
+      } catch (err: any) {
+        console.warn(`[DynamicSkill] Skipped ${file}: ${err.message}`);
       }
     }
-    voyagerHelperBundle = parts.join("\n\n");
   }
+  rebuildVoyagerHelperBundle();
 
   for (const dir of SKILL_DIRS) {
     if (!fs.existsSync(dir)) continue;
@@ -207,6 +211,41 @@ export function loadDynamicSkills(): void {
     }
   }
   if (loaded > 0) console.log(`[DynamicSkill] Loaded ${loaded} dynamic skills`);
+}
+
+function rebuildVoyagerHelperBundle(): void {
+  voyagerHelperBundle = Array.from(voyagerSources.values()).join("\n\n");
+}
+
+/**
+ * Atomically reload one Voyager or generated JavaScript skill.
+ * The existing registry entry and helper source stay live if parsing fails.
+ */
+export function reloadDynamicSkill(filePath: string): string {
+  const resolvedPath = path.resolve(filePath);
+  const parentDir = path.dirname(resolvedPath);
+  if (!SKILL_DIRS.includes(parentDir) || path.extname(resolvedPath) !== ".js") {
+    throw new Error(`Not a dynamic skill path: ${filePath}`);
+  }
+
+  const skillName = path.basename(resolvedPath, ".js");
+  if (!fs.existsSync(resolvedPath)) {
+    skillRegistry.delete(skillName);
+    voyagerSources.delete(resolvedPath);
+    rebuildVoyagerHelperBundle();
+    return skillName;
+  }
+
+  // Build and parse everything before mutating shared state. A broken edit
+  // therefore leaves the last working skill and Voyager helper bundle intact.
+  const nextSkill = buildDynamicSkill(skillName, resolvedPath);
+  const nextSource = fs.readFileSync(resolvedPath, "utf-8");
+  if (parentDir === SKILL_DIRS[0]) {
+    voyagerSources.set(resolvedPath, nextSource);
+    rebuildVoyagerHelperBundle();
+  }
+  skillRegistry.set(skillName, nextSkill);
+  return skillName;
 }
 
 function buildDynamicSkill(name: string, filePath: string): Skill {

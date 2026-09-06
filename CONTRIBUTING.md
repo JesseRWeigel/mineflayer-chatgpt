@@ -28,6 +28,10 @@ npm test        # Run tests
 npm run build   # Type-check and compile
 ```
 
+`npm run dev` reloads TypeScript, Voyager, and generated skills without
+restarting the process. If an edited skill does not compile or parse, the last
+working version remains registered.
+
 ## How to Contribute
 
 ### Reporting Bugs
