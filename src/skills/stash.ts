@@ -1249,6 +1249,7 @@ export async function withdrawStash(
   stashPos: { x: number; y: number; z: number },
   itemName: string,
   count: number,
+  budgetMs = 110_000,
 ): Promise<string> {
   await safeGoto(bot, new goals.GoalNear(stashPos.x, stashPos.y, stashPos.z, 3), 30000);
 
@@ -1305,6 +1306,16 @@ export async function withdrawStash(
     if (block && !chestsToTry.includes(block)) chestsToTry.push(block);
   }
 
+  // When a well-populated ledger has never seen this item in ANY chest, the
+  // full walk-and-open sweep is a hundred seconds of confirming what the
+  // ledger already knew — leather burned two such sweeps per book attempt.
+  // Check the nearest few in case the ledger is stale, then hand the time
+  // back to the caller.
+  const { getStashSummary } = await import("./stash-ledger.js");
+  if (getStashSummary().chestCount >= 20 && chestsWithItem(matchName).length === 0) {
+    chestsToTry.length = Math.min(chestsToTry.length, 6);
+  }
+
   // Count what we actually have BEFORE, so we can report the real delta —
   // container.withdraw can resolve without delivering (Flora "withdrew" 48
   // planks across 6 calls and ended with 0), which made her loop forever.
@@ -1324,7 +1335,7 @@ export async function withdrawStash(
   // the item sat in a chest the scan never reached. Stop at 110s and return
   // whatever was gathered; a partial withdrawal beats a watchdog kill that
   // returns nothing.
-  const scanDeadline = Date.now() + 110_000;
+  const scanDeadline = Date.now() + budgetMs;
 
   for (const chest of chestsToTry) {
     if (withdrawn >= needed) break;

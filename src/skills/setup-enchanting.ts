@@ -36,9 +36,12 @@ async function tryWithdraw(bot: Bot, name: string, n: number): Promise<void> {
     const { STASH_POS } = await import("../bot/role.js");
     const near = Math.hypot(bot.entity.position.x - STASH_POS.x, bot.entity.position.z - STASH_POS.z) < 60;
     if (!near) return;
-    await Promise.race([withdrawStash(bot, STASH_POS, name, n), new Promise<void>((r) => setTimeout(r, 45_000))]).catch(
-      () => {},
-    );
+    // No Promise.race here: losing the race did not CANCEL the withdrawal —
+    // the abandoned scan kept walking chest to chest for another minute while
+    // the skill moved on to the cow hunt, and the two fought over the
+    // pathfinder ("goto interrupted externally" on every hunt leg). The
+    // budget now travels INTO withdrawStash, which checks it between chests.
+    await withdrawStash(bot, STASH_POS, name, n, 40_000).catch(() => {});
   } catch {
     /* stash unavailable */
   }
@@ -362,17 +365,21 @@ export const setupEnchantingSkill: Skill = {
             // perception wall breeding hit. Hop outward and rescan; resumable
             // refires compound the sweep.
             if (!cow && timeLeft() > 150_000) {
+              // Sweep all four compass directions from where we stand instead
+              // of betting the whole scout on one random heading — Paper only
+              // streams animals within ~48 blocks, and the herd that random
+              // pick missed three runs straight was 57 blocks southwest.
+              const home = bot.entity.position.clone();
               const dirs = [
-                [1, 0],
-                [-1, 0],
-                [0, 1],
-                [0, -1],
+                ["east", 1, 0],
+                ["west", -1, 0],
+                ["south", 0, 1],
+                ["north", 0, -1],
               ] as const;
-              const [dx, dz] = dirs[Math.floor(Math.random() * dirs.length)];
-              for (let hop = 0; hop < 2 && !cow && !signal.aborted && timeLeft() > 120_000; hop++) {
-                step("Book", 0.33, `No cow in sight — scouting the plains (hop ${hop + 1}/2)...`);
-                const p = bot.entity.position;
-                await safeGoto(bot, new goals.GoalNearXZ(p.x + dx * 70, p.z + dz * 70, 8), 45_000, 12_000).catch(
+              for (const [label, dx, dz] of dirs) {
+                if (cow || signal.aborted || timeLeft() < 90_000) break;
+                step("Book", 0.33, `No cow in sight — scouting ${label}...`);
+                await safeGoto(bot, new goals.GoalNearXZ(home.x + dx * 60, home.z + dz * 60, 8), 40_000, 12_000).catch(
                   () => {},
                 );
                 cow = bot.nearestEntity((e) => e.name === "cow" || e.name === "mooshroom");
@@ -380,13 +387,26 @@ export const setupEnchantingSkill: Skill = {
             }
             if (cow) {
               step("Book", 0.35, "Hunting a cow for leather...");
+              // A hit cow bolts straight out of the 3-block attack reach, so a
+              // single goto to its REMEMBERED position followed by blind swings
+              // lands one hit at best. Chase the live entity between swings and
+              // swing something with an edge.
+              const weapon =
+                bot.inventory.items().find((i) => i.name.endsWith("_sword")) ??
+                bot.inventory.items().find((i) => i.name.endsWith("_axe")) ??
+                bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+              if (weapon) await bot.equip(weapon, "hand").catch(() => {});
+              const fightUntil = Date.now() + 35_000;
               try {
-                await safeGoto(bot, new goals.GoalNear(cow.position.x, cow.position.y, cow.position.z, 2), 30_000);
-                for (let s = 0; s < 8 && cow.isValid; s++) {
+                while (cow.isValid && Date.now() < fightUntil && !signal.aborted) {
+                  if (bot.entity.position.distanceTo(cow.position) > 2.5) {
+                    await safeGoto(bot, new goals.GoalFollow(cow, 1.5), 8_000).catch(() => {});
+                  }
+                  if (!cow.isValid) break;
                   await bot.attack(cow);
-                  await new Promise((r) => setTimeout(r, 700));
+                  await new Promise((r) => setTimeout(r, 600));
                 }
-                await collectNearbyDrops(bot, 5, 3000);
+                await collectNearbyDrops(bot, 5, 4000);
               } catch {
                 /* best effort */
               }
