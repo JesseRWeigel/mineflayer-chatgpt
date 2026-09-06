@@ -188,7 +188,31 @@ export const setupEnchantingSkill: Skill = {
           if (count(bot, "paper") < 3) {
             // Harvest sugar cane if any is in reach.
             if (timeLeft() > 90_000) {
-              const cane = bot.findBlock({ matching: (b) => b.name === "sugar_cane", maxDistance: 48 });
+              let cane = bot.findBlock({ matching: (b) => b.name === "sugar_cane", maxDistance: 48 });
+              // EXPLORE for cane when none is local: an RCON survey found zero
+              // sugar cane on any waterline within ~120 blocks of the village,
+              // so the 48-block search can never succeed from home. Hop
+              // outward along a committed heading (the pattern that cracked
+              // breeding) and rescan; the skill refires resumably every few
+              // minutes, so each invocation's hops compound into a widening
+              // sweep from wherever the last one ended.
+              if (!cane && timeLeft() > 150_000) {
+                const dirs = [
+                  [1, 0],
+                  [-1, 0],
+                  [0, 1],
+                  [0, -1],
+                ] as const;
+                const [dx, dz] = dirs[Math.floor(Math.random() * dirs.length)];
+                for (let hop = 0; hop < 2 && !cane && !signal.aborted && timeLeft() > 120_000; hop++) {
+                  step("Book", 0.28, `No sugar cane near — scouting for a riverbank (hop ${hop + 1}/2)...`);
+                  const p = bot.entity.position;
+                  await safeGoto(bot, new goals.GoalNearXZ(p.x + dx * 70, p.z + dz * 70, 8), 45_000, 12_000).catch(
+                    () => {},
+                  );
+                  cane = bot.findBlock({ matching: (b) => b.name === "sugar_cane", maxDistance: 48 });
+                }
+              }
               if (cane) {
                 step("Book", 0.3, "Harvesting sugar cane for paper...");
                 try {
@@ -208,7 +232,28 @@ export const setupEnchantingSkill: Skill = {
         if (count(bot, "paper") >= 3 && count(bot, "leather") < 1) {
           await tryWithdraw(bot, "leather", 1);
           if (count(bot, "leather") < 1 && timeLeft() > 90_000) {
-            const cow = bot.nearestEntity((e) => e.name === "cow" || e.name === "mooshroom");
+            let cow = bot.nearestEntity((e) => e.name === "cow" || e.name === "mooshroom");
+            // EXPLORE for a cow when none is loaded: the herds graze 128-256
+            // blocks out, past the ~80-block entity stream — the same
+            // perception wall breeding hit. Hop outward and rescan; resumable
+            // refires compound the sweep.
+            if (!cow && timeLeft() > 150_000) {
+              const dirs = [
+                [1, 0],
+                [-1, 0],
+                [0, 1],
+                [0, -1],
+              ] as const;
+              const [dx, dz] = dirs[Math.floor(Math.random() * dirs.length)];
+              for (let hop = 0; hop < 2 && !cow && !signal.aborted && timeLeft() > 120_000; hop++) {
+                step("Book", 0.33, `No cow in sight — scouting the plains (hop ${hop + 1}/2)...`);
+                const p = bot.entity.position;
+                await safeGoto(bot, new goals.GoalNearXZ(p.x + dx * 70, p.z + dz * 70, 8), 45_000, 12_000).catch(
+                  () => {},
+                );
+                cow = bot.nearestEntity((e) => e.name === "cow" || e.name === "mooshroom");
+              }
+            }
             if (cow) {
               step("Book", 0.35, "Hunting a cow for leather...");
               try {
