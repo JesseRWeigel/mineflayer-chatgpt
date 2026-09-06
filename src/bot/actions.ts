@@ -1,3 +1,16 @@
+/**
+ * Built-in action dispatch for decisions produced by the LLM.
+ *
+ * @remarks
+ * `executeAction` is the public boundary. It applies the direct-action
+ * watchdog, delegates registered skills to the skill executor, and converts
+ * runtime failures into short strings the brain can reason about. To add a
+ * built-in action, add a case to `executeActionInner`, validate/default its
+ * parameters there, expose its name through the appropriate role's
+ * `allowedActions`, and cover the result in `actions.test.ts`. Multi-step work
+ * that needs material gathering, progress, or cancellation belongs in a
+ * `Skill` instead of this dispatcher.
+ */
 import type { Bot } from "mineflayer";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
@@ -18,6 +31,7 @@ import { config } from "../config.js";
 
 import { STASH_POS } from "./role.js";
 import { baseMoves, safeMoves, explorerMoves, safeGoto, collectNearbyDrops, bumpNavGeneration } from "./navigation.js";
+/** Re-exported navigation helpers used by actions and skill implementations. */
 export { safeMoves, explorerMoves, safeGoto, collectNearbyDrops };
 
 /** Hard cap for a single DIRECT action. Longer than any legit action (gather
@@ -26,7 +40,10 @@ export { safeMoves, explorerMoves, safeGoto, collectNearbyDrops };
 const DIRECT_ACTION_TIMEOUT_MS = 150_000;
 
 /**
- * Watchdog wrapper around the action dispatcher. Direct actions (mine_block,
+ * Executes one built-in action or registered skill and returns a message for
+ * the decision loop.
+ *
+ * Direct actions (mine_block,
  * go_to, gather_wood, eat, …) call unbounded `bot.dig`/`goto`/`consume` that can
  * block a bot's ENTIRE brain loop forever if the server never responds — Forge
  * froze 50 min mid-`mine_block` (its `bot.dig` never returned) because, unlike
@@ -34,6 +51,12 @@ const DIRECT_ACTION_TIMEOUT_MS = 150_000;
  * hard timeout that stops movement + digging so the brain always recovers.
  * invoke_skill / registered-skill names are left to runSkill's own 240s watchdog
  * (double-bounding would preempt legit long skills like build_house).
+ *
+ * @param bot - The Mineflayer bot that owns the action and navigation state.
+ * @param action - A built-in action name, `invoke_skill`, or registered skill name.
+ * @param params - LLM-supplied action parameters; each action validates its own fields.
+ * @returns A user-facing success, refusal, timeout, or failure message. Expected
+ * failures are represented as strings rather than thrown into the brain loop.
  */
 export async function executeAction(bot: Bot, action: string, params: Record<string, any>): Promise<string> {
   const delegatesToSkill = action === "invoke_skill" || skillRegistry.get(action) !== undefined;
@@ -785,8 +808,15 @@ async function scatterSaplings(bot: Bot, max: number): Promise<number> {
  *  "ore" matches any *_ore through the branch below, so an unspecified dig now
  *  follows the intent the logs actually show. A bot that wants stone still says
  *  so, and one did. */
+/** Fallback matcher requested when the LLM asks to mine without naming a block. */
 export const DEFAULT_MINE_TARGET = "ore";
 
+/**
+ * Builds the name predicate used by mining actions.
+ *
+ * @param blockType - A concrete Minecraft block name or the `ore` category.
+ * @returns A predicate plus whether the request should use ore-specific logic.
+ */
 export function blockMatcher(blockType: string): { match: (name: string) => boolean; isOre: boolean } {
   const bt = blockType.toLowerCase();
   if (bt === "ore" || bt === "ores") {

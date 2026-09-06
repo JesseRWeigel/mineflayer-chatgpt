@@ -1,3 +1,15 @@
+/**
+ * Runtime lifecycle for `Skill` implementations from `types.ts`.
+ *
+ * @remarks
+ * A skill declares metadata, material estimates, and an abort-aware `execute`
+ * method. `runSkill` serializes work per bot, gathers materials, forwards
+ * progress, and races execution against `skill.timeoutMs` or the 240-second
+ * default. `abortActiveSkill` signals cooperative cancellation; the watchdog
+ * additionally stops navigation and digging so a hung await cannot freeze the
+ * brain. New skills should honor `AbortSignal`, bound internal phases, return a
+ * `SkillResult`, and be registered in `registry.ts`.
+ */
 import type { Bot } from "mineflayer";
 import type { Skill, SkillProgress, SkillResult } from "./types.js";
 import { gatherMaterials } from "./materials.js";
@@ -6,6 +18,7 @@ import { recordSkillAttempt } from "../bot/memory.js";
 import { getBotMemoryStore, registerBotMemory } from "../bot/memory-registry.js";
 import { bumpNavGeneration } from "../bot/navigation.js";
 
+/** Associates a bot with its memory store before skill execution begins. */
 export { registerBotMemory };
 
 type ActiveSkillState = {
@@ -40,14 +53,21 @@ export function takeSkillOutcome(bot: Bot, skillName: string): boolean | undefin
   return rec.success;
 }
 
+/** Returns whether this bot currently owns an active skill execution slot. */
 export function isSkillRunning(bot: Bot): boolean {
   return activeSkillMap.has(bot);
 }
 
+/** Returns the active skill name for a bot, or `null` when it is idle. */
 export function getActiveSkillName(bot: Bot): string | null {
   return activeSkillMap.get(bot)?.skill.name ?? null;
 }
 
+/**
+ * Requests cooperative cancellation of the bot's active skill.
+ * The skill must observe its `AbortSignal`; timeout cleanup separately handles
+ * stuck navigation and digging calls.
+ */
 export function abortActiveSkill(bot: Bot): void {
   const active = activeSkillMap.get(bot);
   if (active) {
@@ -59,6 +79,12 @@ export function abortActiveSkill(bot: Bot): void {
 /**
  * Run a skill to completion: gather materials → execute → return result string.
  * Called from executeAction() when the LLM picks a skill action.
+ *
+ * @param bot - Bot that owns the single active execution slot.
+ * @param skill - Registered skill implementing the interface in `types.ts`.
+ * @param params - LLM-provided parameters passed to estimation and execution.
+ * @returns A concise result message for the brain; expected failures and
+ * crashes are recorded and converted to messages.
  */
 export async function runSkill(bot: Bot, skill: Skill, params: Record<string, any>): Promise<string> {
   const active = activeSkillMap.get(bot);

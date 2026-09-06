@@ -1,3 +1,16 @@
+/**
+ * Static role definitions for every bot in the swarm.
+ *
+ * @remarks
+ * Add a role by defining a complete `BotRoleConfig`, assigning non-conflicting
+ * viewer/overlay ports and memory file, then adding it to `BOT_ROSTER`.
+ * `allowedActions` and `allowedSkills` are prompt capabilities rather than a
+ * security boundary, so the corresponding dispatcher or skill must already be
+ * registered. Keep shared coordinates in exported constants so every role and
+ * skill uses the same location.
+ */
+
+/** Configuration injected into bot startup, prompts, memory, and role policy. */
 export interface BotRoleConfig {
   /** Display name, e.g. "Atlas" */
   name: string;
@@ -299,4 +312,5 @@ export const BLADE_CONFIG: BotRoleConfig = {
 };
 
 /** All bot configs in startup order. */
+/** Ordered startup roster; adding a role config elsewhere does not start it. */
 export const BOT_ROSTER: BotRoleConfig[] = [ATLAS_CONFIG, FLORA_CONFIG, FORGE_CONFIG, MASON_CONFIG, BLADE_CONFIG];
