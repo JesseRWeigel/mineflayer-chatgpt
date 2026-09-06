@@ -309,12 +309,14 @@ export const craftGearSkill: Skill = {
       // Try each tier from best to worst
       for (const tier of TIERS) {
         // RESERVE metal for the pickaxe, per tier: iron stays pickaxe-only
-        // until an iron+ pick exists, and diamond stays pickaxe-only until a
-        // DIAMOND pick exists. The old check released BOTH metals once the
-        // iron pick landed, which let dive diamonds leak into lesser tools.
+        // until an iron+ pick exists. Diamond is pickaxe-only PERIOD: the old
+        // release-once-a-diamond-pick-exists check let the very craft run that
+        // minted the pick continue down the tool list and spend the enchanting
+        // table's 2-diamond reserve on a diamond SHOVEL. Iron tools serve every
+        // other job; diamonds only ever go to the pickaxe and the table.
         const bestPick = bot.inventory.items().reduce((best, i) => Math.max(best, PICK_PRIORITY[i.name] ?? 0), 0);
         if (tier.name === "iron" && toolType !== "pickaxe" && bestPick < 2) continue;
-        if (tier.name === "diamond" && toolType !== "pickaxe" && bestPick < 3) continue;
+        if (tier.name === "diamond" && toolType !== "pickaxe") continue;
         const itemName = `${tier.name}_${toolType}`;
         const mcItem = mcData.itemsByName[itemName];
         if (!mcItem) continue;
