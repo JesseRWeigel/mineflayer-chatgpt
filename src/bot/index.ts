@@ -1,6 +1,6 @@
 import mineflayer from "mineflayer";
 import pathfinderPkg from "mineflayer-pathfinder";
-const { pathfinder } = pathfinderPkg;
+const { pathfinder, goals } = pathfinderPkg;
 import customPvpPkg from "@nxg-org/mineflayer-custom-pvp";
 const customPvp = (customPvpPkg as any).default ?? customPvpPkg;
 import { loader as autoEat } from "mineflayer-auto-eat";
@@ -21,6 +21,9 @@ import { isNeuralServerRunning } from "../neural/bridge.js";
 import { appendSnapshot } from "./advancement-log.js";
 import { BOT_ROSTER } from "./role.js";
 import { BotBrain, type ChatMessage, type BrainEvents } from "./brain.js";
+import { parseChatCommand } from "./chat-commands.js";
+import { executeChatCommand } from "./chat-command-handler.js";
+import { bumpNavGeneration, safeGoto, safeMoves } from "./navigation.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
 import { createFallTracker, isFallDeath } from "./fall-tracker.js";
 import { respawnTarget, isAtBase } from "./respawn.js";
@@ -368,23 +371,31 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       return;
     }
 
-    // !goal commands
-    if (message.startsWith("!goal")) {
-      const parts = message.trim().split(/\s+/);
-      const sub = parts[1]?.toLowerCase();
-      if (sub === "set" && parts.length > 2) {
-        const newGoal = parts.slice(2).join(" ");
-        memStore.setSeasonGoal(newGoal);
-        bot.chat(`Mission accepted: "${newGoal}"`);
-      } else if (sub === "clear") {
-        memStore.clearSeasonGoal();
-        bot.chat("Season goal cleared. Going freeform.");
-      } else if (sub === "show" || !sub) {
-        const current = memStore.getSeasonGoal();
-        bot.chat(current ? `Current mission: "${current}"` : "No season goal set. Use !goal set <text>");
-      } else {
-        bot.chat("Usage: !goal set <text> | !goal clear | !goal show");
-      }
+    const parsedCommand = parseChatCommand(username, message, config.bot.commandWhitelist);
+    if (parsedCommand.kind === "denied") return;
+    if (parsedCommand.kind === "invalid") {
+      bot.chat(parsedCommand.message);
+      return;
+    }
+    if (parsedCommand.kind === "command") {
+      await executeChatCommand(parsedCommand.command, username, {
+        bot,
+        brain,
+        memory: memStore,
+        abortActiveSkill: () => abortActiveSkill(bot),
+        stopMovement: () => {
+          bumpNavGeneration(bot);
+          bot.pathfinder.stop();
+          bot.clearControlStates();
+        },
+        goToPlayer: async (playerName) => {
+          const player = bot.players[playerName]?.entity;
+          if (!player) throw new Error("player is not visible");
+          const { x, y, z } = player.position;
+          bot.pathfinder.setMovements(safeMoves(bot));
+          await safeGoto(bot, new goals.GoalNear(x, y, z, 2), 15_000);
+        },
+      });
       return;
     }
 
