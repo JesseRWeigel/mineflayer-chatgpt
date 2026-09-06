@@ -4,7 +4,7 @@ import { BotBrain } from "./brain.js";
 
 function bareBrain() {
   const calls: string[] = [];
-  const brain = Object.create(BotBrain.prototype) as BotBrain & Record<string, any>;
+  const brain: any = Object.create(BotBrain.prototype);
   brain.bot = {};
   brain.paused = false;
   brain.stopped = false;

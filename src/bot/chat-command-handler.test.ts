@@ -32,7 +32,9 @@ function setup() {
     },
     abortActiveSkill: () => calls.push("abort"),
     stopMovement: () => calls.push("stop"),
-    goToPlayer: async (username) => calls.push(`goto:${username}`),
+    goToPlayer: async (username) => {
+      calls.push(`goto:${username}`);
+    },
   };
   return { context, messages, calls, getGoal: () => goal };
 }
