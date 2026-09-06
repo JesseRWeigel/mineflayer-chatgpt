@@ -631,6 +631,30 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     lastDeathMessage = "";
     abortActiveSkill(bot);
 
+    // RESYNC the inventory after respawn. Deaths (lava especially) can leave
+    // mineflayer's client-side inventory stale — twice now a bot's own view
+    // went blind to items the server said it held, and every count-reading
+    // override silently declined for hours (the 5-diamond endgame, the dive,
+    // the pickless re-arm). Opening any container makes the server resend the
+    // full window including the player inventory section, which is the one
+    // reliable in-protocol refresh. Bots respawn at the village where chests
+    // are everywhere; if none is in range the next natural chest visit heals
+    // it instead.
+    setTimeout(() => {
+      void (async () => {
+        try {
+          const chest = bot.findBlock({ matching: (b) => b.name === "chest", maxDistance: 12 });
+          if (!chest) return;
+          const win = await bot.openContainer(chest);
+          await new Promise((r) => setTimeout(r, 500));
+          win.close();
+          console.log(`[Bot] ${roleConfig.name} post-death inventory resync via chest at ${chest.position}`);
+        } catch {
+          /* best effort — a missed resync just waits for the next chest */
+        }
+      })();
+    }, 4000);
+
     const now = Date.now();
     recentDeaths = recentDeaths.filter((t) => now - t < LOOP_WINDOW_MS);
     recentDeaths.push(now);
