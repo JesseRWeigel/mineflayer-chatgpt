@@ -1122,7 +1122,15 @@ export class BotBrain {
       // strip_mine, so it was just a different dead end; the old !canMine
       // guard never fired for him. A diamond leaves any bot that cannot
       // complete the set itself.
-      const holdsDiamond = this.bot.inventory.items().some((i) => i.name === "diamond");
+      // Diamonds route to the PRIMARY SMITH from everyone else, the same as
+      // iron: pick-crafting is smith-only now, so a diamond in any other
+      // pocket is dead capital — Mason mined a 3-diamond vein and could
+      // neither craft with it (smith gate) nor start enchanting (no pick,
+      // no obsidian, no table), and his old return clause never fired
+      // because a crafter-miner "could complete the set itself" back when
+      // that was true.
+      const holdsDiamond =
+        !this.roleConfig.primarySmith && this.bot.inventory.items().some((i) => i.name === "diamond");
       // Iron consolidation: a bot that is NOT the primary smith should not sit on
       // iron. Making iron its own reserve stopped the leak, but a second
       // crafter-miner (Mason) then hoarded 2 ingots while Forge sat at 2 — the
@@ -1137,7 +1145,7 @@ export class BotBrain {
       const holdsSpareIron =
         !this.roleConfig.primarySmith &&
         this.bot.inventory.items().some((i) => i.name === "iron_ingot" || i.name === "raw_iron");
-      const wantsReturn = (holdsPick && !canMine) || (holdsDiamond && !(canMine && roleCanCraft)) || holdsSpareIron;
+      const wantsReturn = (holdsPick && !canMine) || holdsDiamond || holdsSpareIron;
       // 5min, down from 10: every attempt is a lottery ticket on a quiet
       // window between mob waves — run 380 got five tickets and no winner.
       const cooledDown = Date.now() - this.lastToolReturnMs > 300_000;
@@ -1164,8 +1172,12 @@ export class BotBrain {
         const returnablePick = holdsPick && !canMine;
         const ironReturn = holdsSpareIron && !holdsDiamond && !returnablePick;
         const smithNames = BOT_ROSTER.filter((r) => r.primarySmith).map((r) => r.name);
-        const targetNames = ironReturn ? smithNames : minerNames;
+        // Diamonds and iron both go to the single smith who can use them; only
+        // a stray pickaxe may go to any crafter-miner. Never target self —
+        // bot.players includes the bot itself at distance zero.
+        const targetNames = holdsDiamond || ironReturn ? smithNames : minerNames;
         const nearbyMiner = targetNames.find((n) => {
+          if (n === this.bot.username) return false;
           const e = this.bot.players[n]?.entity;
           return e && this.bot.entity.position.distanceTo(e.position) < 24;
         });

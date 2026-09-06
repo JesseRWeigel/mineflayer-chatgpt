@@ -557,6 +557,11 @@ export function shouldKeep(
   // (3) plus the enchanting table (2) need — the whole Enchanter chain stalled
   // at 0 held. Hold up to 5 diamonds so they accumulate toward both.
   if (itemName === "diamond") {
+    // The 5-diamond pocket reserve is for the bot that can SPEND them — the
+    // primary smith (materialReserve > 0). Everyone else banks every diamond:
+    // pick-crafting is smith-only, so 5 diamonds parked in a non-smith's
+    // pocket are dead capital the endgame cannot see.
+    if (materialReserve === 0) return false;
     const kept = currentCounts.get("__diamond") ?? 0;
     if (kept < 5) {
       currentCounts.set("__diamond", kept + itemCount);
