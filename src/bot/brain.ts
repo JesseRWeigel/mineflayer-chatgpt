@@ -1023,8 +1023,13 @@ export class BotBrain {
       const tableNeedsDiamonds =
         this.roleConfig.allowedSkills.includes("setup_enchanting") &&
         !readTeamEarned(BOT_ROSTER.map((b) => b.name)).has("story/enchant_item");
+      // Dive target matches the CRAFT threshold: while the Enchanter chain is
+      // unearned the pick-craft waits for 5 (3 pick + 2 table), so stopping
+      // the dive at 3 stranded Forge between thresholds — 3 in pocket, no
+      // pick minted, no push to fetch the last 2.
       const wantsDive =
-        (holdsIronPick && !hasDiamondPick && diamonds < 3) || (hasDiamondPick && tableNeedsDiamonds && diamonds < 2);
+        (holdsIronPick && !hasDiamondPick && diamonds < (tableNeedsDiamonds ? 5 : 3)) ||
+        (hasDiamondPick && tableNeedsDiamonds && diamonds < 2);
       // A pickless miner MUST mine — strip_mine self-supplies a pick (crafts a
       // wooden one, withdraws a banked spare). Without this, a crafter-miner who
       // wears out his pick mid-dive and holds a single leftover ingot lands in a
@@ -1046,7 +1051,7 @@ export class BotBrain {
         this.log.info(
           "Brain",
           wantsDive
-            ? `OVERRIDE: ${hasDiamondPick ? "diamond" : "iron"} pick + ${diamonds}/${hasDiamondPick ? 2 : 3} diamonds — diving to diamond depth`
+            ? `OVERRIDE: ${hasDiamondPick ? "diamond" : "iron"} pick + ${diamonds}/${hasDiamondPick ? 2 : tableNeedsDiamonds ? 5 : 3} diamonds — diving to diamond depth`
             : pickless
               ? "OVERRIDE: pickless — running strip_mine to re-arm and mine"
               : "OVERRIDE: no iron yet — running strip_mine for ore",
