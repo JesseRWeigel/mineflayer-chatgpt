@@ -556,6 +556,19 @@ export function shouldKeep(
   // leaked to the stash and no crafter ever held the 5 that the diamond pick
   // (3) plus the enchanting table (2) need — the whole Enchanter chain stalled
   // at 0 held. Hold up to 5 diamonds so they accumulate toward both.
+  // Obsidian: keep up to 4 in pocket — the enchanting table's exact cost.
+  // It had no keep rule, so the pre-dive deposit stripped the 4 blocks
+  // setup_enchanting had just mined from the deep frames, and the skill spent
+  // the next hour commuting back to re-mine what it already owned.
+  if (itemName === "obsidian") {
+    const kept = currentCounts.get("__obsidian") ?? 0;
+    if (kept < 4) {
+      currentCounts.set("__obsidian", kept + itemCount);
+      return true;
+    }
+    return false;
+  }
+
   if (itemName === "diamond") {
     // The 5-diamond pocket reserve is for the bot that can SPEND them — the
     // primary smith (materialReserve > 0). Everyone else banks every diamond:
