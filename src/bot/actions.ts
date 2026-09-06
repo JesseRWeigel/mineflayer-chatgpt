@@ -1064,6 +1064,14 @@ async function explore(bot: Bot, direction: string): Promise<string> {
   if (currentBlock?.name === "water" || headBlock?.name === "water") {
     console.log("[Explore] Bot is in water — attempting pathfinder escape");
     bot.pathfinder.setMovements(explorerMoves(bot));
+    // TIGHT search bound for the escape: GoalY from open water asks A* for
+    // "any block at that height" and the frontier is the whole lake — this
+    // exact line preceded all three heap-OOM crashes (173MB to 8GB in
+    // seconds). A shore within 48 blocks is reachable; one farther away is
+    // a swim the lateral fallback handles a leg at a time.
+    const pf = bot.pathfinder as unknown as { searchRadius: number };
+    const priorRadius = pf.searchRadius;
+    pf.searchRadius = 48;
     try {
       // Try to reach a high Y to surface
       await safeGoto(bot, new goals.GoalY(70), 30000);
@@ -1075,6 +1083,8 @@ async function explore(bot: Bot, direction: string): Promise<string> {
       } catch {
         /* best effort */
       }
+    } finally {
+      pf.searchRadius = priorRadius;
     }
   }
 

@@ -116,6 +116,17 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   bot.loadPlugin(pathfinder);
   bot.loadPlugin(customPvp);
   bot.loadPlugin(autoEat);
+  // BOUND the A* search. The default searchRadius is unlimited, and a goal
+  // with a huge or unreachable frontier allocates nodes until V8 dies — the
+  // three "heap out of memory" crashes all fired seconds after a bot in open
+  // water pathed for the shore, with heapUsed at 173MB on the last reading
+  // and 8GB moments later. The longest legitimate walk in the swarm is the
+  // ~210-block breeding scout; 256 covers everything real and caps the bomb.
+  // (searchRadius is real in the runtime — index.js line 41, default -1 —
+  // but absent from the plugin's type declarations, hence the cast.)
+  bot.once("spawn", () => {
+    (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 256;
+  });
 
   // ── Create the event-driven brain ──
   const brain = new BotBrain(bot, roleConfig, events, memStore);
