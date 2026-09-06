@@ -8,6 +8,7 @@ import { startUnifiedViewer } from "./stream/unified-viewer.js";
 import { abortActiveSkill, getActiveSkillName } from "./skills/executor.js";
 import type { Bot } from "mineflayer";
 import { assertProviderConfigured } from "./llm/provider.js";
+import { startSkillHotReload } from "./skills/hot-reload.js";
 
 /** Live bot handles, so the heap guard can abort a runaway skill. */
 const LIVE_BOTS = new Map<string, Bot>();
@@ -16,6 +17,9 @@ loadDynamicSkills();
 
 // Registry of active bot stop functions for clean multi-bot shutdown
 const activeStops: (() => void)[] = [];
+if (process.argv.includes("--hot-reload-skills")) {
+  activeStops.push(startSkillHotReload());
+}
 
 function shutdownAll() {
   console.log("\n[Main] Shutting down all bots...");

@@ -86,3 +86,28 @@ test("dynamic-loader: a finished skill leaves no watchdog timer behind", async (
   fs.unlinkSync(skillPath);
   skillRegistry.delete("testQuick");
 });
+
+for (const directory of ["generated", "voyager"]) {
+  test(`dynamic-loader: ${directory} reload keeps the previous skill after a syntax error`, async () => {
+    const { reloadDynamicSkill } = await import("./dynamic-loader.js");
+    const { skillRegistry } = await import("./registry.js");
+    const skillName = `hotReload${directory}`;
+    const skillPath = path.join(__dirname, `../../skills/${directory}/${skillName}.js`);
+
+    fs.writeFileSync(skillPath, `async function ${skillName}(bot) { bot.version = 1; }`);
+    reloadDynamicSkill(skillPath);
+    const workingSkill = skillRegistry.get(skillName)!;
+
+    fs.writeFileSync(skillPath, `async function ${skillName}( {`);
+    assert.throws(() => reloadDynamicSkill(skillPath), SyntaxError);
+    assert.equal(skillRegistry.get(skillName), workingSkill);
+
+    fs.writeFileSync(skillPath, `async function ${skillName}(bot) { bot.version = 2; }`);
+    reloadDynamicSkill(skillPath);
+    assert.notEqual(skillRegistry.get(skillName), workingSkill);
+
+    fs.unlinkSync(skillPath);
+    reloadDynamicSkill(skillPath);
+    assert.equal(skillRegistry.has(skillName), false);
+  });
+}

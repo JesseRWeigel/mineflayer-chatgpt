@@ -538,10 +538,14 @@ minecraft-agent-swarm/
 ## Development
 
 ```bash
-npm run dev     # Run with tsx watch (hot reload)
+npm run dev     # Watch source and hot-reload individual skills
 npm test        # Run tests
 npm run build   # Compile TypeScript
 ```
+
+Skill edits under `src/skills`, `skills/voyager`, and `skills/generated` are
+reloaded without restarting the process. Invalid edits leave the last working
+skill registered.
 
 ### Adding a New TypeScript Skill
 
