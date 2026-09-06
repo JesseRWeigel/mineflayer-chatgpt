@@ -124,15 +124,31 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // ~210-block breeding scout; 256 covers everything real and caps the bomb.
   // (searchRadius is real in the runtime — index.js line 41, default -1 —
   // but absent from the plugin's type declarations, hence the cast.)
+  // 1500ms of A* think, down from the plugin's 5000ms default. The radius
+  // cap alone did NOT stop the heap bombs: a water-movement search packs
+  // millions of nodes into a 5-second think, and goto-retry churn across
+  // five bots stacks those contexts faster than GC reclaims them (216MB to
+  // 8GB between two heap readings, crash #4). Shorter thinks mean partial
+  // paths recomputed as the bot walks — same destinations, bounded cost.
+  //
+  // FAIL-CLOSED: apply the caps the moment the plugin exists rather than
+  // inside a spawn hook alone — a missed event must not leave the pathfinder
+  // running with unlimited search. Immediate attempt, inject_allowed
+  // fallback, and a spawn-time reapply as the belt over the braces.
+  const capPathfinder = (): boolean => {
+    const pf = bot.pathfinder as unknown as { searchRadius: number; thinkTimeout: number } | undefined;
+    if (!pf) return false;
+    pf.searchRadius = 256;
+    pf.thinkTimeout = 1500;
+    return true;
+  };
+  if (!capPathfinder()) {
+    bot.once("inject_allowed", () => {
+      capPathfinder();
+    });
+  }
   bot.once("spawn", () => {
-    (bot.pathfinder as unknown as { searchRadius: number }).searchRadius = 256;
-    // 1500ms of A* think, down from the plugin's 5000ms default. The radius
-    // cap alone did NOT stop the heap bombs: a water-movement search packs
-    // millions of nodes into a 5-second think, and goto-retry churn across
-    // five bots stacks those contexts faster than GC reclaims them (216MB to
-    // 8GB between two heap readings, crash #4). Shorter thinks mean partial
-    // paths recomputed as the bot walks — same destinations, bounded cost.
-    bot.pathfinder.thinkTimeout = 1500;
+    capPathfinder();
   });
 
   // ── Create the event-driven brain ──
