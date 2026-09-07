@@ -531,30 +531,33 @@ export const setupEnchantingSkill: Skill = {
       // the per-slot update the library waits on — putTargetItem then times
       // out ("Event updateSlot:0 did not fire") while the item already sits in
       // the table. Trust the slot contents over the confirmation event.
-      const slotFilled = (n: number) => {
-        try {
-          return !!(et.slots?.[n] ?? (n === 0 && et.targetItem?.()));
-        } catch {
-          return false;
-        }
-      };
-      const putSafe = async (label: string, n: number, fn: () => Promise<void>) => {
+      // The honest confirmation is the bot's OWN inventory (server-echoed):
+      // if the item truly moved into the table, it left the pocket. Window
+      // slot state is optimistic-local and lied the first time through.
+      const pocketCount = (name: string) =>
+        bot.inventory
+          .items()
+          .filter((i) => i.name === name)
+          .reduce((s, i) => s + i.count, 0);
+      const putSafe = async (label: string, itemName: string, fn: () => Promise<void>) => {
+        const beforePut = pocketCount(itemName);
         try {
           await fn();
         } catch (e) {
           await new Promise((r) => setTimeout(r, 800));
-          if (!slotFilled(n)) throw e;
-          console.log(`[Enchant] ${label} confirmation timed out but slot ${n} is filled — continuing`);
+          if (pocketCount(itemName) >= beforePut) throw e;
+          console.log(`[Enchant] ${label} confirmation timed out but the ${itemName} left the pocket — continuing`);
         }
       };
-      await putSafe("putTargetItem", 0, () => et.putTargetItem(target));
+      await putSafe("putTargetItem", target.name, () => et.putTargetItem(target));
       const lapis = bot.inventory.items().find((i) => i.name === "lapis_lazuli");
-      if (lapis) await putSafe("putLapis", 1, () => et.putLapis(lapis));
+      if (lapis) await putSafe("putLapis", "lapis_lazuli", () => et.putLapis(lapis));
       // Wait for the enchant options to populate, then take the cheapest (0).
       await Promise.race([
         new Promise<void>((resolve) => et.once("ready", resolve)),
         new Promise<void>((resolve) => setTimeout(resolve, 8000)),
       ]);
+      const levelBefore = bot.experience?.level ?? 0;
       await et.enchant(0);
       await new Promise((r) => setTimeout(r, 600));
       try {
@@ -563,6 +566,24 @@ export const setupEnchantingSkill: Skill = {
         /* item auto-returned on some versions */
       }
       et.close();
+      // VERIFY, don't trust the click: the first "success" here enchanted
+      // nothing — local window state showed the item placed while the server
+      // saw an empty table, and every call in the flow failed quietly. A real
+      // enchant costs XP levels and hands back an item with enchantments.
+      await new Promise((r) => setTimeout(r, 1500));
+      const levelAfter = bot.experience?.level ?? 0;
+      const enchantedInHand = bot.inventory.items().some((i) => ((i as any).enchants?.length ?? 0) > 0);
+      console.log(
+        `[Enchant] verify: level ${levelBefore}->${levelAfter}, enchanted item in inventory: ${enchantedInHand}`,
+      );
+      if (levelAfter >= levelBefore && !enchantedInHand) {
+        return {
+          success: false,
+          message: resumable(
+            "Clicked through the enchant but no XP was spent and no item came back enchanted — the table never accepted the inputs.",
+          ),
+        };
+      }
       return {
         success: true,
         message: `Enchanted a ${target.name} at the enchanting table — Enchanter earned!`,
