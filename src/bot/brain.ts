@@ -1245,7 +1245,13 @@ export class BotBrain {
         this.lastGoldBankMs = Date.now();
         this.log.info("Brain", `OVERRIDE: smith holding ${goldAboard} gold ingots — banking them for the piglin fund`);
         this.events.onThought("The piglin fund needs this more than my pockets do.");
-        const result = await this.executeActionUnlessPaused("deposit_stash", {});
+        // deposit_stash reads its stash from PARAMS — the first five firings
+        // passed {} and bounced off "No stash position configured".
+        const result = await this.executeActionUnlessPaused("deposit_stash", {
+          stashPos: this.roleConfig.stashPos,
+          keepItems: this.roleConfig.keepItems,
+          canMine: true,
+        });
         this.events.onAction("deposit_stash", result);
         this.lastAction = "deposit_stash";
         this.lastResult = result;
