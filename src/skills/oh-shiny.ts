@@ -144,15 +144,35 @@ export const ohShinySkill: Skill = {
         await bot.equip(handGold, "hand").catch(() => {});
         await safeGoto(bot, new goals.GoalFollow(piglin, 2), 15_000).catch(() => {});
         if (piglin.isValid) {
-          await bot.lookAt(piglin.position.offset(0, 1.6, 0), true).catch(() => {});
-          try {
-            (bot as any).useOn(piglin);
-            tossed++;
-            console.log(`[ShinyDebug] ${bot.username}: direct gold hand-off attempted`);
-          } catch {
-            /* fall through to the toss path */
+          // activateEntity is the right-click INTERACT (the packet the
+          // player_interacted_with_entity trigger listens for); useOn is the
+          // use-item path for saddles and shears. The first direct attempt
+          // sent only useOn and the criteria file stayed empty — send the
+          // interact, with held-item and range logged so a miss has a name.
+          for (let k = 0; k < 3 && piglin.isValid; k++) {
+            await bot.lookAt(piglin.position.offset(0, 1.6, 0), true).catch(() => {});
+            const held = bot.heldItem?.name ?? "empty";
+            const range = bot.entity.position.distanceTo(piglin.position);
+            console.log(`[ShinyDebug] direct hand-off ${k + 1}: held=${held} dist=${range.toFixed(1)}`);
+            if (held !== "gold_ingot") {
+              const g = bot.inventory.items().find((i) => i.name === "gold_ingot");
+              if (!g) break;
+              await bot.equip(g, "hand").catch(() => {});
+            }
+            try {
+              await (bot as any).activateEntity(piglin);
+            } catch (e) {
+              console.log(`[ShinyDebug] activateEntity threw: ${(e as Error).message}`);
+              try {
+                (bot as any).useOn(piglin);
+              } catch {
+                /* both paths failed this round */
+              }
+            }
+            await new Promise((r) => setTimeout(r, 2_000));
           }
-          await new Promise((r) => setTimeout(r, 9_000));
+          tossed++;
+          await new Promise((r) => setTimeout(r, 7_000));
         }
       }
       while (tossed < 3 && piglin.isValid && count(bot, "gold_ingot") > 0 && !signal.aborted) {
