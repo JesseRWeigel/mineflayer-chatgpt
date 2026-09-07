@@ -449,6 +449,11 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
   // "unknown") lets us diagnose recurring death-traps and feeds the bots'
   // death-location avoidance.
   let lastDeathMessage = "";
+  // Respawn-camp breaker state: a mob parked on the spawnpoint has now
+  // massacred two bots on two days (Forge, 9 pillager deaths; Mason, 40
+  // zombie deaths at ~12s a life). The bot respawns INTO the kill zone and
+  // dies before the brain takes a single decision.
+  const recentDeathTimes: number[] = [];
   const DEATH_RE =
     /\b(drowned|suffocat|fell|hit the ground|tried to swim in lava|burned|went up in flames|walked into fire|was slain|was shot|was blown up|blew up|was killed|starv|was pricked|was squashed|was impaled|was struck|froze|magma|withered|didn'?t want to live)/i;
   bot.on("messagestr", (msg: string) => {
@@ -612,6 +617,8 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     const cause = lastDeathMessage || "unknown";
     memStore.recordDeath(pos.x, pos.y, pos.z, cause);
     recordDeath(roleConfig.name);
+    recentDeathTimes.push(Date.now());
+    while (recentDeathTimes.length > 12) recentDeathTimes.shift();
 
     // What was it WEARING when it died?
     //
@@ -709,6 +716,38 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
       await new Promise((r) => setTimeout(r, 500));
     }
     runSpawnSafety().catch((e) => console.warn("[Bot] Spawn safety error:", e));
+
+    // Camp breaker: after 3+ deaths inside 5 minutes, the first move on
+    // respawn is LEAVING — sprint 25 blocks away from the visible hostile
+    // (or just away) before the camper lands its next hit. Runs after spawn
+    // safety has placed the bot, since that placement is the kill zone.
+    const rapidDeaths = recentDeathTimes.filter((t) => Date.now() - t < 300_000).length;
+    if (rapidDeaths >= 3) {
+      setTimeout(() => {
+        try {
+          const HOSTILES = new Set(["zombie", "skeleton", "pillager", "creeper", "spider", "drowned", "husk"]);
+          const hostile = bot.nearestEntity((e) => HOSTILES.has(e.name ?? ""));
+          const p = bot.entity.position;
+          let dx = 25;
+          let dz = 0;
+          if (hostile && p.distanceTo(hostile.position) < 20) {
+            const vx = p.x - hostile.position.x;
+            const vz = p.z - hostile.position.z;
+            const m = Math.hypot(vx, vz) || 1;
+            dx = (vx / m) * 25;
+            dz = (vz / m) * 25;
+          }
+          console.log(
+            `[CampBreaker] ${roleConfig.name}: ${rapidDeaths} deaths in 5min — sprinting clear` +
+              (hostile ? ` of the ${hostile.name}` : ""),
+          );
+          bot.pathfinder.setMovements(safeMoves(bot));
+          bot.pathfinder.setGoal(new goals.GoalXZ(p.x + dx, p.z + dz));
+        } catch (e) {
+          console.log(`[CampBreaker] failed: ${(e as Error).message}`);
+        }
+      }, 2_500);
+    }
   });
 
   // One-time setup on first spawn
