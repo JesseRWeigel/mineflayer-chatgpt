@@ -1338,6 +1338,7 @@ export async function withdrawStash(
   const before = countItem();
 
   let withdrawn = 0;
+  let openFailures = 0;
   const needed = count;
 
   // Time-box the whole scan. The stash sprawled to 60+ chests, and walking
@@ -1402,9 +1403,19 @@ export async function withdrawStash(
       }
       snapshotChest(chest.position, container.containerItems(), container.inventoryStart);
       container.close();
-    } catch {
-      /* can't open chest */
+    } catch (e) {
+      // A silent open-failure here once let a bot stand beside the ledger's
+      // gold chest and report the whole stash empty. Name the first few.
+      if (openFailures < 3) {
+        console.log(
+          `[Stash] couldn't open chest at ${chest.position.x},${chest.position.y},${chest.position.z}: ${(e as Error).message}`,
+        );
+      }
+      openFailures++;
     }
+  }
+  if (openFailures > 0 && withdrawn === 0) {
+    console.log(`[Stash] ${openFailures} chest opens failed during the ${matchName} scan — 0 withdrawn`);
   }
 
   // Report the VERIFIED delta, not what container.withdraw claimed.

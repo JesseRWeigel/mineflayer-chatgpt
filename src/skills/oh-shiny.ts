@@ -71,7 +71,10 @@ export const ohShinySkill: Skill = {
       const needGold = (hasBoots ? 0 : 4) + 3 - Math.min(3, count(bot, "gold_ingot"));
       if (needGold > 0) {
         step("Withdrawing gold from the stash...", 0.1);
-        await withdrawStash(bot, STASH_POS, "gold_ingot", needGold, 40_000).catch(() => {});
+        const wres = await withdrawStash(bot, STASH_POS, "gold_ingot", needGold, 40_000).catch(
+          (e: Error) => `threw: ${e.message}`,
+        );
+        console.log(`[ShinyDebug] gold withdraw (want ${needGold}): ${wres}`);
       }
       if (!hasBoots) {
         if (count(bot, "gold_ingot") < 5) {
