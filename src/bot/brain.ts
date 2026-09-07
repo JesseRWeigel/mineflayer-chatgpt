@@ -169,6 +169,7 @@ export class BotBrain {
   private lastToolReturnMs = 0;
   private lastLeatherHuntMs = 0;
   private lastBedPrepMs = 0;
+  private lastTameMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1192,6 +1193,31 @@ export class BotBrain {
       }
     }
 
+    // Taming reflex — Best Friends Forever, the same shape as the leather
+    // hunt: any bot that can SEE a horse/donkey/mule while the advancement
+    // is unearned takes a two-minute mounting break. No materials needed;
+    // persistence is the whole mechanic.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot)) {
+      const earnedTame = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const tameDone =
+        earnedTame.has("husbandry/tame_an_animal") || earnedTame.has("minecraft:husbandry/tame_an_animal");
+      const cooledTame = Date.now() - this.lastTameMs > 300_000;
+      if (!tameDone && cooledTame) {
+        const { nearestTameable } = await import("../skills/tame-animal.js");
+        const mount = nearestTameable(this.bot);
+        if (mount && this.bot.entity.position.distanceTo(mount.position) < 32) {
+          this.lastTameMs = Date.now();
+          this.log.info("Brain", `OVERRIDE: ${mount.name} in sight and nobody has a best friend yet — taming`);
+          this.events.onThought(`A ${mount.name}! Time to make a friend the bruise-collecting way.`);
+          const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "tame_animal" });
+          this.events.onAction("tame_animal", result);
+          this.lastAction = "tame_animal";
+          this.lastResult = result;
+          return;
+        }
+      }
+    }
+
     // Bed-prep reflex (Flora). Nobody has EVER slept — sleep_in_a_bed is
     // unearned across 5 bots and hundreds of nights — while 11 white wool sit
     // banked 15 blocks from where she idles. The sleep action already crafts
@@ -1204,8 +1230,9 @@ export class BotBrain {
       this.roleConfig.stashPos
     ) {
       const earnedBed = readTeamEarned(BOT_ROSTER.map((b) => b.name));
-      const sleptDone =
-        earnedBed.has("adventure/sleep_in_a_bed") || earnedBed.has("minecraft:adventure/sleep_in_a_bed");
+      // The real ID is sleep_in_bed — the first version gated on a
+      // nonexistent sleep_in_a_bed key, which reads as never-earned forever.
+      const sleptDone = earnedBed.has("adventure/sleep_in_bed") || earnedBed.has("minecraft:adventure/sleep_in_bed");
       const tod = this.bot.time?.timeOfDay ?? 0;
       const wool = this.bot.inventory
         .items()

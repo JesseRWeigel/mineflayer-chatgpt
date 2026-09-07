@@ -13,6 +13,7 @@ import { fillBucketSkill } from "./fill-bucket.js";
 import { setupEnchantingSkill } from "./setup-enchanting.js";
 import { breedAnimalsSkill } from "./breed-animals.js";
 import { huntLeatherSkill } from "./hunt-leather.js";
+import { tameAnimalSkill } from "./tame-animal.js";
 import { craftFlintAndSteelSkill } from "./flint-and-steel.js";
 import { buildNetherPortalSkill, returnFromNetherSkill } from "./nether-portal.js";
 
@@ -36,6 +37,7 @@ register(fillBucketSkill);
 register(setupEnchantingSkill);
 register(breedAnimalsSkill);
 register(huntLeatherSkill);
+register(tameAnimalSkill);
 register(craftFlintAndSteelSkill);
 register(buildNetherPortalSkill);
 register(returnFromNetherSkill);
