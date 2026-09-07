@@ -357,6 +357,15 @@ export const setupEnchantingSkill: Skill = {
         }
         // Leather from a cow.
         if (count(bot, "paper") >= 3 && count(bot, "leather") < 1) {
+          // Walk home FIRST when the ledger knows leather is banked. Flora's
+          // kills landed in stash chests while Forge scouted ever farther
+          // afield — and tryWithdraw silently no-ops beyond 60 blocks from
+          // the stash, so he kept hunting a solved problem.
+          const { chestsWithItem } = await import("./stash-ledger.js");
+          if (chestsWithItem("leather").length > 0) {
+            step("Book", 0.32, "Leather is banked — walking home to withdraw it...");
+            await safeGoto(bot, new goals.GoalNear(STASH_POS.x, STASH_POS.y, STASH_POS.z, 3), 120_000).catch(() => {});
+          }
           await tryWithdraw(bot, "leather", 1);
           if (count(bot, "leather") < 1 && timeLeft() > 90_000) {
             // Anything that drops leather is a valid hunt: the night a cow
