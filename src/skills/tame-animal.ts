@@ -46,11 +46,17 @@ export const tameAnimalSkill: Skill = {
     await bot.unequip("hand").catch(() => {});
     bot.pathfinder.setMovements(baseMoves(bot));
 
-    const deadline = Date.now() + 120_000;
+    const deadline = Date.now() + 180_000;
     let mounts = 0;
     let tamed = false;
+    // bot.vehicle alone is a LIAR: mineflayer can miss the eject packet and
+    // report the bot mounted forever — both first-night "tames" claimed
+    // success after one mount while the server granted nothing. The physical
+    // truth is position: a real rider tracks the animal. Require the saddle
+    // AND proximity to hold through two checks six seconds apart.
+    const riding = () => !!(bot as any).vehicle && bot.entity.position.distanceTo(target.position) < 2.0;
     while (!tamed && target.isValid && Date.now() < deadline && !signal.aborted) {
-      if (bot.entity.position.distanceTo(target.position) > 3) {
+      if (bot.entity.position.distanceTo(target.position) > 3 && !(bot as any).vehicle) {
         await safeGoto(bot, new goals.GoalFollow(target, 2), 10_000).catch(() => {});
       }
       if (!target.isValid) break;
@@ -61,16 +67,26 @@ export const tameAnimalSkill: Skill = {
       } catch {
         /* out of range or blocked — reposition and retry */
       }
-      // Bucking happens within ~1-2s; a full 5s in the saddle means tamed.
-      await new Promise((r) => setTimeout(r, 5_000));
-      if ((bot as any).vehicle) {
-        tamed = true;
-        await new Promise((r) => setTimeout(r, 1_500));
+      await new Promise((r) => setTimeout(r, 6_000));
+      if (riding()) {
+        await new Promise((r) => setTimeout(r, 6_000));
+        if (riding()) tamed = true;
+      }
+      if (!tamed) {
         try {
           bot.dismount();
         } catch {
           /* already off */
         }
+        await new Promise((r) => setTimeout(r, 700));
+      }
+    }
+    if (tamed) {
+      await new Promise((r) => setTimeout(r, 1_500));
+      try {
+        bot.dismount();
+      } catch {
+        /* already off */
       }
     }
 
