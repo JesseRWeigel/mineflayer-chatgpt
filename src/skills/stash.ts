@@ -613,8 +613,14 @@ export function shouldKeep(
 
   const KEEP_MATERIALS = ["gold_ingot"];
   if (KEEP_MATERIALS.includes(itemName)) {
+    // An explicit keepItems entry OUTRANKS the generic material reserve.
+    // Blade's hand-delivered piglin payroll (9 ingots) was stripped by
+    // materialReserve=0 right here, one rule before the keepItems loop
+    // below would have protected it.
+    const explicit = keepItems.find((k) => itemName.includes(k.name));
+    const floor = Math.max(materialReserve, explicit?.minCount ?? 0);
     const kept = currentCounts.get("__materials") ?? 0;
-    if (kept < materialReserve) {
+    if (kept < floor) {
       currentCounts.set("__materials", kept + itemCount);
       return true;
     }
