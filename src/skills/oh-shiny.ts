@@ -32,23 +32,40 @@ async function stepThroughPortal(bot: Bot, wantNether: boolean, budgetMs: number
   if (inNether(bot) === wantNether) return true;
   const portal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 64 });
   if (!portal) return false;
-  // Stand BESIDE the doorway, then walk bodily into it — pathfinding to a
-  // passable block at range zero times out more often than it lands (the
-  // first firing died exactly there, five blocks from a lit portal). The
-  // teleport itself needs ~4 seconds standing inside the frame.
-  await safeGoto(bot, new goals.GoalNear(portal.position.x, portal.position.y, portal.position.z, 1), 45_000).catch(
-    () => {},
-  );
+  // Walking "forward at the centre" only works from the frame's two OPEN
+  // faces — an edge-on approach shoves the bot against obsidian forever,
+  // which is why one crossing succeeded (lucky angle) and the next four
+  // timed out. Read the portal plane's axis from its neighbors and try each
+  // open face in turn. The teleport itself needs ~4s standing in the frame.
+  const axisX =
+    bot.blockAt(portal.position.offset(1, 0, 0))?.name === "nether_portal" ||
+    bot.blockAt(portal.position.offset(-1, 0, 0))?.name === "nether_portal";
+  const entries = axisX
+    ? [
+        { x: portal.position.x, z: portal.position.z + 2 },
+        { x: portal.position.x, z: portal.position.z - 2 },
+      ]
+    : [
+        { x: portal.position.x + 2, z: portal.position.z },
+        { x: portal.position.x - 2, z: portal.position.z },
+      ];
   const centre = portal.position.offset(0.5, 0.5, 0.5);
   const deadline = Date.now() + budgetMs;
-  while (Date.now() < deadline) {
-    if (inNether(bot) === wantNether) {
-      bot.clearControlStates();
-      return true;
+  for (const entry of entries) {
+    if (Date.now() > deadline) break;
+    await safeGoto(bot, new goals.GoalNear(entry.x, portal.position.y, entry.z, 1), 30_000).catch(() => {});
+    const faceDeadline = Math.min(deadline, Date.now() + 15_000);
+    while (Date.now() < faceDeadline) {
+      if (inNether(bot) === wantNether) {
+        bot.clearControlStates();
+        return true;
+      }
+      await bot.lookAt(centre, true).catch(() => {});
+      bot.setControlState("forward", true);
+      await new Promise((r) => setTimeout(r, 500));
     }
-    await bot.lookAt(centre, true).catch(() => {});
-    bot.setControlState("forward", true);
-    await new Promise((r) => setTimeout(r, 500));
+    bot.clearControlStates();
+    if (inNether(bot) === wantNether) return true;
   }
   bot.clearControlStates();
   return inNether(bot) === wantNether;
