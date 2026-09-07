@@ -175,6 +175,7 @@ export class BotBrain {
   private lastShinyMs = 0;
   private bedClaimed = false;
   private lastBedClaimMs = 0;
+  private lastGoldBankMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1222,6 +1223,32 @@ export class BotBrain {
             this.log.info("Brain", `Bed-claim failed: ${(e as Error).message}`);
           }
         }
+        return;
+      }
+    }
+
+    // Smith-surplus gold deposit — the routing rails all flow TOWARD the
+    // smith, so Forge smelts the team's gold into his own pocket (13 ingots
+    // aboard tonight) while Blade's piglin trips beg an empty stash. The
+    // smith banks surplus gold whenever he is home; the ledger and Blade's
+    // withdraw do the rest.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.roleConfig.primarySmith) {
+      const goldAboard = this.bot.inventory
+        .items()
+        .filter((i) => i.name === "gold_ingot")
+        .reduce((s, i) => s + i.count, 0);
+      const spGold = this.roleConfig.stashPos;
+      const nearStashGold =
+        !!spGold && Math.hypot(this.bot.entity.position.x - spGold.x, this.bot.entity.position.z - spGold.z) < 40;
+      const cooledGold = Date.now() - this.lastGoldBankMs > 600_000;
+      if (goldAboard >= 4 && nearStashGold && cooledGold) {
+        this.lastGoldBankMs = Date.now();
+        this.log.info("Brain", `OVERRIDE: smith holding ${goldAboard} gold ingots — banking them for the piglin fund`);
+        this.events.onThought("The piglin fund needs this more than my pockets do.");
+        const result = await this.executeActionUnlessPaused("deposit_stash", {});
+        this.events.onAction("deposit_stash", result);
+        this.lastAction = "deposit_stash";
+        this.lastResult = result;
         return;
       }
     }
