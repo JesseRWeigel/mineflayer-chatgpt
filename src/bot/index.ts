@@ -26,11 +26,9 @@ import { executeChatCommand } from "./chat-command-handler.js";
 import { bumpNavGeneration, safeGoto, safeMoves } from "./navigation.js";
 import { recordDeath, startScoreboard } from "./scoreboard.js";
 import { createFallTracker, isFallDeath } from "./fall-tracker.js";
-import { respawnTarget, isAtBase } from "./respawn.js";
 import { shouldFleeOnRespawn } from "./respawn-safety.js";
 import { isHostile } from "./perception.js";
 import { executeAction } from "./actions.js";
-import { Vec3 } from "vec3";
 
 // Re-export types used by src/index.ts
 export type { ChatMessage, BrainEvents as BotEvents };
@@ -168,203 +166,16 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     if (spawnSafetyRunning) return;
     spawnSafetyRunning = true;
     await new Promise((r) => setTimeout(r, 800));
-
-    // /spawnpoint and /tp issued by a bot standing in the Nether act IN the
-    // Nether — Forge died 58 times in one session because every respawn
-    // re-stamped a piglin-side spawnpoint at stash coordinates and teleported
-    // him straight back to it. Outside the overworld, repair the spawnpoint
-    // into the overworld explicitly and stop; the stranded-in-the-Nether
-    // override walks the bot home through the portal.
-    const dimNow = String(bot.game.dimension);
-    if (dimNow !== "overworld" && dimNow !== "minecraft:overworld") {
-      if (roleConfig.stashPos) {
-        const s = roleConfig.stashPos;
-        bot.chat(`/execute in minecraft:overworld run spawnpoint ${roleConfig.username} ${s.x} ${s.y} ${s.z}`);
-        console.log(
-          `[Bot] ${roleConfig.name} outside the overworld — spawnpoint repaired to the stash, safety skipped`,
-        );
-      }
-      spawnSafetyRunning = false;
-      return;
-    }
-
-    // Go straight home when there is a base to go to.
-    //
-    // safeSpawn resolves to terrain at y=117-121 — a mountain. spreadplayers put
-    // the bot there on EVERY call, and c3c7808 then teleported it back down, so
-    // the bot spent a live window standing on a peak 50 blocks above its base.
-    // Across 33 relocations that window produced 13 fall deaths, all from y=119
-    // and y=121, the exact altitudes in the "Landed at" lines.
-    //
-    // Correcting a hazard after deliberately creating it cannot beat not
-    // creating it. The stash is proven standable — bots path to it and stand
-    // there to deposit all day — so it is a better spawn than the topmost block
-    // of whatever terrain safeSpawn happens to name.
-    if (roleConfig.stashPos) {
-      const s = roleConfig.stashPos;
-      bot.chat(`/spawnpoint ${roleConfig.username} ${s.x} ${s.y} ${s.z}`);
-      await new Promise((r) => setTimeout(r, 400));
-      bot.chat(`/tp ${roleConfig.username} ${s.x} ${s.y + 1} ${s.z}`);
-      await new Promise((r) => setTimeout(r, 1500));
-      // Verify rather than assume. c3c7808 logged "bot moved to base" 33 times
-      // while bots kept dying on the peak, and I read those lines as proof the
-      // move had happened. A command that was sent is not a bot that arrived.
-      const arrived = bot.entity.position.distanceTo(new Vec3(s.x, s.y, s.z));
-      console.log(
-        `[Bot] Spawn at base ${s.x},${s.y},${s.z} — bot is ${arrived.toFixed(1)} blocks away ` +
-          `(y=${bot.entity.position.y.toFixed(0)}) ${arrived <= 8 ? "OK" : "TELEPORT DID NOT LAND"}`,
-      );
-      spawnSafetyRunning = false;
-      resolveSpawnSafetyDone();
-      return;
-    }
-
-    if (roleConfig.safeSpawn) {
-      const { x, z } = roleConfig.safeSpawn;
-      console.log(`[Bot] safeSpawn configured — teleporting to ${x},80,${z}`);
-      const preTpX = bot.entity.position.x;
-      const preTpZ = bot.entity.position.z;
-      // spreadplayers lands on the topmost safe block (no suffocation, no falls)
-      bot.chat(`/spreadplayers ${x} ${z} 0 2 false ${roleConfig.username}`);
-      const moveDeadline = Date.now() + 5_000;
-      while (Date.now() < moveDeadline) {
-        await new Promise((r) => setTimeout(r, 200));
-        const moved = Math.abs(bot.entity.position.x - preTpX) + Math.abs(bot.entity.position.z - preTpZ);
-        if (moved > 5) break;
-      }
-      const landDeadline = Date.now() + 6_000;
-      while (!bot.entity.onGround && Date.now() < landDeadline) {
-        await new Promise((r) => setTimeout(r, 200));
-        const feetBlock = bot.blockAt(bot.entity.position);
-        if (feetBlock?.name === "water") break;
-      }
-      const feetCheck = bot.blockAt(bot.entity.position);
-      if (feetCheck?.name === "water") {
-        console.warn(`[Bot] safeSpawn landed in water — falling through to water handler`);
-        spawnSafetyRunning = false;
-        resolveSpawnSafetyDone();
-        return;
-      }
-      const lx = Math.floor(bot.entity.position.x);
-      const ly = Math.floor(bot.entity.position.y);
-      const lz = Math.floor(bot.entity.position.z);
-      // spreadplayers lands on the TOPMOST safe block, which on this terrain is
-      // a mountain peak. See respawn.ts: 49 spawnpoints set at y=114-121 while
-      // the stash sits at y=70, and Forge then died 29 times, 28 of them falls,
-      // from exactly those heights. Safe against suffocation is not safe.
-      const spawn = respawnTarget({ x: lx, y: ly, z: lz }, roleConfig.stashPos);
-      bot.chat(`/spawnpoint ${roleConfig.username} ${spawn.x} ${spawn.y} ${spawn.z}`);
-      if (spawn.y !== ly) {
-        // ae5325a moved the SPAWNPOINT to base but left the bot standing where
-        // spreadplayers had put it. That is the peak. The guard then fired 44
-        // times in one hour while Forge died 24 more times falling from y=118
-        // to y=121 — the same altitudes spreadplayers had just chosen for him.
-        // Redirecting where a bot will respawn is useless while it is still
-        // stranded on the cliff; move the body too.
-        console.log(
-          `[Bot] Landed at ${lx},${ly},${lz} — ${ly - spawn.y} above the stash, ` +
-            `spawnpoint AND bot moved to base ${spawn.x},${spawn.y},${spawn.z}`,
-        );
-        bot.chat(`/tp ${roleConfig.username} ${spawn.x} ${spawn.y + 1} ${spawn.z}`);
-        await new Promise((r) => setTimeout(r, 1000));
-      } else {
-        console.log(`[Bot] Landed at ${lx},${ly},${lz} — setting spawnpoint`);
-      }
-      spawnSafetyRunning = false;
-      resolveSpawnSafetyDone();
-      return;
-    }
-
-    // If still falling, wait until onGround
-    if (!bot.entity.onGround) {
-      console.log(`[Bot] Spawn at Y=${bot.entity.position.y.toFixed(1)} — waiting for landing...`);
-      const deadline = Date.now() + 60_000;
-      while (!bot.entity.onGround && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 300));
-      }
-      if (!bot.entity.onGround) {
-        const px = Math.floor(bot.entity.position.x);
-        const pz = Math.floor(bot.entity.position.z);
-        bot.chat(`/spreadplayers ${px} ${pz} 0 2 false ${roleConfig.username}`);
-        await new Promise((r) => setTimeout(r, 3000));
-      }
-    }
-
-    const pos = bot.entity.position;
-    const feet = bot.blockAt(pos);
-    const below = bot.blockAt(pos.offset(0, -1, 0));
-
-    // In water — find land
-    if (feet?.name === "water" || below?.name === "water") {
-      console.log("[Bot] In water — using /tp to find land");
-      const sx = Math.floor(pos.x);
-      const sz = Math.floor(pos.z);
-      let foundLand = false;
-      for (const [dx, dz] of [
-        [0, 300],
-        [300, 0],
-        [0, -300],
-        [-300, 0],
-        [300, 300],
-      ]) {
-        bot.chat(`/spreadplayers ${sx + dx} ${sz + dz} 0 2 false ${roleConfig.username}`);
-        await new Promise((r) => setTimeout(r, 3000));
-        const fb = bot.blockAt(bot.entity.position);
-        if (fb && fb.name !== "water" && fb.name !== "air") {
-          const lx = Math.floor(bot.entity.position.x);
-          const ly = Math.floor(bot.entity.position.y);
-          const lz = Math.floor(bot.entity.position.z);
-          bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
-          console.log(`[Bot] Spawnpoint set to land at ${lx},${ly},${lz}`);
-          foundLand = true;
-          break;
-        }
-      }
-      if (!foundLand) console.warn("[Bot] Could not find dry land for spawnpoint");
-      spawnSafetyRunning = false;
-      resolveSpawnSafetyDone();
-      return;
-    }
-
-    // Underground — TP to surface.
-    //
-    // Skipped at base. This check is an absolute height test that assumes the
-    // base sits above y=100; ours is at y=70, so once respawns started coming
-    // home every arriving bot was judged trapped, teleported to y=200, and
-    // landed on a peak at y=118-121 — the heights it then fell 33 blocks from.
-    // The respawn guard fired 44 times in an hour and Forge still died 24 times,
-    // because this undid it seconds later.
-    if (pos.y < 100 && !isAtBase(pos, roleConfig.stashPos)) {
-      let hasCeiling = false;
-      for (let dy = 1; dy <= 6; dy++) {
-        const b = bot.blockAt(pos.offset(0, dy, 0));
-        if (b && b.name !== "air" && b.name !== "cave_air") {
-          hasCeiling = true;
-          break;
-        }
-      }
-      if (hasCeiling) {
-        const sx = Math.floor(pos.x);
-        const sz = Math.floor(pos.z);
-        console.log(`[Bot] Underground at Y=${pos.y.toFixed(0)} — /tp to surface`);
-        bot.chat(`/effect give ${roleConfig.username} slow_falling 60 1`);
-        await new Promise((r) => setTimeout(r, 500));
-        bot.chat(`/tp ${sx} 200 ${sz}`);
-        const deadline = Date.now() + 60_000;
-        while (!bot.entity.onGround && Date.now() < deadline) {
-          await new Promise((r) => setTimeout(r, 300));
-        }
-      }
-    }
-
-    const lx = Math.floor(bot.entity.position.x);
-    const ly = Math.floor(bot.entity.position.y);
-    const lz = Math.floor(bot.entity.position.z);
-    // No stash to aim at — the branch above returns whenever one is known — so
-    // there is no base to compare this landing against and nothing to redirect
-    // to. Lock in wherever the bot legitimately ended up.
-    bot.chat(`/spawnpoint ${roleConfig.username} ${lx} ${ly} ${lz}`);
-    console.log(`[Bot] Spawnpoint locked at ${lx},${ly},${lz} (no stash configured)`);
+    // HONEST-SPAWN ERA (Jesse's ruling, 2026-09-07): the /spawnpoint, /tp,
+    // and /spreadplayers plumbing that used to live here is gone. Bots
+    // respawn wherever the server says and WALK; respawn points are earned
+    // the vanilla way — the brain's bed-claim reflex uses a bed, which sets
+    // the respawn point even in daylight. keepInventory stays on as the
+    // run's one documented concession, to be reconsidered later.
+    const p = bot.entity.position;
+    console.log(
+      `[Bot] ${roleConfig.name} spawned at ${Math.floor(p.x)},${Math.floor(p.y)},${Math.floor(p.z)} — no spawn commands (honest-spawn era)`,
+    );
     spawnSafetyRunning = false;
     resolveSpawnSafetyDone();
   }

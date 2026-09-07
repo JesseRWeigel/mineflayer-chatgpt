@@ -577,6 +577,18 @@ Drop a `.js` file into `skills/voyager/`. The function name must match the filen
 
 ---
 
+## Run conditions (advancement run, updated 2026-09-07)
+
+The autonomous advancement run plays survival with two documented conditions:
+
+- **keepInventory is ON** — the run's one concession, approved by Jesse on
+  2026-09-07 after weighing the swarm's death rate (10-55/day) against the
+  five-minute despawn timer. It grants no advancements; it removes the item
+  penalty of dying. To be reconsidered once the swarm has an armor economy.
+- **No spawn commands** — the historical `/spawnpoint` + `/tp`-to-base respawn
+  plumbing was removed the same day. Bots respawn where the server says and
+  walk home; respawn points are earned the vanilla way by using beds.
+
 ## Credits
 
 - Originated as `mineflayer-chatgpt` by Jesse Weigel (a single ChatGPT-driven bot)

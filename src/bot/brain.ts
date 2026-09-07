@@ -173,6 +173,8 @@ export class BotBrain {
   private lastStringHuntMs = 0;
   private lastAimMs = 0;
   private lastShinyMs = 0;
+  private bedClaimed = false;
+  private lastBedClaimMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1193,6 +1195,34 @@ export class BotBrain {
           this.lastResult = result;
           return;
         }
+      }
+    }
+
+    // Bed-claim reflex — honest-spawn era (Jesse's ruling 2026-09-07): the
+    // /spawnpoint plumbing is gone, so each bot claims a bed once per
+    // session. In modern Java, USING a bed sets the respawn point even in
+    // daylight; at night this same click just sleeps, which also sets it.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && !this.bedClaimed) {
+      const bed = this.bot.findBlock({ matching: (b) => b.name.endsWith("_bed"), maxDistance: 48 });
+      const cooledClaim = Date.now() - this.lastBedClaimMs > 180_000;
+      if (bed && cooledClaim) {
+        this.lastBedClaimMs = Date.now();
+        this.log.info("Brain", `Bed-claim: walking to the bed at ${bed.position} for an honest respawn point`);
+        await this.executeActionUnlessPaused("go_to", {
+          x: bed.position.x,
+          y: bed.position.y,
+          z: bed.position.z,
+        });
+        if (this.bot.entity.position.distanceTo(bed.position) < 4) {
+          try {
+            await this.bot.activateBlock(bed);
+            this.bedClaimed = true;
+            this.log.info("Brain", "Bed-claim: respawn point set the vanilla way");
+          } catch (e) {
+            this.log.info("Brain", `Bed-claim failed: ${(e as Error).message}`);
+          }
+        }
+        return;
       }
     }
 
