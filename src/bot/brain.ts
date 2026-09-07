@@ -172,6 +172,7 @@ export class BotBrain {
   private lastTameMs = 0;
   private lastStringHuntMs = 0;
   private lastAimMs = 0;
+  private lastShinyMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1274,6 +1275,31 @@ export class BotBrain {
           this.lastResult = result;
           return;
         }
+      }
+    }
+
+    // Oh Shiny reflex (Blade) — 12 banked gold ingots and a lit portal are a
+    // piglin advancement waiting to happen. Daytime departures only (the
+    // walk to the portal at night is how bots die), from the stash where the
+    // gold and crafting table live.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.bot.username === "Blade") {
+      const earnedShiny = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const shinyDone =
+        earnedShiny.has("nether/distract_piglin") || earnedShiny.has("minecraft:nether/distract_piglin");
+      const cooledShiny = Date.now() - this.lastShinyMs > 1_800_000;
+      const todShiny = this.bot.time?.timeOfDay ?? 0;
+      const spShiny = this.roleConfig.stashPos;
+      const nearStashShiny =
+        !!spShiny && Math.hypot(this.bot.entity.position.x - spShiny.x, this.bot.entity.position.z - spShiny.z) < 40;
+      if (!shinyDone && cooledShiny && todShiny < 11000 && nearStashShiny) {
+        this.lastShinyMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: gold banked, portal lit, piglin unmet — running oh_shiny");
+        this.events.onThought("Golden boots, pocket of ingots, and a doorway to pig country. Business trip.");
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "oh_shiny" });
+        this.events.onAction("oh_shiny", result);
+        this.lastAction = "oh_shiny";
+        this.lastResult = result;
+        return;
       }
     }
 
