@@ -173,16 +173,23 @@ export const ohShinySkill: Skill = {
           // use-item path for saddles and shears. The first direct attempt
           // sent only useOn and the criteria file stayed empty — send the
           // interact, with held-item and range logged so a miss has a name.
-          for (let k = 0; k < 3 && piglin.isValid; k++) {
-            await bot.lookAt(piglin.position.offset(0, 1.6, 0), true).catch(() => {});
+          for (let k = 0; k < 4 && piglin.isValid; k++) {
+            // Re-close the gap EVERY round — the piglin wanders, and the
+            // adult-piglin trip sent all three interacts from 8+ blocks out
+            // (interact reach is ~4), two of them holding a pickaxe. Equip
+            // first, approach second, and only send when both are right.
+            const g = bot.inventory.items().find((i) => i.name === "gold_ingot");
+            if (!g && bot.heldItem?.name !== "gold_ingot") break;
+            if (bot.heldItem?.name !== "gold_ingot" && g) await bot.equip(g, "hand").catch(() => {});
+            await safeGoto(bot, new goals.GoalFollow(piglin, 2), 12_000).catch(() => {});
             const held = bot.heldItem?.name ?? "empty";
             const range = bot.entity.position.distanceTo(piglin.position);
             console.log(`[ShinyDebug] direct hand-off ${k + 1}: held=${held} dist=${range.toFixed(1)}`);
-            if (held !== "gold_ingot") {
-              const g = bot.inventory.items().find((i) => i.name === "gold_ingot");
-              if (!g) break;
-              await bot.equip(g, "hand").catch(() => {});
+            if (range > 3.5 || held !== "gold_ingot") {
+              console.log(`[ShinyDebug] hand-off ${k + 1} skipped (out of reach or wrong item) — re-approaching`);
+              continue;
             }
+            await bot.lookAt(piglin.position.offset(0, 1.6, 0), true).catch(() => {});
             try {
               await (bot as any).activateEntity(piglin);
             } catch (e) {
