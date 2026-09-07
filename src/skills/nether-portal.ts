@@ -215,7 +215,7 @@ async function carveSite(bot: Bot, origin: Vec3Like, axis: "x" | "z"): Promise<v
 // the approach, so this is a time-budgeted loop in the walk-armor pattern:
 // re-approach after a hijack, walk the last step on manual controls, stand
 // still inside until the dimension flips.
-async function crossPortal(
+export async function crossPortal(
   bot: Bot,
   doorway: Vec3,
   budgetMs: number,
