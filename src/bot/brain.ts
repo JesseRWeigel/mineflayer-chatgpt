@@ -1243,6 +1243,24 @@ export class BotBrain {
       const cooledGold = Date.now() - this.lastGoldBankMs > 600_000;
       if (goldAboard >= 4 && nearStashGold && cooledGold) {
         this.lastGoldBankMs = Date.now();
+        // Hand-deliver when the spender is in sight: the chest run keeps
+        // dying to village-clutter pathfinding ("Stuck" four straight
+        // firings), while the point-blank give rail is custody-verified and
+        // walks three blocks. Blade is the whole reason the fund exists.
+        const blade = this.bot.players["Blade"]?.entity;
+        if (blade && this.bot.username !== "Blade" && this.bot.entity.position.distanceTo(blade.position) < 24) {
+          this.log.info("Brain", `OVERRIDE: smith holding ${goldAboard} gold — handing it straight to Blade`);
+          this.events.onThought("Blade! Payroll for the piglin fund. Catch.");
+          const result = await this.executeActionUnlessPaused("give_item", {
+            to: "Blade",
+            item: "gold_ingot",
+            count: 9,
+          });
+          this.events.onAction("give_item", result);
+          this.lastAction = "give_item";
+          this.lastResult = result;
+          return;
+        }
         this.log.info("Brain", `OVERRIDE: smith holding ${goldAboard} gold ingots — banking them for the piglin fund`);
         this.events.onThought("The piglin fund needs this more than my pockets do.");
         // deposit_stash reads its stash from PARAMS — the first five firings

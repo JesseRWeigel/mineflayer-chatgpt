@@ -301,6 +301,9 @@ export const BLADE_CONFIG: BotRoleConfig = {
     { name: "shield", minCount: 1 },
     { name: "food", minCount: 8 },
     { name: "armor", minCount: 4 },
+    // Piglin-fund pocket: hand-delivered gold must survive Blade's own
+    // deposits or the smith's delivery boomerangs into the messy chests.
+    { name: "gold_ingot", minCount: 9 },
   ],
   priorities: `BLADE PRIORITIES:
 1. If hostile mob within 16 blocks: neural_combat
