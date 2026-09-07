@@ -78,6 +78,24 @@ export const ohShinySkill: Skill = {
           (e: Error) => `threw: ${e.message}`,
         );
         console.log(`[ShinyDebug] gold withdraw (want ${needGold}): ${wres}`);
+        // Ingot drought: the stash's remaining gold is RAW. Take it aboard
+        // and hand back — the raw-metal-aboard override smelts whatever a
+        // bot carries (Blade's role now includes smelt_ores), and the next
+        // firing finds real ingots in the pocket.
+        if (count(bot, "gold_ingot") < needGold && count(bot, "raw_gold") < 1) {
+          const rres = await withdrawStash(bot, STASH_POS, "raw_gold", 6, 40_000).catch(
+            (e: Error) => `threw: ${e.message}`,
+          );
+          console.log(`[ShinyDebug] raw gold withdraw: ${rres}`);
+          if (count(bot, "raw_gold") > 0) {
+            return {
+              success: false,
+              message: resumable(
+                `Raw gold aboard (${count(bot, "raw_gold")}) — the smelter reflex cooks it into ingots.`,
+              ),
+            };
+          }
+        }
       }
       if (!hasBoots) {
         if (count(bot, "gold_ingot") < 5) {

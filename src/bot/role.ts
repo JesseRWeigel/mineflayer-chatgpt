@@ -292,7 +292,10 @@ export const BLADE_CONFIG: BotRoleConfig = {
   // bot carrying saplings — the replanting branch lives inside gather_wood,
   // and the one bot who could reforest was the one bot barred from trying.
   allowedActions: ["attack", "flee", "go_to", "gather_wood", "eat", "sleep", "chat"],
-  allowedSkills: ["neural_combat", "craft_gear", "build_nether_portal"],
+  // smelt_ores added for the gold economy: the piglin campaign runs on gold
+  // ingots and the stash's last five are RAW — with this skill in the list,
+  // the standing raw-metal-aboard override cooks whatever oh_shiny withdraws.
+  allowedSkills: ["neural_combat", "craft_gear", "build_nether_portal", "smelt_ores"],
   keepItems: [
     { name: "sword", minCount: 1 },
     { name: "shield", minCount: 1 },
