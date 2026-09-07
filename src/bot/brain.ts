@@ -168,6 +168,7 @@ export class BotBrain {
   private lastFishOverrideMs = 0;
   private lastToolReturnMs = 0;
   private lastLeatherHuntMs = 0;
+  private lastBedPrepMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1188,6 +1189,42 @@ export class BotBrain {
           this.lastResult = result;
           return;
         }
+      }
+    }
+
+    // Bed-prep reflex (Flora). Nobody has EVER slept — sleep_in_a_bed is
+    // unearned across 5 bots and hundreds of nights — while 11 white wool sit
+    // banked 15 blocks from where she idles. The sleep action already crafts
+    // and places a bed on its own, but only from POCKET wool. Stock her by
+    // day; the night reflex does the rest.
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.bot.username === "Flora" &&
+      this.roleConfig.stashPos
+    ) {
+      const earnedBed = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const sleptDone =
+        earnedBed.has("adventure/sleep_in_a_bed") || earnedBed.has("minecraft:adventure/sleep_in_a_bed");
+      const tod = this.bot.time?.timeOfDay ?? 0;
+      const wool = this.bot.inventory
+        .items()
+        .filter((i) => i.name === "white_wool")
+        .reduce((s, i) => s + i.count, 0);
+      const p = this.bot.entity.position;
+      const nearStash = Math.hypot(p.x - this.roleConfig.stashPos.x, p.z - this.roleConfig.stashPos.z) < 40;
+      const cooled = Date.now() - this.lastBedPrepMs > 900_000;
+      if (!sleptDone && tod < 11000 && wool < 3 && nearStash && cooled) {
+        this.lastBedPrepMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: nobody has ever slept — stocking Flora with wool for tonight's bed");
+        this.events.onThought("Tonight I sleep in a real bed. Fetching wool.");
+        const { withdrawStash } = await import("../skills/stash.js");
+        const result = await withdrawStash(this.bot, this.roleConfig.stashPos, "white_wool", 3, 60_000).catch(
+          (e: Error) => `withdraw failed: ${e.message}`,
+        );
+        this.log.info("Brain", `Bed prep: ${result}`);
+        this.lastAction = "bed_prep";
+        return;
       }
     }
 

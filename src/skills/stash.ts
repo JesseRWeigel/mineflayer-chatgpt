@@ -568,6 +568,17 @@ export function shouldKeep(
     }
     return false;
   }
+  // A bed is 3 wool, and the sleep action crafts one all by itself — but only
+  // from POCKET wool. Without a floor, the wool Flora withdraws for tonight's
+  // bed boomerangs into a chest on her next deposit before dusk.
+  if (itemName === "white_wool") {
+    const kept = currentCounts.get("__white_wool") ?? 0;
+    if (kept < 3) {
+      currentCounts.set("__white_wool", kept + itemCount);
+      return true;
+    }
+    return false;
+  }
 
   if (itemName === "diamond") {
     // The 5-diamond pocket reserve is for the bot that can SPEND them — the

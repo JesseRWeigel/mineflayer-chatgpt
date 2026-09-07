@@ -1865,8 +1865,11 @@ async function sleepInBed(bot: Bot): Promise<string> {
   // ~35 blocks from the stash where bots idle at night. Every one of the 68
   // "No bed and no wool" reflex failures on the first real night happened
   // within walking distance of a bed the search radius missed by 3 blocks.
+  // endsWith("_bed"), never includes("bed"): the old match caught BEDROCK,
+  // and every underground bot spent its night reflex trying to tuck itself
+  // into the bottom of the world ("wrong block: not a bed block").
   let bed = bot.findBlock({
-    matching: (b) => b.name.includes("bed"),
+    matching: (b) => b.name.endsWith("_bed"),
     maxDistance: 64,
   });
 
@@ -1943,7 +1946,7 @@ async function sleepInBed(bot: Bot): Promise<string> {
     }
 
     if (!placed) return "Can't place bed here — terrain too rough. Explore to find flat open ground.";
-    bed = bot.findBlock({ matching: (b) => b.name.includes("bed"), maxDistance: 8 });
+    bed = bot.findBlock({ matching: (b) => b.name.endsWith("_bed"), maxDistance: 8 });
   }
 
   if (!bed) return "Bed disappeared after placing!";
