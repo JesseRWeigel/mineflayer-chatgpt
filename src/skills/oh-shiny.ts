@@ -3,7 +3,7 @@ import type { Skill, SkillResult } from "./types.js";
 import pkg from "mineflayer-pathfinder";
 const { goals } = pkg;
 import mcDataLoader from "minecraft-data";
-import { baseMoves, safeGoto } from "../bot/navigation.js";
+import { baseMoves, safeGoto, collectNearbyDrops } from "../bot/navigation.js";
 
 /**
  * oh_shiny — distract a piglin with gold (nether/distract_piglin).
@@ -26,6 +26,27 @@ function count(bot: Bot, name: string): number {
 function inNether(bot: Bot): boolean {
   const d = String(bot.game.dimension);
   return d === "the_nether" || d === "minecraft:the_nether";
+}
+
+async function craftAtTable(bot: Bot, want: string, n: number): Promise<boolean> {
+  const mc = mcDataLoader(bot.version);
+  const item = mc.itemsByName[want];
+  if (!item) return false;
+  const table = bot.findBlock({ matching: (b) => b.name === "crafting_table", maxDistance: 48 });
+  if (!table) return false;
+  try {
+    await safeGoto(bot, new goals.GoalNear(table.position.x, table.position.y, table.position.z, 2), 20_000);
+  } catch {
+    /* craft still tries from where we are */
+  }
+  const recipe = bot.recipesFor(item.id, null, n, table)[0];
+  if (!recipe) return false;
+  try {
+    await bot.craft(recipe, n, table);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function stepThroughPortal(bot: Bot, wantNether: boolean, budgetMs: number): Promise<boolean> {
@@ -120,8 +141,21 @@ export const ohShinySkill: Skill = {
       }
       const boots = bot.inventory.items().find((i) => i.name === "golden_boots");
       if (boots) await bot.equip(boots, "feet").catch(() => {});
+      // Self-funding: 9 nuggets craft an ingot, and the Nether leg below
+      // mines nether gold ore when the pockets are empty — the stash ran
+      // completely dry of gold, and waiting on overworld vein luck parked
+      // the campaign. The Nether is made of gold; go get it.
+      if (count(bot, "gold_ingot") < 1 && count(bot, "gold_nugget") >= 9) {
+        step("Crafting ingots from mined nuggets...", 0.3);
+        const crafted = await craftAtTable(bot, "gold_ingot", Math.floor(count(bot, "gold_nugget") / 9));
+        console.log(`[ShinyDebug] nugget craft: ${crafted} -> ${count(bot, "gold_ingot")} ingots`);
+      }
       if (count(bot, "gold_ingot") < 1) {
-        return { success: false, message: resumable("Boots on but no ingot left to toss — withdraw more gold.") };
+        const bootsOn = bot.inventory.slots.some((s) => s?.name === "golden_boots");
+        if (!bootsOn) {
+          return { success: false, message: resumable("No gold and no boots — need gold income first.") };
+        }
+        console.log("[ShinyDebug] goldless trip — heading over to MINE nether gold ore");
       }
 
       step("Stepping through the portal...", 0.35);
@@ -134,6 +168,47 @@ export const ohShinySkill: Skill = {
     // --- Nether: find a piglin, keep the portal at our back ---
     step("In the Nether — looking for a piglin...", 0.5);
     const homePortal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 24 });
+
+    // Goldless trip: MINE instead of barter. Nether gold ore is everywhere
+    // near the surface, digs with any pickaxe, and drops 2-6 nuggets each.
+    if (count(bot, "gold_ingot") < 1) {
+      step("Mining nether gold ore near the portal...", 0.55);
+      const mineStart = Date.now();
+      let dug = 0;
+      while (dug < 6 && Date.now() - mineStart < 150_000 && !signal.aborted) {
+        const ore = bot.findBlock({ matching: (b) => b.name === "nether_gold_ore", maxDistance: 40 });
+        if (!ore) break;
+        const pick = bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"));
+        if (!pick) break;
+        await bot.equip(pick, "hand").catch(() => {});
+        try {
+          await safeGoto(bot, new goals.GoalNear(ore.position.x, ore.position.y, ore.position.z, 3), 30_000);
+          const fresh = bot.blockAt(ore.position);
+          if (fresh && fresh.name === "nether_gold_ore") await bot.dig(fresh);
+          dug++;
+        } catch (e) {
+          console.log(`[ShinyDebug] gold-ore dig failed: ${(e as Error).message}`);
+          break;
+        }
+      }
+      await collectNearbyDrops(bot, 8, 6000);
+      console.log(`[ShinyDebug] mined ${dug} nether_gold_ore — nuggets now ${count(bot, "gold_nugget")}`);
+      step("Hauling the nuggets home...", 0.9);
+      if (homePortal) {
+        await safeGoto(
+          bot,
+          new goals.GoalNear(homePortal.position.x, homePortal.position.y, homePortal.position.z, 2),
+          60_000,
+        ).catch(() => {});
+        await stepThroughPortal(bot, false, 30_000);
+      }
+      return {
+        success: dug > 0,
+        message: resumable(
+          `Mined ${dug} gold ore (${count(bot, "gold_nugget")} nuggets aboard) — next trip crafts ingots and pays the piglin.`,
+        ),
+      };
+    }
     // Adults only: a baby piglin SNATCHES gold from your hand and grants
     // nothing — no admire, no barter, no criteria progress, which matches
     // this trip's evidence exactly (held gold_ingot -> empty at 1.3 blocks,
