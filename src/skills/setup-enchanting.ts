@@ -424,6 +424,9 @@ export const setupEnchantingSkill: Skill = {
               } catch {
                 /* best effort */
               }
+              console.log(
+                `[HuntDebug] ${bot.username} vs ${cow.name}: targetDead=${!cow.isValid} leather=${count(bot, "leather")}`,
+              );
             }
           }
         }

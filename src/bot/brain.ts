@@ -167,6 +167,7 @@ export class BotBrain {
   private lastBreedOverrideMs = 0;
   private lastFishOverrideMs = 0;
   private lastToolReturnMs = 0;
+  private lastLeatherHuntMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1162,6 +1163,34 @@ export class BotBrain {
       }
     }
 
+    // Opportunistic leather reflex — EVERY bot is a scout for the book.
+    // Forge's own hunt sweeps out from the stash, but the animals spawn
+    // wherever they like: the one cow that ever came in range wandered off
+    // between skill firings, and a horse got eaten with a zero-leather drop.
+    // Five pairs of eyes beat one; any bot that can SEE a leather-bearing
+    // animal while the Enchanter is unearned takes the shot. The leather then
+    // reaches Forge via the routing reflex below or the stash ledger.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot)) {
+      const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const enchanterDone = earned.has("story/enchant_item") || earned.has("minecraft:story/enchant_item");
+      const holdsLeather = this.bot.inventory.items().some((i) => i.name === "leather");
+      const cooled = Date.now() - this.lastLeatherHuntMs > 180_000;
+      if (!enchanterDone && !holdsLeather && cooled) {
+        const { nearestLeatherDropper } = await import("../skills/hunt-leather.js");
+        const prey = nearestLeatherDropper(this.bot);
+        if (prey && this.bot.entity.position.distanceTo(prey.position) < 24) {
+          this.lastLeatherHuntMs = Date.now();
+          this.log.info("Brain", `OVERRIDE: ${prey.name} in sight and the book still needs leather — hunting`);
+          this.events.onThought(`A ${prey.name}! That's the book's leather walking around right there.`);
+          const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "hunt_leather" });
+          this.events.onAction("hunt_leather", result);
+          this.lastAction = "hunt_leather";
+          this.lastResult = result;
+          return;
+        }
+      }
+    }
+
     // Tool-return reflex. The best-pickaxe deposit policy (c01bf0d) only
     // works if the holder ever visits the stash, and Blade — carrying the
     // team's only iron pickaxe he cannot swing — chose deposit_stash zero
@@ -1202,7 +1231,12 @@ export class BotBrain {
       const holdsSpareIron =
         !this.roleConfig.primarySmith &&
         this.bot.inventory.items().some((i) => i.name === "iron_ingot" || i.name === "raw_iron");
-      const wantsReturn = (holdsPick && !canMine) || holdsDiamond || holdsSpareIron;
+      // Leather rides the same rail as diamonds: only the smith assembles the
+      // book, so leather in any other pocket is the hunt reflex's kill going
+      // stale. Hand it straight over when Forge is in sight.
+      const holdsSpareLeather =
+        !this.roleConfig.primarySmith && this.bot.inventory.items().some((i) => i.name === "leather");
+      const wantsReturn = (holdsPick && !canMine) || holdsDiamond || holdsSpareIron || holdsSpareLeather;
       // 5min, down from 10: every attempt is a lottery ticket on a quiet
       // window between mob waves — run 380 got five tickets and no winner.
       const cooledDown = Date.now() - this.lastToolReturnMs > 300_000;
@@ -1232,7 +1266,7 @@ export class BotBrain {
         // Diamonds and iron both go to the single smith who can use them; only
         // a stray pickaxe may go to any crafter-miner. Never target self —
         // bot.players includes the bot itself at distance zero.
-        const targetNames = holdsDiamond || ironReturn ? smithNames : minerNames;
+        const targetNames = holdsDiamond || holdsSpareLeather || ironReturn ? smithNames : minerNames;
         const nearbyMiner = targetNames.find((n) => {
           if (n === this.bot.username) return false;
           const e = this.bot.players[n]?.entity;
@@ -1241,11 +1275,13 @@ export class BotBrain {
         if (nearbyMiner) {
           const itemToGive = holdsDiamond
             ? "diamond"
-            : returnablePick
-              ? (this.bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"))?.name ?? "iron_ingot")
-              : this.bot.inventory.items().some((i) => i.name === "iron_ingot")
-                ? "iron_ingot"
-                : "raw_iron";
+            : holdsSpareLeather
+              ? "leather"
+              : returnablePick
+                ? (this.bot.inventory.items().find((i) => i.name.endsWith("_pickaxe"))?.name ?? "iron_ingot")
+                : this.bot.inventory.items().some((i) => i.name === "iron_ingot")
+                  ? "iron_ingot"
+                  : "raw_iron";
           this.log.info("Brain", `OVERRIDE: handing ${itemToGive} to ${nearbyMiner} (miner nearby)`);
           this.events.onThought(`${nearbyMiner} can actually use this. Here, catch!`);
           const result = await this.executeActionUnlessPaused("give_item", {
