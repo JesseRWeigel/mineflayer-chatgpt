@@ -52,6 +52,26 @@ export const huntLeatherSkill: Skill = {
     const startDist = bot.entity.position.distanceTo(target.position);
     step(`Hunting a ${species} (${startDist.toFixed(0)} blocks away)...`, 0.2);
 
+    // A full pocket can't pick the drop up — the likely story behind a night
+    // of confirmed kills with zero leather banked. Shed mining junk first.
+    if (bot.inventory.emptySlotCount() < 2) {
+      const JUNK = new Set([
+        "cobblestone",
+        "cobbled_deepslate",
+        "dirt",
+        "gravel",
+        "andesite",
+        "diorite",
+        "granite",
+        "tuff",
+        "netherrack",
+      ]);
+      for (const it of bot.inventory.items()) {
+        if (bot.inventory.emptySlotCount() >= 2) break;
+        if (JUNK.has(it.name)) await bot.toss(it.type, null, it.count).catch(() => {});
+      }
+    }
+
     const before = countLeather(bot);
     const weapon =
       bot.inventory.items().find((i) => i.name.endsWith("_sword")) ??

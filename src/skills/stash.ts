@@ -1363,12 +1363,40 @@ export async function withdrawStash(
       for (const slot of container.containerItems()) {
         if (withdrawn >= needed) break;
         if (slot.name.includes(matchName)) {
+          // A FULL inventory makes withdraw throw — and the old silent catch
+          // turned that into "no leather in the stash" while Forge stood at
+          // an open chest holding five of them. Bank junk into this very
+          // chest to make room first.
+          if (bot.inventory.emptySlotCount() < 1) {
+            const JUNK = [
+              "cobblestone",
+              "cobbled_deepslate",
+              "dirt",
+              "gravel",
+              "andesite",
+              "diorite",
+              "granite",
+              "tuff",
+              "netherrack",
+            ];
+            for (const j of bot.inventory.items()) {
+              if (bot.inventory.emptySlotCount() >= 2) break;
+              if (JUNK.includes(j.name)) {
+                try {
+                  await container.deposit(j.type, null, j.count);
+                  console.log(`[Stash] pocket full mid-withdraw — banked ${j.count}x ${j.name} to make room`);
+                } catch {
+                  /* chest full — try the next junk stack */
+                }
+              }
+            }
+          }
           const take = Math.min(slot.count, needed - withdrawn);
           try {
             await container.withdraw(slot.type, null, take);
             withdrawn += take;
-          } catch {
-            /* slot empty or race */
+          } catch (e) {
+            console.log(`[Stash] withdraw of ${slot.count}x ${slot.name} FAILED: ${(e as Error).message}`);
           }
         }
       }
