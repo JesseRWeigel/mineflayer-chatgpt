@@ -171,6 +171,7 @@ export class BotBrain {
   private lastBedPrepMs = 0;
   private lastTameMs = 0;
   private lastStringHuntMs = 0;
+  private lastAimMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1237,6 +1238,39 @@ export class BotBrain {
           const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "hunt_string" });
           this.events.onAction("hunt_string", result);
           this.lastAction = "hunt_string";
+          this.lastResult = result;
+          return;
+        }
+      }
+    }
+
+    // Archery reflex (Blade) — once string exists, everything else for Take
+    // Aim is banked: 63 arrows, sticks by the stack, a table at the stash.
+    // Fires near the stash (crafting range) or whenever a bow is in hand.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.bot.username === "Blade") {
+      const earnedAim2 = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const aimDone2 = earnedAim2.has("adventure/shoot_arrow") || earnedAim2.has("minecraft:adventure/shoot_arrow");
+      const cooledAim = Date.now() - this.lastAimMs > 600_000;
+      if (!aimDone2 && cooledAim) {
+        const hasBow = this.bot.inventory.items().some((i) => i.name === "bow");
+        const stringHeld = this.bot.inventory
+          .items()
+          .filter((i) => i.name === "string")
+          .reduce((s, i) => s + i.count, 0);
+        const sp = this.roleConfig.stashPos;
+        const nearStash = !!sp && Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z) < 40;
+        let stringBanked = 0;
+        if (nearStash && stringHeld < 3) {
+          const { chestsWithItem } = await import("../skills/stash-ledger.js");
+          stringBanked = chestsWithItem("string").length;
+        }
+        if (hasBow || (nearStash && (stringHeld >= 3 || stringBanked > 0))) {
+          this.lastAimMs = Date.now();
+          this.log.info("Brain", "OVERRIDE: archery kit within reach and Take Aim unearned — shoot_arrow");
+          this.events.onThought("String, sticks, arrows, table. Time to loose one for the record books.");
+          const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "shoot_arrow" });
+          this.events.onAction("shoot_arrow", result);
+          this.lastAction = "shoot_arrow";
           this.lastResult = result;
           return;
         }
