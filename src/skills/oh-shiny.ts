@@ -116,7 +116,12 @@ export const ohShinySkill: Skill = {
     // --- Nether: find a piglin, keep the portal at our back ---
     step("In the Nether — looking for a piglin...", 0.5);
     const homePortal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 24 });
-    let piglin = bot.nearestEntity((e) => e.name === "piglin");
+    // Adults only: a baby piglin SNATCHES gold from your hand and grants
+    // nothing — no admire, no barter, no criteria progress, which matches
+    // this trip's evidence exactly (held gold_ingot -> empty at 1.3 blocks,
+    // zero advancement). Babies stand about half height.
+    const adultPiglin = (e: { name?: string; height?: number }) => e.name === "piglin" && (e.height ?? 2) > 1.2;
+    let piglin = bot.nearestEntity(adultPiglin);
     const scoutUntil = Date.now() + 90_000;
     while (!piglin && Date.now() < scoutUntil && !signal.aborted) {
       // Short bounded arcs around the portal — never out of walking-home range.
@@ -128,12 +133,13 @@ export const ohShinySkill: Skill = {
         30_000,
         12_000,
       ).catch(() => {});
-      piglin = bot.nearestEntity((e) => e.name === "piglin");
+      piglin = bot.nearestEntity(adultPiglin);
     }
 
     let tossed = 0;
     if (piglin) {
       step(`Piglin spotted — offering gold (${count(bot, "gold_ingot")} ingots aboard)...`, 0.7);
+      console.log(`[ShinyDebug] target piglin height=${piglin.height?.toFixed(2)} (adult check passed)`);
       // Direct hand-off FIRST: the first expedition's thrown gold bartered
       // beautifully (crying obsidian came back) yet left ZERO criteria
       // progress on distract_piglin — the pickup never credited the thrower.
