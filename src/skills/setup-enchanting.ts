@@ -549,16 +549,53 @@ export const setupEnchantingSkill: Skill = {
           console.log(`[Enchant] ${label} confirmation timed out but the ${itemName} left the pocket — continuing`);
         }
       };
-      await putSafe("putTargetItem", target.name, () => et.putTargetItem(target));
-      const lapis = bot.inventory.items().find((i) => i.name === "lapis_lazuli");
-      if (lapis) await putSafe("putLapis", "lapis_lazuli", () => et.putLapis(lapis));
-      // Wait for the enchant options to populate, then take the cheapest (0).
-      await Promise.race([
-        new Promise<void>((resolve) => et.once("ready", resolve)),
-        new Promise<void>((resolve) => setTimeout(resolve, 8000)),
-      ]);
+      // Raw-clicks fallback: the library's transfer() waits on per-slot
+      // update events this Paper build never sends, so putTargetItem times
+      // out with the item still in the pocket (verified: level 9->9, nothing
+      // enchanted, tool never left the inventory). Plain window clicks and
+      // the enchant_item packet make no such wait.
+      const manualEnchant = async () => {
+        const findInvSlot = (name: string) => {
+          for (let s = 2; s < et.slots.length; s++) if (et.slots[s]?.name === name) return s;
+          return -1;
+        };
+        const ts = findInvSlot(target.name);
+        if (ts >= 0) {
+          await bot.clickWindow(ts, 0, 0);
+          await bot.clickWindow(0, 0, 0);
+        }
+        const ls = findInvSlot("lapis_lazuli");
+        if (ls >= 0) {
+          await bot.clickWindow(ls, 0, 0);
+          await bot.clickWindow(1, 0, 0);
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+        (bot as any)._client.write("enchant_item", { windowId: et.id, enchantment: 0 });
+        await new Promise((r) => setTimeout(r, 1500));
+        // Take the (hopefully enchanted) tool back into any free slot.
+        await bot.clickWindow(0, 0, 0);
+        for (let s = 2; s < et.slots.length; s++) {
+          if (!et.slots[s]) {
+            await bot.clickWindow(s, 0, 0);
+            break;
+          }
+        }
+      };
       const levelBefore = bot.experience?.level ?? 0;
-      await et.enchant(0);
+      try {
+        await putSafe("putTargetItem", target.name, () => et.putTargetItem(target));
+        const lapis = bot.inventory.items().find((i) => i.name === "lapis_lazuli");
+        if (lapis) await putSafe("putLapis", "lapis_lazuli", () => et.putLapis(lapis));
+        // Wait for the enchant options to populate, then take the cheapest (0).
+        await Promise.race([
+          new Promise<void>((resolve) => et.once("ready", resolve)),
+          new Promise<void>((resolve) => setTimeout(resolve, 8000)),
+        ]);
+        await et.enchant(0);
+      } catch (libErr) {
+        console.log(`[Enchant] library path failed (${(libErr as Error).message}) — trying raw window clicks`);
+        await manualEnchant();
+      }
       await new Promise((r) => setTimeout(r, 600));
       try {
         await et.takeTargetItem();
