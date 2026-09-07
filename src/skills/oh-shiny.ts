@@ -143,6 +143,27 @@ export const ohShinySkill: Skill = {
     let tossed = 0;
     if (piglin) {
       step(`Piglin spotted — offering gold (${count(bot, "gold_ingot")} ingots aboard)...`, 0.7);
+      // Direct hand-off FIRST: the first expedition's thrown gold bartered
+      // beautifully (crying obsidian came back) yet left ZERO criteria
+      // progress on distract_piglin — the pickup never credited the thrower.
+      // Using the ingot ON the piglin fires distract_piglin_directly, the
+      // advancement's other criterion, deterministically.
+      const handGold = bot.inventory.items().find((i) => i.name === "gold_ingot");
+      if (handGold && piglin.isValid) {
+        await bot.equip(handGold, "hand").catch(() => {});
+        await safeGoto(bot, new goals.GoalFollow(piglin, 2), 15_000).catch(() => {});
+        if (piglin.isValid) {
+          await bot.lookAt(piglin.position.offset(0, 1.6, 0), true).catch(() => {});
+          try {
+            (bot as any).useOn(piglin);
+            tossed++;
+            console.log(`[ShinyDebug] ${bot.username}: direct gold hand-off attempted`);
+          } catch {
+            /* fall through to the toss path */
+          }
+          await new Promise((r) => setTimeout(r, 9_000));
+        }
+      }
       while (tossed < 3 && piglin.isValid && count(bot, "gold_ingot") > 0 && !signal.aborted) {
         await safeGoto(bot, new goals.GoalFollow(piglin, 4), 15_000).catch(() => {});
         if (!piglin.isValid) break;
