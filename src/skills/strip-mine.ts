@@ -3,7 +3,7 @@ import type { Skill, SkillResult } from "./types.js";
 import { Vec3 } from "vec3";
 import pkg from "mineflayer-pathfinder";
 const { goals, Movements } = pkg;
-import { baseMoves, collectNearbyDrops, safeGoto } from "../bot/navigation.js";
+import { baseMoves, collectNearbyDrops, safeGoto, shedJunk } from "../bot/navigation.js";
 import { digDownTo } from "./descend.js";
 
 const TUNNEL_LENGTH = 40;
@@ -460,6 +460,7 @@ export const stripMineSkill: Skill = {
         console.log(`[Skill] strip_mine descent try at shift ${dx},${dz}; ${fallback}`);
       }
       // Collect anything the descent dropped (ore dug on the way down).
+      await shedJunk(bot, 2);
       await collectNearbyDrops(bot, 4, 3000);
       console.log(`[Skill] strip_mine descended to Y=${bot.entity.position.y.toFixed(0)}`);
     }
@@ -545,6 +546,7 @@ export const stripMineSkill: Skill = {
           mined++;
           if (b.name.includes("ore")) {
             oresFound.push(b.name);
+            await shedJunk(bot, 2);
             // Pick the drop up NOW, where it fell: the end-of-tunnel sweep
             // misses early drops, and the first tunnel-struck iron in weeks
             // evaporated exactly this way (found 2x iron_ore, cargo empty).
@@ -596,6 +598,7 @@ export const stripMineSkill: Skill = {
             mined++;
             oresFound.push(blk.name);
             mined += (await followVein(bot, op, blk.name, oresFound)) as number;
+            await shedJunk(bot, 2);
             await collectNearbyDrops(bot, 6, 4000);
             if (diamondsBefore >= 0) await ensureDiamondPickup(bot, diamondsBefore);
           } catch {
@@ -631,6 +634,7 @@ export const stripMineSkill: Skill = {
     // Sweep the tunnel to pick up the ore we dug — without this, strip_mine
     // reported "Found 8x iron_ore" but left the drops on the ground, so the
     // bot never actually had iron to smelt. Walk back over the tunnel.
+    await shedJunk(bot, 2);
     await collectNearbyDrops(bot, 16, 8000);
 
     // Report the depth actually reached, not the one intended. Nine runs
@@ -843,6 +847,7 @@ async function mineExposedOre(bot: Bot, pos: Vec3): Promise<{ mined: number; ore
       // clean and then vanished — one flee between the dig and the sweep
       // left the stone on the floor to despawn.
       if (mined > minedBefore) {
+        await shedJunk(bot, 2);
         await collectNearbyDrops(bot, 5, 3000).catch(() => {});
         if (diamondsBefore >= 0) await ensureDiamondPickup(bot, diamondsBefore);
       }

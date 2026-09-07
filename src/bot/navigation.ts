@@ -242,6 +242,35 @@ export async function safeGoto(bot: Bot, goal: any, timeoutMs = 15000, stallStar
  * only spawns a drop — without this, bots "gather" wood that stays on the
  * ground (the root cause of phantom inventory reports).
  */
+/** Toss bulk junk until at least `minFree` slots are open. A full pocket
+ *  refuses ground pickups AND chest withdrawals silently — the bug that ate
+ *  a week of leather and ten gold ore. Call before any pickup that matters. */
+export async function shedJunk(bot: Bot, minFree = 2): Promise<number> {
+  if (bot.inventory.emptySlotCount() >= minFree) return 0;
+  const JUNK = new Set([
+    "cobblestone",
+    "cobbled_deepslate",
+    "dirt",
+    "gravel",
+    "andesite",
+    "diorite",
+    "granite",
+    "tuff",
+    "netherrack",
+    "blackstone",
+  ]);
+  let tossed = 0;
+  for (const it of bot.inventory.items()) {
+    if (bot.inventory.emptySlotCount() >= minFree) break;
+    if (JUNK.has(it.name)) {
+      await bot.toss(it.type, null, it.count).catch(() => {});
+      tossed++;
+    }
+  }
+  if (tossed > 0) console.log(`[Pocket] ${bot.username} shed ${tossed} junk stacks to make room`);
+  return tossed;
+}
+
 export async function collectNearbyDrops(bot: Bot, radius = 8, maxMs = 8000): Promise<void> {
   const start = Date.now();
   await new Promise((r) => setTimeout(r, 800)); // let drops finish falling
