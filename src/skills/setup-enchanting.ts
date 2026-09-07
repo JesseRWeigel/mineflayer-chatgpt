@@ -527,9 +527,29 @@ export const setupEnchantingSkill: Skill = {
 
     try {
       const et: any = await (bot as any).openEnchantmentTable(table);
-      await et.putTargetItem(target);
+      // Paper can answer a slot transfer with a full-window refresh instead of
+      // the per-slot update the library waits on — putTargetItem then times
+      // out ("Event updateSlot:0 did not fire") while the item already sits in
+      // the table. Trust the slot contents over the confirmation event.
+      const slotFilled = (n: number) => {
+        try {
+          return !!(et.slots?.[n] ?? (n === 0 && et.targetItem?.()));
+        } catch {
+          return false;
+        }
+      };
+      const putSafe = async (label: string, n: number, fn: () => Promise<void>) => {
+        try {
+          await fn();
+        } catch (e) {
+          await new Promise((r) => setTimeout(r, 800));
+          if (!slotFilled(n)) throw e;
+          console.log(`[Enchant] ${label} confirmation timed out but slot ${n} is filled — continuing`);
+        }
+      };
+      await putSafe("putTargetItem", 0, () => et.putTargetItem(target));
       const lapis = bot.inventory.items().find((i) => i.name === "lapis_lazuli");
-      if (lapis) await et.putLapis(lapis);
+      if (lapis) await putSafe("putLapis", 1, () => et.putLapis(lapis));
       // Wait for the enchant options to populate, then take the cheapest (0).
       await Promise.race([
         new Promise<void>((resolve) => et.once("ready", resolve)),
