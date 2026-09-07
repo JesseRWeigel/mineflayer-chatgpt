@@ -29,16 +29,28 @@ function inNether(bot: Bot): boolean {
 }
 
 async function stepThroughPortal(bot: Bot, wantNether: boolean, budgetMs: number): Promise<boolean> {
+  if (inNether(bot) === wantNether) return true;
   const portal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 64 });
-  if (!portal) return inNether(bot) === wantNether;
-  await safeGoto(bot, new goals.GoalNear(portal.position.x, portal.position.y, portal.position.z, 0), 45_000).catch(
+  if (!portal) return false;
+  // Stand BESIDE the doorway, then walk bodily into it — pathfinding to a
+  // passable block at range zero times out more often than it lands (the
+  // first firing died exactly there, five blocks from a lit portal). The
+  // teleport itself needs ~4 seconds standing inside the frame.
+  await safeGoto(bot, new goals.GoalNear(portal.position.x, portal.position.y, portal.position.z, 1), 45_000).catch(
     () => {},
   );
+  const centre = portal.position.offset(0.5, 0.5, 0.5);
   const deadline = Date.now() + budgetMs;
   while (Date.now() < deadline) {
-    if (inNether(bot) === wantNether) return true;
-    await new Promise((r) => setTimeout(r, 1000));
+    if (inNether(bot) === wantNether) {
+      bot.clearControlStates();
+      return true;
+    }
+    await bot.lookAt(centre, true).catch(() => {});
+    bot.setControlState("forward", true);
+    await new Promise((r) => setTimeout(r, 500));
   }
+  bot.clearControlStates();
   return inNether(bot) === wantNether;
 }
 
