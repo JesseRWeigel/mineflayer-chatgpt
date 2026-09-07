@@ -1340,7 +1340,9 @@ export async function withdrawStash(
   for (const chest of chestsToTry) {
     if (withdrawn >= needed) break;
     if (Date.now() > scanDeadline) {
-      console.log(`[Stash] withdraw scan hit its 110s budget after ${withdrawn}/${needed} ${matchName}`);
+      console.log(
+        `[Stash] withdraw scan hit its ${Math.round(budgetMs / 1000)}s budget after ${withdrawn}/${needed} ${matchName}`,
+      );
       break;
     }
     try {

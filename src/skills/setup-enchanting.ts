@@ -359,7 +359,17 @@ export const setupEnchantingSkill: Skill = {
         if (count(bot, "paper") >= 3 && count(bot, "leather") < 1) {
           await tryWithdraw(bot, "leather", 1);
           if (count(bot, "leather") < 1 && timeLeft() > 90_000) {
-            let cow = bot.nearestEntity((e) => e.name === "cow" || e.name === "mooshroom");
+            // Anything that drops leather is a valid hunt: the night a cow
+            // finally grazed near the stash it wandered off before the skill
+            // refired, while a horse stood 27 blocks away the entire time.
+            const dropsLeather = (e: { name?: string }) =>
+              e.name === "cow" ||
+              e.name === "mooshroom" ||
+              e.name === "horse" ||
+              e.name === "donkey" ||
+              e.name === "mule" ||
+              e.name === "llama";
+            let cow = bot.nearestEntity(dropsLeather);
             // EXPLORE for a cow when none is loaded: the herds graze 128-256
             // blocks out, past the ~80-block entity stream — the same
             // perception wall breeding hit. Hop outward and rescan; resumable
@@ -375,6 +385,10 @@ export const setupEnchantingSkill: Skill = {
                 ["west", -1, 0],
                 ["south", 0, 1],
                 ["north", 0, -1],
+                ["northwest", -0.7, -0.7],
+                ["southeast", 0.7, 0.7],
+                ["northeast", 0.7, -0.7],
+                ["southwest", -0.7, 0.7],
               ] as const;
               for (const [label, dx, dz] of dirs) {
                 if (cow || signal.aborted || timeLeft() < 90_000) break;
@@ -382,7 +396,7 @@ export const setupEnchantingSkill: Skill = {
                 await safeGoto(bot, new goals.GoalNearXZ(home.x + dx * 60, home.z + dz * 60, 8), 40_000, 12_000).catch(
                   () => {},
                 );
-                cow = bot.nearestEntity((e) => e.name === "cow" || e.name === "mooshroom");
+                cow = bot.nearestEntity(dropsLeather);
               }
             }
             if (cow) {
