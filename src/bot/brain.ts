@@ -170,6 +170,7 @@ export class BotBrain {
   private lastLeatherHuntMs = 0;
   private lastBedPrepMs = 0;
   private lastTameMs = 0;
+  private lastStringHuntMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1212,6 +1213,30 @@ export class BotBrain {
           const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "tame_animal" });
           this.events.onAction("tame_animal", result);
           this.lastAction = "tame_animal";
+          this.lastResult = result;
+          return;
+        }
+      }
+    }
+
+    // String reflex (Blade only) — Take Aim needs a bow, the bow needs 3
+    // string, and the armory audit found zero anywhere while holding 63
+    // arrows. Spiders are the source and Blade is the bot built to fight
+    // them; everyone else keeps their distance.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.bot.username === "Blade") {
+      const earnedAim = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const aimDone = earnedAim.has("adventure/shoot_arrow") || earnedAim.has("minecraft:adventure/shoot_arrow");
+      const cooledString = Date.now() - this.lastStringHuntMs > 120_000;
+      if (!aimDone && cooledString) {
+        const { nearestSpider } = await import("../skills/hunt-string.js");
+        const spider = nearestSpider(this.bot);
+        if (spider && this.bot.entity.position.distanceTo(spider.position) < 16) {
+          this.lastStringHuntMs = Date.now();
+          this.log.info("Brain", "OVERRIDE: spider in sight and the bow still needs string — hunting");
+          this.events.onThought("Spider! Your silk funds an archery program.");
+          const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "hunt_string" });
+          this.events.onAction("hunt_string", result);
+          this.lastAction = "hunt_string";
           this.lastResult = result;
           return;
         }

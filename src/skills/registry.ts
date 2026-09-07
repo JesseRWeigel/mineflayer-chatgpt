@@ -14,6 +14,7 @@ import { setupEnchantingSkill } from "./setup-enchanting.js";
 import { breedAnimalsSkill } from "./breed-animals.js";
 import { huntLeatherSkill } from "./hunt-leather.js";
 import { tameAnimalSkill } from "./tame-animal.js";
+import { huntStringSkill } from "./hunt-string.js";
 import { craftFlintAndSteelSkill } from "./flint-and-steel.js";
 import { buildNetherPortalSkill, returnFromNetherSkill } from "./nether-portal.js";
 
@@ -38,6 +39,7 @@ register(setupEnchantingSkill);
 register(breedAnimalsSkill);
 register(huntLeatherSkill);
 register(tameAnimalSkill);
+register(huntStringSkill);
 register(craftFlintAndSteelSkill);
 register(buildNetherPortalSkill);
 register(returnFromNetherSkill);
