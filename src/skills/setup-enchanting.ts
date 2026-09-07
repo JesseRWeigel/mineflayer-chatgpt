@@ -418,9 +418,11 @@ export const setupEnchantingSkill: Skill = {
                   }
                   if (!cow.isValid) break;
                   await bot.attack(cow);
-                  await new Promise((r) => setTimeout(r, 600));
+                  // Full-charge swings — see hunt_leather: 600ms spam is chip
+                  // damage under the 1.21 attack cooldown and fights timed out.
+                  await new Promise((r) => setTimeout(r, 1150));
                 }
-                await collectNearbyDrops(bot, 5, 4000);
+                await collectNearbyDrops(bot, 8, 6000);
               } catch {
                 /* best effort */
               }

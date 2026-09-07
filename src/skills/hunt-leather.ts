@@ -70,10 +70,13 @@ export const huntLeatherSkill: Skill = {
         if (!target.isValid) break;
         await bot.attack(target);
         swings++;
-        await new Promise((r) => setTimeout(r, 600));
+        // Full attack-cooldown charge between swings: 600ms spam looked
+        // faster but 1.21 scales damage by charge, and two of the first
+        // three fights TIMED OUT with the animal alive on chip damage.
+        await new Promise((r) => setTimeout(r, 1150));
       }
       step("Sweeping the drops...", 0.8);
-      await collectNearbyDrops(bot, 6, 5000);
+      await collectNearbyDrops(bot, 8, 7000);
     } catch {
       /* best effort — the delta below is the honest verdict */
     }
