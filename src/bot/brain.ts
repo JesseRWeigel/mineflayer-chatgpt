@@ -1266,7 +1266,11 @@ export class BotBrain {
       const spGold = this.roleConfig.stashPos;
       const nearStashGold =
         !!spGold && Math.hypot(this.bot.entity.position.x - spGold.x, this.bot.entity.position.z - spGold.z) < 40;
-      const cooledGold = Date.now() - this.lastGoldBankMs > 600_000;
+      // 5min, down from 10: the custody rail is verifiably lossless now (two
+      // missed catches tonight, both fully reclaimed on tape), so a retry
+      // costs nothing and the only enemy is Blade being mid-flee at the
+      // moment of the toss. More tickets, same lottery.
+      const cooledGold = Date.now() - this.lastGoldBankMs > 300_000;
       if (goldAboard >= 4 && nearStashGold && cooledGold) {
         this.lastGoldBankMs = Date.now();
         // Hand-deliver when the spender is in sight: the chest run keeps
