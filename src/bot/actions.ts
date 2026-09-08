@@ -1074,11 +1074,31 @@ async function giveItem(bot: Bot, to: string, itemName: string, count: number): 
   }
   await bot.lookAt(tgt2.position.offset(0, 1, 0));
   const toGive = Math.min(count, item.count);
+  const countMine = () =>
+    bot.inventory
+      .items()
+      .filter((i) => i.name === item.name)
+      .reduce((sum, i) => sum + i.count, 0);
+  const beforeToss = countMine();
   await bot.toss(item.type, null, toGive);
+  // STEP AWAY from the drop: with both bots inside two blocks, the item
+  // lands in BOTH pickup magnets and the giver's own magnet can win the
+  // race — Forge "gave" Blade four gold, the ground cleared, delivery was
+  // "confirmed", and the ingots were back in Forge's pocket the whole time.
+  // Backing off leaves the drop inside the recipient's magnet alone.
+  bot.setControlState("back", true);
+  await new Promise((r) => setTimeout(r, 1200));
+  bot.setControlState("back", false);
   await new Promise((r) => setTimeout(r, 2500)); // pickup time
   const leftovers = Object.values(bot.entities).filter(
-    (e) => e.name === "item" && e.position.distanceTo(bot.entity.position) < 5,
+    (e) => e.name === "item" && e.position.distanceTo(bot.entity.position) < 6,
   ).length;
+  // The honest verdict needs BOTH signals: ground clear AND the goods gone
+  // from the giver's own pocket. Ground-clear alone cannot tell which
+  // magnet won.
+  if (countMine() >= beforeToss) {
+    return `Tossed ${toGive}x ${item.name} toward ${to} but my own pickup magnet caught it — stepping back and retrying later.`;
+  }
   if (leftovers > 0) {
     // Take the goods BACK rather than abandoning them: three diamonds left
     // "for Forge to pick up" are three diamonds for whoever strolls past.
@@ -1087,7 +1107,7 @@ async function giveItem(bot: Bot, to: string, itemName: string, count: number): 
     await collectNearbyDrops(bot, 6, 5000).catch(() => {});
     return `Tossed ${toGive}x ${item.name} toward ${to} but they didn't catch it — took the items back into my own pack to retry later.`;
   }
-  return `Gave ${toGive}x ${item.name} to ${to} — delivery confirmed.`;
+  return `Gave ${toGive}x ${item.name} to ${to} — delivery confirmed (left my pocket, ground clear).`;
 }
 
 async function explore(bot: Bot, direction: string): Promise<string> {
