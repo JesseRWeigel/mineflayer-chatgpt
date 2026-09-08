@@ -29,13 +29,22 @@ function count(bot: Bot, name: string): number {
  *  inventory if the spot is bare. Returns null when unreachable or unplaceable. */
 async function reachFundChest(bot: Bot): Promise<ReturnType<Bot["blockAt"]> | null> {
   bot.pathfinder.setMovements(baseMoves(bot));
-  try {
-    await safeGoto(bot, new goals.GoalNear(FUND_CHEST.x, FUND_CHEST.y, FUND_CHEST.z, 2), 60_000);
-  } catch {
-    /* judge by distance below */
+  // ARRIVAL-VERIFIED MARCH, the lesson the cane campaign paid for: a single
+  // goto down the ridge to the shore times out more often than it lands
+  // (eight "unreachable" fallbacks on the drop's first night). Keep walking
+  // until genuinely close or the clock runs out.
+  const gap = () => Math.hypot(bot.entity.position.x - FUND_CHEST.x, bot.entity.position.z - FUND_CHEST.z);
+  const marchDeadline = Date.now() + 150_000;
+  while (Date.now() < marchDeadline && gap() > 6) {
+    await safeGoto(bot, new goals.GoalNear(FUND_CHEST.x, FUND_CHEST.y, FUND_CHEST.z, 2), 45_000, 12_000).catch(
+      () => {},
+    );
+    if (gap() > 6) await new Promise((r) => setTimeout(r, 1500));
   }
-  const p = bot.entity.position;
-  if (Math.hypot(p.x - FUND_CHEST.x, p.z - FUND_CHEST.z) > 6) return null;
+  if (gap() > 6) {
+    console.log(`[Fund] ${bot.username} unreachable: still ${gap().toFixed(0)} blocks from the drop`);
+    return null;
+  }
 
   const existing = bot.findBlock({
     matching: (b) => b.name === "chest",
