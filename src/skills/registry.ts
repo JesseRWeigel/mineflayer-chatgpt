@@ -17,6 +17,7 @@ import { tameAnimalSkill } from "./tame-animal.js";
 import { huntStringSkill } from "./hunt-string.js";
 import { shootArrowSkill } from "./shoot-arrow.js";
 import { ohShinySkill } from "./oh-shiny.js";
+import { findFortressSkill } from "./find-fortress.js";
 import { craftFlintAndSteelSkill } from "./flint-and-steel.js";
 import { buildNetherPortalSkill, returnFromNetherSkill } from "./nether-portal.js";
 
@@ -44,6 +45,7 @@ register(tameAnimalSkill);
 register(huntStringSkill);
 register(shootArrowSkill);
 register(ohShinySkill);
+register(findFortressSkill);
 register(craftFlintAndSteelSkill);
 register(buildNetherPortalSkill);
 register(returnFromNetherSkill);

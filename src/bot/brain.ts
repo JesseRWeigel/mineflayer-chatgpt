@@ -176,6 +176,7 @@ export class BotBrain {
   private bedClaimed = false;
   private lastBedClaimMs = 0;
   private lastGoldBankMs = 0;
+  private lastFortressMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1196,6 +1197,31 @@ export class BotBrain {
           this.lastResult = result;
           return;
         }
+      }
+    }
+
+    // Fortress-hunt reflex (Atlas) — A Terrible Fortress gates the entire
+    // brewing branch (blaze rods, potions, the zombie-villager cure, and
+    // through it the parked trading advancement). Atlas is the explorer;
+    // each daytime departure sweeps one compass heading from the portal and
+    // refires compound into a widening search.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.bot.username === "Atlas") {
+      const earnedFort = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const fortDone = earnedFort.has("nether/find_fortress") || earnedFort.has("minecraft:nether/find_fortress");
+      const cooledFort = Date.now() - this.lastFortressMs > 2_700_000;
+      const todFort = this.bot.time?.timeOfDay ?? 0;
+      const spFort = this.roleConfig.stashPos;
+      const nearStashFort =
+        !!spFort && Math.hypot(this.bot.entity.position.x - spFort.x, this.bot.entity.position.z - spFort.z) < 40;
+      if (!fortDone && cooledFort && todFort < 11000 && nearStashFort) {
+        this.lastFortressMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: the brewing branch waits on a fortress — running find_fortress");
+        this.events.onThought("Somewhere out in that red haze stands a fortress. Today I go look.");
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "find_fortress" });
+        this.events.onAction("find_fortress", result);
+        this.lastAction = "find_fortress";
+        this.lastResult = result;
+        return;
       }
     }
 
