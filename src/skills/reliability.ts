@@ -23,6 +23,25 @@ export interface SkillStats {
 const RETIRE_MIN_ATTEMPTS = 8;
 const RETIRE_RATE = 0.1;
 
+/**
+ * Hand-written infrastructure skills that must NEVER auto-retire. Retirement
+ * exists to cull GENERATED skills that might be buggy code; these are
+ * deterministic, load-bearing, and the only path to their outcome. Their
+ * low success rates are honest reflections of hard multi-step world tasks
+ * (a portal relight resumes across many partial visits), not brokenness —
+ * and retiring one silently kills a campaign. build_nether_portal earned
+ * this exemption the hard way: retired at 1/11, it blocked the reflex that
+ * relights the village portal, stranding the entire Nether strategy behind
+ * a dark doorway with no way to relight it.
+ */
+const NEVER_RETIRE = new Set([
+  "build_nether_portal",
+  "setup_enchanting",
+  "return_from_nether",
+  "find_fortress",
+  "oh_shiny",
+]);
+
 const CACHE_TTL_MS = 60_000;
 let cache: Map<string, SkillStats> | null = null;
 let cacheAt = 0;
@@ -64,6 +83,7 @@ const PAROLE_EVERY = 10;
 
 /** True when the team has thoroughly proven this skill doesn't work. Pure — no side effects. */
 export function isRetired(name: string): boolean {
+  if (NEVER_RETIRE.has(name)) return false;
   const s = statsMap().get(name);
   return !!s && s.attempts >= RETIRE_MIN_ATTEMPTS && s.rate < RETIRE_RATE;
 }
