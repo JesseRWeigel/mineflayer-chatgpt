@@ -411,7 +411,13 @@ export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
   // mining lake-bed iron — rescued, shoved back down, drowned). Stop the
   // pathfinder + any dig before swimming; the brain re-plans afterwards.
   const air = bot.oxygenLevel ?? 20;
-  if (air < 12) {
+  // <16, up from <12: Mason drowned four times in one night with a shore ONE
+  // BLOCK away — at air 15 the pathfinder still owned the controls (an
+  // underwater mining goal dragging him along a flooded tunnel), and by the
+  // time the old threshold stopped it the ceiling fight was already lost.
+  // Surface swimmers bob at ~20 air, so a genuine sub-16 reading while
+  // head-submerged means trouble, never a routine lake crossing.
+  if (air < 16) {
     try {
       bot.pathfinder.stop();
     } catch {
@@ -455,7 +461,7 @@ export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
     const s = shore?.position;
     console.log(
       `[Drown] ${bot.username} air=${air} at (${base.x},${base.y},${base.z}) ` +
-        `shore=${s ? `${s.x},${s.y},${s.z}` : "NONE"} pathfinderStopped=${air < 12}`,
+        `shore=${s ? `${s.x},${s.y},${s.z}` : "NONE"} pathfinderStopped=${air < 16}`,
     );
   }
 
@@ -477,7 +483,9 @@ export async function escapeWaterIfDrowning(bot: Bot): Promise<boolean> {
   // untouched stone walls beside it — Mason 5 times and Atlas 4 times in one
   // hour, all a few blocks from the stash, all under a chest. Refusing to dig
   // the chest is still right; refusing to look anywhere else is what killed them.
-  if (air < 10) {
+  // <13, up from <10: digging through a wall takes seconds and the old
+  // threshold started it with three hearts of air left.
+  if (air < 13) {
     const p = bot.entity.position;
     const neighbours = {
       up: bot.blockAt(p.offset(0, 2, 0)),

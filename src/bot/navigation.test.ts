@@ -82,7 +82,12 @@ test("drowning escape refuses to dig through valuable blocks", () => {
   // up-only version drowned Mason 5 times under a chest while stone sat beside
   // him. The invariant is unchanged and still has to hold at its new address:
   // every dig goes through chooseDrownEscape, and that consults isPreciousBlock.
-  const digBlock = source.slice(source.indexOf("if (air < 10)"), source.indexOf("if (air < 10)") + 900);
+  // Anchor on the dig threshold WITHOUT baking in its number — it moved from
+  // 10 to 13 once (Mason drowned starting the dig with three hearts of air),
+  // and the invariant under test is about WHAT gets dug, never about when.
+  const digAnchor = source.search(/if \(air < \d+\) \{\n\s+const p = bot\.entity\.position;/);
+  assert.notStrictEqual(digAnchor, -1, "dig-out block not found");
+  const digBlock = source.slice(digAnchor, digAnchor + 900);
   assert.match(digBlock, /chooseDrownEscape\(/, "dig-out must choose its target, not assume the ceiling");
   assert.match(digBlock, /bot\.dig\(/, "dig-out should still dig when a route is ordinary");
   assert.doesNotMatch(digBlock, /bot\.dig\(ceiling\)/, "must not go back to digging whatever is overhead");
