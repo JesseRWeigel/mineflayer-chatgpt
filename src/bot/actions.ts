@@ -1103,9 +1103,24 @@ async function giveItem(bot: Bot, to: string, itemName: string, count: number): 
     // Take the goods BACK rather than abandoning them: three diamonds left
     // "for Forge to pick up" are three diamonds for whoever strolls past.
     // Custody plus a retry on the next cooldown beats scatter.
-    const { collectNearbyDrops } = await import("./navigation.js");
-    await collectNearbyDrops(bot, 6, 5000).catch(() => {});
-    return `Tossed ${toGive}x ${item.name} toward ${to} but they didn't catch it — took the items back into my own pack to retry later.`;
+    //
+    // VERIFY the reclaim: this branch once REPORTED custody while the sweep
+    // quietly failed and four gold ingots despawned on the village floor —
+    // the kit tape showed the toss leaving the pocket and nothing coming
+    // back, while the return string said "took the items back". Sweep
+    // wider, then count.
+    const { collectNearbyDrops, shedJunk } = await import("./navigation.js");
+    await shedJunk(bot, 2).catch(() => {});
+    await collectNearbyDrops(bot, 8, 8000).catch(() => {});
+    const reclaimed = countMine() - (beforeToss - toGive);
+    if (reclaimed >= toGive) {
+      return `Tossed ${toGive}x ${item.name} toward ${to} but they didn't catch it — took the items back into my own pack to retry later.`;
+    }
+    const p = bot.entity.position.floored();
+    console.log(
+      `[Kit] RECLAIM SHORTFALL: ${bot.username} recovered ${Math.max(0, reclaimed)}/${toGive} ${item.name} near ${p.x},${p.y},${p.z}`,
+    );
+    return `Tossed ${toGive}x ${item.name} toward ${to}, they didn't catch it, and I could only reclaim ${Math.max(0, reclaimed)} — the rest may be on the ground near ${p.x},${p.y},${p.z}.`;
   }
   return `Gave ${toGive}x ${item.name} to ${to} — delivery confirmed (left my pocket, ground clear).`;
 }
