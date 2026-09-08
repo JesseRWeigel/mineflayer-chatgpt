@@ -178,6 +178,7 @@ export class BotBrain {
   private lastGoldBankMs = 0;
   private lastFortressMs = 0;
   private lastPocketShedMs = 0;
+  private lastWalkHomeMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -793,6 +794,30 @@ export class BotBrain {
       this.log.info("Brain", `Night reflex: sleep → ${slept}`);
       if (/zzz|sleeping/i.test(slept)) return; // in bed — skip the LLM turn
       // Sleep failed (no bed, hostiles nearby) — fall through to normal planning.
+    }
+
+    // WALK-HOME reflex — the honest replacement for the deleted spawn
+    // teleport. Removing the /tp took away the force that kept the swarm
+    // clustered at the village; frontier bed-anchoring then drifted three
+    // bots 350 blocks WEST, out of reach of the stash, the portal, AND the
+    // fund drop, where they were stranded (respawn west → never return →
+    // never claim a village bed → respawn west). A bot far from home and
+    // not mid-skill walks back, deterministically, before anything else —
+    // and arriving lets the village-only bed claim finally fire.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.roleConfig.stashPos) {
+      const sp = this.roleConfig.stashPos;
+      const homeGap = Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
+      const cooledHome = Date.now() - this.lastWalkHomeMs > 120_000;
+      if (homeGap > 120 && cooledHome) {
+        this.lastWalkHomeMs = Date.now();
+        this.log.info("Brain", `OVERRIDE: ${homeGap.toFixed(0)} blocks from the village — walking home to regroup`);
+        this.events.onThought("Too far from the team. Back to the village.");
+        const result = await this.executeActionUnlessPaused("go_to", { x: sp.x, y: sp.y, z: sp.z });
+        this.events.onAction("go_to", result);
+        this.lastAction = "go_to";
+        this.lastResult = result;
+        return;
+      }
     }
 
     // Portal-breach override — RUNS FIRST among mission overrides. In run
