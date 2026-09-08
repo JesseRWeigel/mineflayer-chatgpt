@@ -179,6 +179,7 @@ export class BotBrain {
   private lastBedClaimMs = 0;
   private lastGoldBankMs = 0;
   private lastFortressMs = 0;
+  private lastPortalRelightMs = 0;
   private lastPocketShedMs = 0;
   private lastWalkHomeMs = 0;
 
@@ -1313,6 +1314,43 @@ export class BotBrain {
       const shed = await shedJunk(this.bot, 2);
       if (shed > 0) {
         this.log.info("Brain", `Pocket hygiene: shed ${shed} junk stacks — pickups work again`);
+        return;
+      }
+    }
+
+    // Portal-relight reflex — the entire Nether strategy (fortress hunt,
+    // ghast deflect, piglin lottery) died silently this hour because the
+    // village portal went DARK: a ghast fireball (or stray water) snuffed the
+    // 8-block obsidian frame at ~294,72,-310, and find_fortress kept reporting
+    // "no portal within 64". The frame still stands, so this is a relight, not
+    // a rebuild. Any portal-capable bot near the village that sees standing
+    // obsidian but no lit portal fires build_nether_portal, which resumes to
+    // the ignition step. Gated on the fortress being unearned so it stops
+    // once the Nether work is done.
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.roleConfig.allowedSkills.includes("build_nether_portal") &&
+      this.roleConfig.stashPos
+    ) {
+      const earnedPortal = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const fortDoneP = earnedPortal.has("nether/find_fortress") || earnedPortal.has("minecraft:nether/find_fortress");
+      const spP = this.roleConfig.stashPos;
+      const nearVillageP = Math.hypot(this.bot.entity.position.x - spP.x, this.bot.entity.position.z - spP.z) < 45;
+      const litPortal = this.bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 48 });
+      const frame = this.bot.findBlock({ matching: (b) => b.name === "obsidian", maxDistance: 48 });
+      const cooledP = Date.now() - this.lastPortalRelightMs > 300_000;
+      if (!fortDoneP && nearVillageP && !litPortal && frame && cooledP) {
+        this.lastPortalRelightMs = Date.now();
+        this.log.info(
+          "Brain",
+          "OVERRIDE: village portal is dark and the frame stands — relighting for the Nether work",
+        );
+        this.events.onThought("The doorway went out. Relighting it.");
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "build_nether_portal" });
+        this.events.onAction("build_nether_portal", result);
+        this.lastAction = "build_nether_portal";
+        this.lastResult = result;
         return;
       }
     }
