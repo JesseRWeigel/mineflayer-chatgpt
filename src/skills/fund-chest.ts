@@ -65,10 +65,24 @@ async function reachFundChest(bot: Bot): Promise<ReturnType<Bot["blockAt"]> | nu
   try {
     await bot.equip(chestItem, "hand");
     await bot.placeBlock(ground, { x: 0, y: 1, z: 0 } as never);
+    // Let the freshly placed block register before anyone tries to open it —
+    // a place-then-immediately-open races the block update and throws
+    // "windowOpen did not fire", which ate the drop's first real deposit.
+    await new Promise((r) => setTimeout(r, 1200));
   } catch {
     /* fall through to re-scan */
   }
   return bot.findBlock({ matching: (b) => b.name === "chest", maxDistance: 4 });
+}
+
+/** Open a container with one settle-and-retry on the windowOpen race. */
+async function openTwice(bot: Bot, chest: NonNullable<ReturnType<Bot["blockAt"]>>) {
+  try {
+    return await bot.openContainer(chest);
+  } catch {
+    await new Promise((r) => setTimeout(r, 1200));
+    return await bot.openContainer(chest);
+  }
 }
 
 /** Deposit `n` of `itemName` into the fund chest. Returns an honest report. */
@@ -78,7 +92,7 @@ export async function fundDeposit(bot: Bot, itemName: string, n: number): Promis
   const chest = await reachFundChest(bot);
   if (!chest) return "Fund chest unreachable (or no chest to place) — falling back.";
   try {
-    const container = await bot.openContainer(chest);
+    const container = await openTwice(bot, chest);
     const item = bot.inventory.items().find((i) => i.name === itemName);
     if (item) await container.deposit(item.type, null, Math.min(n, before));
     container.close();
@@ -97,7 +111,7 @@ export async function fundWithdraw(bot: Bot, itemName: string, n: number): Promi
   const chest = await reachFundChest(bot);
   if (!chest) return "Fund chest unreachable — falling back.";
   try {
-    const container = await bot.openContainer(chest);
+    const container = await openTwice(bot, chest);
     for (const slot of container.containerItems()) {
       if (count(bot, itemName) - before >= n) break;
       if (slot.name === itemName) {
