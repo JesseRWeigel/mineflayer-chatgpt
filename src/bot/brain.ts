@@ -798,6 +798,34 @@ export class BotBrain {
       // Sleep failed (no bed, hostiles nearby) — fall through to normal planning.
     }
 
+    // Ghast-deflect reflex — return_to_sender, a free lottery on the Nether
+    // exposure the fortress hunt already pays for. Ghasts fireball our bots
+    // constantly (a top Nether death cause); batting the fireball back with a
+    // melee swing sends it roughly along its reverse vector, and a hit ghast
+    // dies to its own shot. Highest priority when a fireball is inbound —
+    // deflection is a timing move, so it must beat every other override.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot)) {
+      const earnedRTS = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const rtsDone = earnedRTS.has("nether/return_to_sender") || earnedRTS.has("minecraft:nether/return_to_sender");
+      if (!rtsDone) {
+        const fireball = this.bot.nearestEntity(
+          (e) => e.name === "fireball" && this.bot.entity.position.distanceTo(e.position) < 12,
+        );
+        if (fireball) {
+          this.log.info("Brain", "OVERRIDE: ghast fireball inbound — swinging to send it back");
+          this.events.onThought("Return to sender.");
+          try {
+            await this.bot.lookAt(fireball.position, true);
+            this.bot.attack(fireball);
+          } catch {
+            /* missed the window — it happens */
+          }
+          this.lastAction = "deflect_fireball";
+          return;
+        }
+      }
+    }
+
     // WALK-HOME reflex — the honest replacement for the deleted spawn
     // teleport. Removing the /tp took away the force that kept the swarm
     // clustered at the village; frontier bed-anchoring then drifted three
