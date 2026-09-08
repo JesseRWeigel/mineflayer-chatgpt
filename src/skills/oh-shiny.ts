@@ -125,10 +125,14 @@ export const ohShinySkill: Skill = {
         }
       }
       if (!hasBoots) {
-        if (count(bot, "gold_ingot") < 5) {
+        // 4, not 5: the boots cost exactly 4, and the goldless Nether leg
+        // below mines the offering gold on arrival. The old "need 5" gate
+        // stranded Blade at exactly 4 for hours — one ingot short of a
+        // threshold he never needed, since the trip funds its own offering.
+        if (count(bot, "gold_ingot") < 4) {
           return {
             success: false,
-            message: resumable(`Need 4 gold for boots plus spare to toss (have ${count(bot, "gold_ingot")}).`),
+            message: resumable(`Need 4 gold for boots (have ${count(bot, "gold_ingot")}).`),
           };
         }
         step("Crafting golden boots — piglins ignore a golden guest...", 0.2);
