@@ -824,14 +824,18 @@ export class BotBrain {
         const gapNow = () => Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
         const marchUntil = Date.now() + 150_000;
         let stallGuard = 0;
-        // SWIM-CAPABLE WAYPOINT HOPS, direct via navigation — not the go_to
-        // action. go_to forces the cautious safeMoves (no swimming, no
-        // digging) with a 15s cap and refuses anything over 200 blocks, so a
-        // far-west explorer stranded across water made ZERO progress across
-        // three prior fixes. explorerMoves swims; each hop aims ~120 blocks
-        // along the vector home, inside the OOM search-radius cap; a longer
-        // 40s timeout lets a hop actually complete.
-        this.bot.pathfinder.setMovements(explorerMoves(this.bot));
+        // BULLDOZER MARCH — swim AND dig AND pillar. RCON ground truth ended
+        // the guessing: Atlas was not across water, he stood at the foot of a
+        // solid hillside rising east, every block toward home solid at his
+        // level, and explorerMoves (canDig false) can neither climb nor
+        // tunnel it — hence zero progress through three "swim" fixes. A dig-
+        // and-tower march bores straight home through hills and bridges pits;
+        // the searchRadius cap (256) + thinkTimeout (1500) keep the dig-
+        // enabled search bounded against the OOM class.
+        const homeMoves = explorerMoves(this.bot);
+        homeMoves.canDig = true;
+        homeMoves.allow1by1towers = true;
+        this.bot.pathfinder.setMovements(homeMoves);
         while (Date.now() < marchUntil && gapNow() > 60 && !this.paused) {
           const p = this.bot.entity.position;
           const gap = gapNow();
