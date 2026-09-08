@@ -1297,7 +1297,11 @@ export class BotBrain {
     if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.bot.username === "Atlas") {
       const earnedFort = readTeamEarned(BOT_ROSTER.map((b) => b.name));
       const fortDone = earnedFort.has("nether/find_fortress") || earnedFort.has("minecraft:nether/find_fortress");
-      const cooledFort = Date.now() - this.lastFortressMs > 2_700_000;
+      // 15min, down from 45: the fortress gates 5+ advancements and is the
+      // swarm's single highest-value target, yet the old cooldown let Atlas
+      // sweep barely once an hour. Tripling the cadence is the cheapest way
+      // to raise the find rate on a search that is fundamentally patient.
+      const cooledFort = Date.now() - this.lastFortressMs > 900_000;
       const todFort = this.bot.time?.timeOfDay ?? 0;
       const spFort = this.roleConfig.stashPos;
       const nearStashFort =

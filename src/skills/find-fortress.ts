@@ -64,7 +64,7 @@ export const findFortressSkill: Skill = {
     const homePortal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 32 });
 
     // --- Already visible? ---
-    let bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 64 });
+    let bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 96 });
 
     // --- Sweep one heading, scanning as we go ---
     if (!bricks) {
@@ -73,15 +73,15 @@ export const findFortressSkill: Skill = {
       const start = bot.entity.position.clone();
       step(`No fortress in sight — sweeping ${label}...`, 0.3);
       const legDeadline = Date.now() + 210_000;
-      for (let leg = 1; leg <= 4 && !bricks && !signal.aborted && Date.now() < legDeadline; leg++) {
+      for (let leg = 1; leg <= 5 && !bricks && !signal.aborted && Date.now() < legDeadline; leg++) {
         await safeGoto(
           bot,
-          new goals.GoalNearXZ(start.x + dx * 35 * leg, start.z + dz * 35 * leg, 8),
+          new goals.GoalNearXZ(start.x + dx * 45 * leg, start.z + dz * 45 * leg, 8),
           45_000,
           12_000,
         ).catch(() => {});
-        bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 64 });
-        step(`Sweeping ${label} — leg ${leg}/4, no bricks yet...`, 0.3 + leg * 0.08);
+        bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 96 });
+        step(`Sweeping ${label} — leg ${leg}/5, no bricks yet...`, 0.3 + leg * 0.08);
       }
     }
 
