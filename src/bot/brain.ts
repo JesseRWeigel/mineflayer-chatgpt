@@ -177,6 +177,7 @@ export class BotBrain {
   private lastBedClaimMs = 0;
   private lastGoldBankMs = 0;
   private lastFortressMs = 0;
+  private lastPocketShedMs = 0;
 
   // Chat dedup — the 8B anchors on its own last thought and re-sends the
   // same demand every strategic cycle ("Give me the logs!" x7 in 2 min)
@@ -1197,6 +1198,26 @@ export class BotBrain {
           this.lastResult = result;
           return;
         }
+      }
+    }
+
+    // Pocket-hygiene reflex — a bot with ZERO free slots silently refuses
+    // every ground pickup: hand-off catches, mined ore, hunt drops. The
+    // giver-side sheds fixed half the economy; five straight missed payroll
+    // catches say the RECIPIENT side needs the same medicine. All bots,
+    // cheap check, ten-minute cadence.
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.bot.inventory.emptySlotCount() === 0 &&
+      Date.now() - this.lastPocketShedMs > 600_000
+    ) {
+      this.lastPocketShedMs = Date.now();
+      const { shedJunk } = await import("./navigation.js");
+      const shed = await shedJunk(this.bot, 2);
+      if (shed > 0) {
+        this.log.info("Brain", `Pocket hygiene: shed ${shed} junk stacks — pickups work again`);
+        return;
       }
     }
 
