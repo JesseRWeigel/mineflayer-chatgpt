@@ -1041,8 +1041,13 @@ async function giveItem(bot: Bot, to: string, itemName: string, count: number): 
     await safeGoto(bot, new goals.GoalNear(x, y, z, 2), 30000);
   } else {
     if (bot.entity.position.distanceTo(target.position) > 3) {
+      // CHASE the live entity rather than its remembered spot: two bots once
+      // walked toward each other to trade (gold one way, iron the other),
+      // each goto died to the other's movement, and both handoffs aborted
+      // with "moved away". GoalFollow tracks the recipient wherever they
+      // wander during the approach.
       bot.pathfinder.setMovements(explorerMoves(bot));
-      await safeGoto(bot, new goals.GoalNear(target.position.x, target.position.y, target.position.z, 2), 30000);
+      await safeGoto(bot, new goals.GoalFollow(target, 2), 30000).catch(() => {});
     }
   }
 
