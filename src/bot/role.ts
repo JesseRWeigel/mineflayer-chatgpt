@@ -241,7 +241,14 @@ export const MASON_CONFIG: BotRoleConfig = {
     "light_area",
     "build_farm",
     "setup_stash",
-    "strip_mine",
+    // strip_mine REMOVED 2026-09-08: the no-iron override kept marching the
+    // builder into the flooded aquifer belt (x~200 and x~417 at y=15-25),
+    // where he racked up 8-34 deaths a day — four drownings in one night
+    // AFTER the escape thresholds were raised, including a deep-column
+    // plunge no rescue can win. Forge's diamond-pick operation covers depth
+    // completely; Mason's marginal ore hauls (coal, copper) cost more team
+    // time in death churn than they earned. He keeps mine_block for
+    // building materials near the surface.
     "craft_gear",
     "smelt_ores",
     // The diamond pickaxe landed on Mason (he mined the 3-set himself, run
