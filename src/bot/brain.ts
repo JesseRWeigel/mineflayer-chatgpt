@@ -810,9 +810,23 @@ export class BotBrain {
       const cooledHome = Date.now() - this.lastWalkHomeMs > 120_000;
       if (homeGap > 120 && cooledHome) {
         this.lastWalkHomeMs = Date.now();
-        this.log.info("Brain", `OVERRIDE: ${homeGap.toFixed(0)} blocks from the village — walking home to regroup`);
+        this.log.info("Brain", `OVERRIDE: ${homeGap.toFixed(0)} blocks from the village — marching home to regroup`);
         this.events.onThought("Too far from the team. Back to the village.");
-        const result = await this.executeActionUnlessPaused("go_to", { x: sp.x, y: sp.y, z: sp.z });
+        // MARCH, don't step: a single go_to covers ~30-50 blocks then times
+        // out, and Atlas was stranded at 368 for an hour — every partial walk
+        // erased by a death that respawned him at the frontier bed. Loop the
+        // walk within one invocation so a bot covers real ground (200+
+        // blocks) between deaths and actually reaches the village, where the
+        // bed claim finally re-anchors him. Bounded so a genuinely trapped
+        // bot still yields the turn.
+        const gapNow = () => Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
+        const marchUntil = Date.now() + 150_000;
+        let result = "";
+        while (Date.now() < marchUntil && gapNow() > 60 && !this.paused) {
+          result = await this.executeActionUnlessPaused("go_to", { x: sp.x, y: sp.y, z: sp.z });
+          if (gapNow() > 60) await new Promise((r) => setTimeout(r, 1000));
+        }
+        this.log.info("Brain", `Walk-home: now ${gapNow().toFixed(0)} blocks from the village`);
         this.events.onAction("go_to", result);
         this.lastAction = "go_to";
         this.lastResult = result;
