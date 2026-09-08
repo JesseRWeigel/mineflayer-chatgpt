@@ -1304,6 +1304,25 @@ export class BotBrain {
       const cooledGold = Date.now() - this.lastGoldBankMs > 300_000;
       if (goldAboard >= 4 && nearStashGold && cooledGold) {
         this.lastGoldBankMs = Date.now();
+        // DEAD DROP first: ground transfers at the village are a coin flip
+        // (a reclaim sweep recovered 0/4 tossed ingots INSIDE the village),
+        // so the fund now moves through one designated chest on the proven-
+        // walkable farm shore. Give-rail and stash stay as fallbacks.
+        {
+          const { fundDeposit } = await import("../skills/fund-chest.js");
+          const hasChestItem = this.bot.inventory.items().some((i) => i.name === "chest");
+          if (!hasChestItem) {
+            const { withdrawStash } = await import("../skills/stash.js");
+            await withdrawStash(this.bot, this.roleConfig.stashPos!, "chest", 1, 30_000).catch(() => {});
+          }
+          const fres = await fundDeposit(this.bot, "gold_ingot", 64).catch((e: Error) => `threw: ${e.message}`);
+          this.log.info("Brain", `Fund deposit: ${fres}`);
+          if (fres.startsWith("Banked")) {
+            this.lastAction = "fund_deposit";
+            this.lastResult = fres;
+            return;
+          }
+        }
         // Hand-deliver when the spender is in sight: the chest run keeps
         // dying to village-clutter pathfinding ("Stuck" four straight
         // firings), while the point-blank give rail is custody-verified and
