@@ -822,8 +822,29 @@ export class BotBrain {
         const gapNow = () => Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
         const marchUntil = Date.now() + 150_000;
         let result = "";
+        let stallGuard = 0;
         while (Date.now() < marchUntil && gapNow() > 60 && !this.paused) {
-          result = await this.executeActionUnlessPaused("go_to", { x: sp.x, y: sp.y, z: sp.z });
+          // WAYPOINT HOPS, not a direct goal: the OOM fix caps the pathfinder
+          // search radius at 256, so GoalNear(stash) from 368 blocks out is
+          // beyond the frontier and A* fails instantly with zero movement —
+          // exactly why Atlas sat at 368 for an hour. Aim at a point ~120
+          // blocks along the vector home (inside the radius), and repeat.
+          const p = this.bot.entity.position;
+          const gap = gapNow();
+          const stepFrac = Math.min(1, 120 / gap);
+          const wx = p.x + (sp.x - p.x) * stepFrac;
+          const wz = p.z + (sp.z - p.z) * stepFrac;
+          const before = gap;
+          result = await this.executeActionUnlessPaused("go_to", { x: Math.round(wx), y: sp.y, z: Math.round(wz) });
+          if (before - gapNow() < 5) {
+            stallGuard++;
+            if (stallGuard >= 3) {
+              this.log.info("Brain", `Walk-home: stalled at ${gapNow().toFixed(0)} blocks — yielding the turn`);
+              break;
+            }
+          } else {
+            stallGuard = 0;
+          }
           if (gapNow() > 60) await new Promise((r) => setTimeout(r, 1000));
         }
         this.log.info("Brain", `Walk-home: now ${gapNow().toFixed(0)} blocks from the village`);
