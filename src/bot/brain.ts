@@ -24,7 +24,9 @@ import { queryStrategic, queryReactive, queryCritic, chatWithLLM, type LLMMessag
 import type { RoleContext } from "../llm/prompts.js";
 import { getWorldContext, isHostile } from "./perception.js";
 import { executeAction } from "./actions.js";
-import { digOutIfStuck, escapeWaterIfDrowning } from "./navigation.js";
+import { digOutIfStuck, escapeWaterIfDrowning, safeGoto, explorerMoves } from "./navigation.js";
+import navPkg from "mineflayer-pathfinder";
+const { goals: navGoals } = navPkg;
 import { isStallResult, shouldForceDigOut, pruneStalls } from "./stall-rescue.js";
 import { isDeathTrap } from "./death-trap.js";
 import { classifyResult } from "./action-result.js";
@@ -821,32 +823,34 @@ export class BotBrain {
         // bot still yields the turn.
         const gapNow = () => Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
         const marchUntil = Date.now() + 150_000;
-        let result = "";
         let stallGuard = 0;
+        // SWIM-CAPABLE WAYPOINT HOPS, direct via navigation — not the go_to
+        // action. go_to forces the cautious safeMoves (no swimming, no
+        // digging) with a 15s cap and refuses anything over 200 blocks, so a
+        // far-west explorer stranded across water made ZERO progress across
+        // three prior fixes. explorerMoves swims; each hop aims ~120 blocks
+        // along the vector home, inside the OOM search-radius cap; a longer
+        // 40s timeout lets a hop actually complete.
+        this.bot.pathfinder.setMovements(explorerMoves(this.bot));
         while (Date.now() < marchUntil && gapNow() > 60 && !this.paused) {
-          // WAYPOINT HOPS, not a direct goal: the OOM fix caps the pathfinder
-          // search radius at 256, so GoalNear(stash) from 368 blocks out is
-          // beyond the frontier and A* fails instantly with zero movement —
-          // exactly why Atlas sat at 368 for an hour. Aim at a point ~120
-          // blocks along the vector home (inside the radius), and repeat.
           const p = this.bot.entity.position;
           const gap = gapNow();
           const stepFrac = Math.min(1, 120 / gap);
-          const wx = p.x + (sp.x - p.x) * stepFrac;
-          const wz = p.z + (sp.z - p.z) * stepFrac;
+          const wx = Math.round(p.x + (sp.x - p.x) * stepFrac);
+          const wz = Math.round(p.z + (sp.z - p.z) * stepFrac);
           const before = gap;
-          result = await this.executeActionUnlessPaused("go_to", { x: Math.round(wx), y: sp.y, z: Math.round(wz) });
+          await safeGoto(this.bot, new navGoals.GoalNearXZ(wx, wz, 6), 40_000, 12_000).catch(() => {});
           if (before - gapNow() < 5) {
-            stallGuard++;
-            if (stallGuard >= 3) {
+            if (++stallGuard >= 3) {
               this.log.info("Brain", `Walk-home: stalled at ${gapNow().toFixed(0)} blocks — yielding the turn`);
               break;
             }
           } else {
             stallGuard = 0;
           }
-          if (gapNow() > 60) await new Promise((r) => setTimeout(r, 1000));
+          if (gapNow() > 60) await new Promise((r) => setTimeout(r, 800));
         }
+        const result = `Walk-home ended ${gapNow().toFixed(0)} blocks out`;
         this.log.info("Brain", `Walk-home: now ${gapNow().toFixed(0)} blocks from the village`);
         this.events.onAction("go_to", result);
         this.lastAction = "go_to";
