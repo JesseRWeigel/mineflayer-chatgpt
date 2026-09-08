@@ -16,7 +16,13 @@ import { baseMoves, safeGoto } from "../bot/navigation.js";
  * block in the open.
  */
 
-export const FUND_CHEST = { x: 303, y: 58, z: -306 };
+// Plaza level (y=70), three blocks from the stash where every bot stands —
+// RCON-probed clear: grass floor, two air above. The first location (the
+// farm shore at y=58) was down the same ridge that defeated cane planting;
+// Forge stalled 20 blocks short every trip. A dead drop is only as good as
+// its reachability, and the plaza is the one patch the whole team touches
+// hourly.
+export const FUND_CHEST = { x: 283, y: 70, z: -315 };
 
 function count(bot: Bot, name: string): number {
   return bot.inventory
