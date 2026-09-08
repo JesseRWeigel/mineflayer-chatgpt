@@ -1251,7 +1251,17 @@ export class BotBrain {
     // session. In modern Java, USING a bed sets the respawn point even in
     // daylight; at night this same click just sleeps, which also sets it.
     if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && !this.bedClaimed) {
-      const bed = this.bot.findBlock({ matching: (b) => b.name.endsWith("_bed"), maxDistance: 48 });
+      // VILLAGE beds only. The first version claimed the nearest bed
+      // anywhere, and wandering bots bound themselves to a frontier
+      // structure 270 blocks west — every death then respawned them far
+      // from the stash, the portal, and each other, quietly scattering the
+      // team (Blade and Forge spent a whole session failing to overlap).
+      const spBed = this.roleConfig.stashPos;
+      const nearStashBed =
+        !!spBed && Math.hypot(this.bot.entity.position.x - spBed.x, this.bot.entity.position.z - spBed.z) < 40;
+      const bed = nearStashBed
+        ? this.bot.findBlock({ matching: (b) => b.name.endsWith("_bed"), maxDistance: 48 })
+        : null;
       const cooledClaim = Date.now() - this.lastBedClaimMs > 180_000;
       if (bed && cooledClaim) {
         this.lastBedClaimMs = Date.now();
