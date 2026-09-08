@@ -571,7 +571,19 @@ export async function createBot(events: BrainEvents, roleConfig: BotRoleConfig =
     // three inferences about where kit items were; this ends the guessing:
     // every gain/loss of a kit-relevant item logs the moment, the place, and
     // what the bot was doing when it happened.
-    const KIT_ITEMS = new Set(["bucket", "water_bucket", "lava_bucket", "flint_and_steel", "iron_ingot", "flint"]);
+    // gold_ingot + golden_boots joined the watchlist 2026-09-08: Blade's piglin
+    // payroll has now vanished from his pocket three times with three different
+    // partial explanations — the next disappearance gets caught on tape.
+    const KIT_ITEMS = new Set([
+      "bucket",
+      "water_bucket",
+      "lava_bucket",
+      "flint_and_steel",
+      "iron_ingot",
+      "flint",
+      "gold_ingot",
+      "golden_boots",
+    ]);
     bot.inventory.on("updateSlot", (slot: number, oldItem: any, newItem: any) => {
       const was = oldItem && KIT_ITEMS.has(oldItem.name) ? `${oldItem.count}x ${oldItem.name}` : null;
       const now = newItem && KIT_ITEMS.has(newItem.name) ? `${newItem.count}x ${newItem.name}` : null;
