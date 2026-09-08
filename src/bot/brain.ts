@@ -835,7 +835,13 @@ export class BotBrain {
     // never claim a village bed → respawn west). A bot far from home and
     // not mid-skill walks back, deterministically, before anything else —
     // and arriving lets the village-only bed claim finally fire.
-    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.roleConfig.stashPos) {
+    // OVERWORLD ONLY: the stash XZ is an overworld coordinate, and the Nether
+    // is scaled 1:8, so a bot idle in the Nether computes a bogus 300+ block
+    // "homeGap" and would bulldoze toward overworld coords inside the Nether —
+    // dragging Atlas off his fortress sweeps between resumable refires. Home
+    // is an overworld concept; only pull bots home when they are in it.
+    const inOverworld = /overworld/.test(String(this.bot.game.dimension));
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.roleConfig.stashPos && inOverworld) {
       const sp = this.roleConfig.stashPos;
       const homeGap = Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
       const cooledHome = Date.now() - this.lastWalkHomeMs > 120_000;
