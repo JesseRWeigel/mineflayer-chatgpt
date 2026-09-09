@@ -112,22 +112,61 @@ export const stripMineSkill: Skill = {
       const freeSlots = 36 - bot.inventory.items().length;
       const { STASH_POS } = await import("../bot/role.js");
       if (freeSlots < 6 && !signal.aborted) {
-        const { depositStash } = await import("./stash.js");
-        const keep = [
-          { name: "pickaxe", minCount: 1 },
-          { name: "sword", minCount: 1 },
-          { name: "bucket", minCount: 1 },
-          { name: "torch", minCount: 8 },
-          { name: "food", minCount: 4 },
-          { name: "cobblestone", minCount: 8 },
-          { name: "stick", minCount: 4 },
-        ];
-        const banked = await raced(
-          depositStash(bot, STASH_POS, keep).catch((e) => `deposit failed: ${e.message}`),
-          120_000,
-          "pre-mine deposit",
+        // TOSS mining junk instead of banking it. The stash is 87 chests of
+        // accumulated cobblestone/dirt and rejects deposits ("chest_full after
+        // 87 chests"), so the pre-mine deposit was losing the VALUABLE ore
+        // mixed into the pack — the swarm mined iron for days and stayed naked.
+        // A miner that tosses its worthless blocks (like a real player clearing
+        // a full inventory) stays light AND retains its ore in-pocket, where
+        // the smelt and armour reflexes use it directly — no clogged-stash
+        // round-trip. A cobblestone reserve is kept for towering/scaffolding.
+        const JUNK = new Set([
+          "cobbled_deepslate",
+          "dirt",
+          "gravel",
+          "andesite",
+          "diorite",
+          "granite",
+          "tuff",
+          "netherrack",
+          "deepslate",
+        ]);
+        let cobbleKept = 0;
+        let tossed = 0;
+        for (const it of bot.inventory.items()) {
+          if (signal.aborted) break;
+          const isCobble = it.name === "cobblestone";
+          if (isCobble && cobbleKept < 16) {
+            cobbleKept += it.count;
+            continue;
+          }
+          if (!isCobble && !JUNK.has(it.name)) continue;
+          await bot.toss(it.type, null, it.count).catch(() => {});
+          tossed += it.count;
+        }
+        console.log(
+          `[Skill] strip_mine tossed ${tossed} junk blocks (${freeSlots} slots were free), keeping ore in-pocket`,
         );
-        console.log(`[Skill] strip_mine pre-mine deposit (${freeSlots} slots were free): ${banked}`);
+        // Only fall back to a stash deposit if tossing junk didn't free enough
+        // — e.g. a pack full of surplus ore rather than junk.
+        if (36 - bot.inventory.items().length < 6) {
+          const { depositStash } = await import("./stash.js");
+          const keep = [
+            { name: "pickaxe", minCount: 1 },
+            { name: "sword", minCount: 1 },
+            { name: "bucket", minCount: 1 },
+            { name: "torch", minCount: 8 },
+            { name: "food", minCount: 4 },
+            { name: "cobblestone", minCount: 8 },
+            { name: "stick", minCount: 4 },
+          ];
+          const banked = await raced(
+            depositStash(bot, STASH_POS, keep).catch((e) => `deposit failed: ${e.message}`),
+            120_000,
+            "pre-mine deposit",
+          );
+          console.log(`[Skill] strip_mine fallback deposit: ${banked}`);
+        }
       }
     }
 
