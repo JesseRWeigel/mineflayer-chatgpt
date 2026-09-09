@@ -252,6 +252,10 @@ export class BotBrain {
       });
       const best = cands[0];
       const worn = this.bot.inventory.slots[slotIdx];
+      // ARMORDEBUG: two cycles of "Atlas is naked while carrying boots" with
+      // zero equip/fail logs means the decision itself is silent. Name what
+      // this slot sees so the next restart says why nothing gets worn.
+      this.log.info("ArmorDebug", `${dest}: best=${best.name} worn=${worn?.name ?? "none"} (slot ${slotIdx})`);
       // Compare TIERS, not names: inventory.items() excludes worn armor, so a
       // bot wearing iron while carrying a leather spare sees best=leather,
       // fails the name check, and swaps — then swaps back next cycle. Flora
@@ -279,9 +283,10 @@ export class BotBrain {
     this.resetIdleTimer();
 
     // 0. Auto-equip armor on spawn and every 20s thereafter
-    this.equipBestArmor().catch(() => {});
+    this.equipBestArmor().catch((e) => this.log.warn("Armor", `equipBestArmor threw: ${e?.message || e}`));
     const armorTimer = setInterval(() => {
-      if (!this.paused) this.equipBestArmor().catch(() => {});
+      if (!this.paused)
+        this.equipBestArmor().catch((e) => this.log.warn("Armor", `equipBestArmor threw: ${e?.message || e}`));
     }, 20_000);
     armorTimer.unref?.();
 
