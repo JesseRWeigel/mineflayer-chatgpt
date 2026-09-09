@@ -181,6 +181,8 @@ export class BotBrain {
   private lastFortressMs = 0;
   private lastPortalRelightMs = 0;
   private lastNetherReturnMs = 0;
+  private lastBiomeRoamMs = 0;
+  private biomeRoamIdx = 0;
   private lastPocketShedMs = 0;
   private lastWalkHomeMs = 0;
 
@@ -865,8 +867,17 @@ export class BotBrain {
     // "homeGap" and would bulldoze toward overworld coords inside the Nether —
     // dragging Atlas off his fortress sweeps between resumable refires. Home
     // is an overworld concept; only pull bots home when they are in it.
+    // Flora is the designated ROAMER now that her farm and breeding work are
+    // done — walk-home would tether her to the village and defeat the point,
+    // so she is exempt. Everyone else still re-clusters.
     const inOverworld = /overworld/.test(String(this.bot.game.dimension));
-    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.roleConfig.stashPos && inOverworld) {
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.roleConfig.stashPos &&
+      inOverworld &&
+      this.bot.username !== "Flora"
+    ) {
       const sp = this.roleConfig.stashPos;
       const homeGap = Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
       const cooledHome = Date.now() - this.lastWalkHomeMs > 120_000;
@@ -1446,6 +1457,61 @@ export class BotBrain {
         this.events.onAction("find_fortress", result);
         this.lastAction = "find_fortress";
         this.lastResult = result;
+        return;
+      }
+    }
+
+    // Biome-roamer reflex (Flora) — her farm and breeding are done, so she
+    // becomes the overworld's explorer. Adventuring Time wants every biome
+    // visited (she is ~30 of ~50), and a wide roam also scouts the ocean the
+    // fish advancement needs and the flowered biomes bees live in. Explore
+    // NEW ground: march to a far waypoint on a rotating heading, pushing the
+    // frontier outward, dig-capable so terrain does not pin her. The same
+    // accidental-advancement engine that just earned Hot Tourist Destinations
+    // in the Nether, pointed at the overworld.
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.bot.username === "Flora" &&
+      /overworld/.test(String(this.bot.game.dimension))
+    ) {
+      const cooledRoam = Date.now() - this.lastBiomeRoamMs > 90_000;
+      if (cooledRoam) {
+        this.lastBiomeRoamMs = Date.now();
+        // Push the frontier: each roam heads ~250 blocks further out on the
+        // next compass point, so the explored radius keeps growing instead of
+        // circling the base.
+        const HEADINGS: [number, number][] = [
+          [1, 0],
+          [0.7, 0.7],
+          [0, 1],
+          [-0.7, 0.7],
+          [-1, 0],
+          [-0.7, -0.7],
+          [0, -1],
+          [0.7, -0.7],
+        ];
+        const h = HEADINGS[this.biomeRoamIdx % HEADINGS.length];
+        this.biomeRoamIdx++;
+        const p = this.bot.entity.position;
+        const tx = Math.round(p.x + h[0] * 220);
+        const tz = Math.round(p.z + h[1] * 220);
+        this.log.info("Brain", `Biome roam: pushing the frontier toward ${tx},${tz}`);
+        this.events.onThought("New horizons. Let's see what biome lies out there.");
+        const roamMoves = explorerMoves(this.bot);
+        (roamMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).canDig = true;
+        (roamMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).allow1by1towers = true;
+        this.bot.pathfinder.setMovements(roamMoves);
+        const marchUntil = Date.now() + 120_000;
+        const gap = () => Math.hypot(this.bot.entity.position.x - tx, this.bot.entity.position.z - tz);
+        let guard = 0;
+        while (Date.now() < marchUntil && gap() > 20 && !this.paused) {
+          const before = gap();
+          await safeGoto(this.bot, new navGoals.GoalNearXZ(tx, tz, 12), 40_000, 12_000).catch(() => {});
+          if (before - gap() < 8 && ++guard >= 3) break;
+          else if (before - gap() >= 8) guard = 0;
+        }
+        this.lastAction = "biome_roam";
         return;
       }
     }
