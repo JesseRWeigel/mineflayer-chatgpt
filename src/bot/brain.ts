@@ -224,12 +224,12 @@ export class BotBrain {
    * while they fought unprotected and died. Runs periodically; idempotent.
    */
   private async equipBestArmor(): Promise<void> {
-    // NOT skill-gated: Atlas runs find_fortress in near-continuous 8-minute
-    // chains, so an isSkillRunning guard meant he NEVER equipped — found
-    // naked in the Nether, carrying diamond boots unworn, shot dead by
-    // piglins five times an hour. Equipping is a benign window click that
-    // does not disturb pathfinding, so armor goes on whenever it is owned,
-    // mid-skill or not.
+    // NOT skill-gated: the old isSkillRunning guard meant a bot in a
+    // near-continuous skill chain (Atlas in find_fortress) could never run
+    // the equip pass, leaving crafted armor unworn indefinitely. Equipping is
+    // a benign window click that does not disturb pathfinding, so armor goes
+    // on whenever it is owned, mid-skill or not. (Confirmed working: Forge
+    // wears diamond, Atlas wears his diamond boots.)
     const TIER = ["netherite", "diamond", "iron", "chainmail", "golden", "leather"];
     const slots: [string, string, number][] = [
       ["head", "_helmet", 5],
@@ -252,10 +252,6 @@ export class BotBrain {
       });
       const best = cands[0];
       const worn = this.bot.inventory.slots[slotIdx];
-      // ARMORDEBUG: two cycles of "Atlas is naked while carrying boots" with
-      // zero equip/fail logs means the decision itself is silent. Name what
-      // this slot sees so the next restart says why nothing gets worn.
-      this.log.info("ArmorDebug", `${dest}: best=${best.name} worn=${worn?.name ?? "none"} (slot ${slotIdx})`);
       // Compare TIERS, not names: inventory.items() excludes worn armor, so a
       // bot wearing iron while carrying a leather spare sees best=leather,
       // fails the name check, and swaps — then swaps back next cycle. Flora
