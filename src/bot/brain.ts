@@ -287,6 +287,40 @@ export class BotBrain {
     }, 20_000);
     armorTimer.unref?.();
 
+    // 0a. Ghast-fireball deflect — a FAST tick handler, not a brain override.
+    // The old override was gated on !isSkillRunning and the fortress hunters
+    // are perpetually mid-skill, so it fired ZERO times while ghasts killed
+    // them — same trap the armor equip fell into. A fireball also moves too
+    // fast for the strategic/reactive cadence. This 200ms loop runs
+    // regardless of skill state: when a ghast fireball is within reach and
+    // return_to_sender is unearned, it looks at the shot and swings, batting
+    // it back along its vector into the ghast that fired it.
+    const deflectTimer = setInterval(() => {
+      if (this.paused) return;
+      try {
+        const earned = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+        if (earned.has("nether/return_to_sender") || earned.has("minecraft:nether/return_to_sender")) return;
+        const fb = this.bot.nearestEntity(
+          (e) => e.name === "fireball" && this.bot.entity.position.distanceTo(e.position) < 9,
+        );
+        if (!fb) return;
+        void this.bot.lookAt(fb.position, true).then(() => {
+          try {
+            this.bot.attack(fb);
+            this.log.info(
+              "Deflect",
+              `swung at a ghast fireball ${this.bot.entity.position.distanceTo(fb.position).toFixed(1)} away`,
+            );
+          } catch {
+            /* missed the window */
+          }
+        });
+      } catch {
+        /* entity vanished mid-check */
+      }
+    }, 200);
+    deflectTimer.unref?.();
+
     // 0b. Self-unstick: if boxed into a hole, dig out (own hands, not a TP).
     //
     // This used to be gated on `!this.processing`, which disabled it exactly
@@ -806,33 +840,9 @@ export class BotBrain {
       // Sleep failed (no bed, hostiles nearby) — fall through to normal planning.
     }
 
-    // Ghast-deflect reflex — return_to_sender, a free lottery on the Nether
-    // exposure the fortress hunt already pays for. Ghasts fireball our bots
-    // constantly (a top Nether death cause); batting the fireball back with a
-    // melee swing sends it roughly along its reverse vector, and a hit ghast
-    // dies to its own shot. Highest priority when a fireball is inbound —
-    // deflection is a timing move, so it must beat every other override.
-    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot)) {
-      const earnedRTS = readTeamEarned(BOT_ROSTER.map((b) => b.name));
-      const rtsDone = earnedRTS.has("nether/return_to_sender") || earnedRTS.has("minecraft:nether/return_to_sender");
-      if (!rtsDone) {
-        const fireball = this.bot.nearestEntity(
-          (e) => e.name === "fireball" && this.bot.entity.position.distanceTo(e.position) < 12,
-        );
-        if (fireball) {
-          this.log.info("Brain", "OVERRIDE: ghast fireball inbound — swinging to send it back");
-          this.events.onThought("Return to sender.");
-          try {
-            await this.bot.lookAt(fireball.position, true);
-            this.bot.attack(fireball);
-          } catch {
-            /* missed the window — it happens */
-          }
-          this.lastAction = "deflect_fireball";
-          return;
-        }
-      }
-    }
+    // (Ghast-fireball deflect moved to a 200ms tick handler in start() — the
+    // brain override was skill-gated and the fortress hunters are always
+    // mid-skill, so it never fired. See "0a. Ghast-fireball deflect".)
 
     // WALK-HOME reflex — the honest replacement for the deleted spawn
     // teleport. Removing the /tp took away the force that kept the swarm
