@@ -224,7 +224,12 @@ export class BotBrain {
    * while they fought unprotected and died. Runs periodically; idempotent.
    */
   private async equipBestArmor(): Promise<void> {
-    if (isSkillRunning(this.bot)) return;
+    // NOT skill-gated: Atlas runs find_fortress in near-continuous 8-minute
+    // chains, so an isSkillRunning guard meant he NEVER equipped — found
+    // naked in the Nether, carrying diamond boots unworn, shot dead by
+    // piglins five times an hour. Equipping is a benign window click that
+    // does not disturb pathfinding, so armor goes on whenever it is owned,
+    // mid-skill or not.
     const TIER = ["netherite", "diamond", "iron", "chainmail", "golden", "leather"];
     const slots: [string, string, number][] = [
       ["head", "_helmet", 5],
