@@ -373,12 +373,18 @@ export const stripMineSkill: Skill = {
     // with digging enabled to ACTUALLY reach depth: it handles the descent and
     // avoids lava/dangerous falls itself.
     const currentY = Math.floor(bot.entity.position.y);
-    if (currentY > targetY + 5) {
+    // Reach targetY from EITHER direction. The old `currentY > targetY + 5`
+    // only descended, so an unarmoured miner already stranded deep (y=-59 from
+    // a previous diamond dive) skipped this phase and tunnelled for iron where
+    // iron is sparse — the depth fix flipped targetY to 15 but the bot never
+    // climbed back up to it. GoalY with towering climbs as readily as it digs.
+    const goingUp = currentY < targetY - 5;
+    if (Math.abs(currentY - targetY) > 5) {
       onProgress({
         skillName: "strip_mine",
-        phase: "Digging down",
+        phase: goingUp ? "Climbing up" : "Digging down",
         progress: 0.05,
-        message: `Digging down to Y=${targetY} (iron depth)...`,
+        message: `${goingUp ? "Climbing up" : "Digging down"} to Y=${targetY} (iron depth)...`,
         active: true,
       });
       const digMoves = baseMoves(bot);
@@ -402,8 +408,11 @@ export const stripMineSkill: Skill = {
         // y=-33 comfortably. Raising the budget would only re-create the
         // watchdog stall noted below, so fall back to digging straight down,
         // which is what a player does and what safeToDigDown makes survivable.
-        const fallback = await digDownTo(bot, targetY);
-        console.log(`[Skill] strip_mine pathfinder descent failed; ${fallback}`);
+        // Only when DESCENDING — digDownTo would drive an ascending bot deeper.
+        if (!goingUp) {
+          const fallback = await digDownTo(bot, targetY);
+          console.log(`[Skill] strip_mine pathfinder descent failed; ${fallback}`);
+        }
       }
       // Trust ALTITUDE, never the resolver: eight descents in one hour
       // "succeeded" at y=72 with a y=8 goal — goto resolved without moving
