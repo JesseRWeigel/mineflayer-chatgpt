@@ -1475,7 +1475,7 @@ export class BotBrain {
       this.bot.username === "Flora" &&
       /overworld/.test(String(this.bot.game.dimension))
     ) {
-      const cooledRoam = Date.now() - this.lastBiomeRoamMs > 90_000;
+      const cooledRoam = Date.now() - this.lastBiomeRoamMs > 240_000;
       if (cooledRoam) {
         this.lastBiomeRoamMs = Date.now();
         // Push the frontier: each roam heads ~250 blocks further out on the
@@ -1494,8 +1494,8 @@ export class BotBrain {
         const h = HEADINGS[this.biomeRoamIdx % HEADINGS.length];
         this.biomeRoamIdx++;
         const p = this.bot.entity.position;
-        const tx = Math.round(p.x + h[0] * 220);
-        const tz = Math.round(p.z + h[1] * 220);
+        const tx = Math.round(p.x + h[0] * 140);
+        const tz = Math.round(p.z + h[1] * 140);
         this.log.info("Brain", `Biome roam: pushing the frontier toward ${tx},${tz}`);
         this.events.onThought("New horizons. Let's see what biome lies out there.");
         const roamMoves = explorerMoves(this.bot);
