@@ -876,7 +876,8 @@ export class BotBrain {
       !isSkillRunning(this.bot) &&
       this.roleConfig.stashPos &&
       inOverworld &&
-      this.bot.username !== "Flora"
+      this.bot.username !== "Flora" &&
+      this.bot.username !== "Atlas"
     ) {
       const sp = this.roleConfig.stashPos;
       const homeGap = Math.hypot(this.bot.entity.position.x - sp.x, this.bot.entity.position.z - sp.z);
@@ -1431,7 +1432,11 @@ export class BotBrain {
     // so he can cross. Two bots sharing the module-level heading rotation
     // naturally split the compass between them, roughly halving expected
     // time-to-fortress. Both gated below on find_fortress being in the role.
-    const isFortressHunter = this.bot.username === "Atlas" || this.bot.username === "Mason";
+    // Atlas pivoted to overworld biome-roaming (cycle 445): the fortress
+    // disk around the village portal is exhausted — no fortress in reach, all
+    // nether biomes already earned — so his 7-deaths/hr there bought nothing.
+    // Mason keeps one lottery ticket + one deflect participant in the Nether.
+    const isFortressHunter = this.bot.username === "Mason";
     if (
       config.bot.allowStrategyOverrides &&
       !isSkillRunning(this.bot) &&
@@ -1440,11 +1445,12 @@ export class BotBrain {
     ) {
       const earnedFort = readTeamEarned(BOT_ROSTER.map((b) => b.name));
       const fortDone = earnedFort.has("nether/find_fortress") || earnedFort.has("minecraft:nether/find_fortress");
-      // 15min, down from 45: the fortress gates 5+ advancements and is the
-      // swarm's single highest-value target, yet the old cooldown let Atlas
-      // sweep barely once an hour. Tripling the cadence is the cheapest way
-      // to raise the find rate on a search that is fundamentally patient.
-      const cooledFort = Date.now() - this.lastFortressMs > 900_000;
+      // 45min: the reachable disk from this portal is exhausted, so frequent
+      // sweeps just tax Mason with deaths for no new coverage. One occasional
+      // lottery ticket (accidental explore advancements, a stray fortress
+      // edge) is worth keeping; a fast cadence is not. The real fortress fix
+      // is a second portal in fresh territory, a deliberate future build.
+      const cooledFort = Date.now() - this.lastFortressMs > 2_700_000;
       const todFort = this.bot.time?.timeOfDay ?? 0;
       const spFort = this.roleConfig.stashPos;
       const nearStashFort =
@@ -1472,7 +1478,7 @@ export class BotBrain {
     if (
       config.bot.allowStrategyOverrides &&
       !isSkillRunning(this.bot) &&
-      this.bot.username === "Flora" &&
+      (this.bot.username === "Flora" || this.bot.username === "Atlas") &&
       /overworld/.test(String(this.bot.game.dimension))
     ) {
       const cooledRoam = Date.now() - this.lastBiomeRoamMs > 240_000;
