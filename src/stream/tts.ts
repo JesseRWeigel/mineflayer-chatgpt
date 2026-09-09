@@ -1,16 +1,13 @@
 import { MsEdgeTTS, OUTPUT_FORMAT } from "msedge-tts";
-import fs from "fs";
 import path from "path";
 import type { Readable } from "stream";
 import { fileURLToPath } from "url";
+import { AudioFileStore, saveAudioStream } from "./audio-files.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const AUDIO_DIR = path.join(__dirname, "../../overlay/audio");
 
-// Ensure audio directory exists
-if (!fs.existsSync(AUDIO_DIR)) {
-  fs.mkdirSync(AUDIO_DIR, { recursive: true });
-}
+const audioFiles = new AudioFileStore(AUDIO_DIR);
 
 let ttsInstance: MsEdgeTTS | null = null;
 let initPromise: Promise<MsEdgeTTS> | null = null;
@@ -75,19 +72,6 @@ function discardTTS(): void {
   ttsInstance = null;
 }
 
-let audioCounter = (() => {
-  try {
-    const existing = fs
-      .readdirSync(AUDIO_DIR)
-      .filter((f) => f.startsWith("thought-") && f.endsWith(".mp3"))
-      .map((f) => parseInt(f.replace(/\D/g, ""), 10))
-      .filter((n) => !isNaN(n));
-    return existing.length ? Math.max(...existing) : 0;
-  } catch {
-    return 0;
-  }
-})();
-
 /**
  * Only one synthesis runs at a time.
  *
@@ -129,49 +113,11 @@ export async function generateSpeech(text: string): Promise<string | null> {
     }
 
     const tts = await getTTS();
-    const filename = `thought-${++audioCounter}.mp3`;
-    const filepath = path.join(AUDIO_DIR, filename);
-
     audioStream = tts.toStream(text).audioStream;
-    const stream = audioStream;
-
-    await new Promise<void>((resolve, reject) => {
-      const chunks: Buffer[] = [];
-      stream.on("data", (chunk: Buffer) => {
-        try {
-          chunks.push(chunk);
-        } catch {
-          /* ignore */
-        }
-      });
-      stream.on("end", () => {
-        try {
-          fs.writeFileSync(filepath, Buffer.concat(chunks));
-          resolve();
-        } catch (e) {
-          reject(e);
-        }
-      });
-      stream.on("error", reject);
-    });
+    const audioUrl = await saveAudioStream(audioStream, audioFiles);
 
     lastSynthesisAt = Date.now();
-
-    // Clean up old audio files (keep last 10)
-    const files = fs
-      .readdirSync(AUDIO_DIR)
-      .filter((f) => f.startsWith("thought-") && f.endsWith(".mp3"))
-      .sort((a, b) => {
-        const numA = parseInt(a.replace(/\D/g, ""), 10) || 0;
-        const numB = parseInt(b.replace(/\D/g, ""), 10) || 0;
-        return numA - numB;
-      });
-    while (files.length > 10) {
-      const old = files.shift()!;
-      fs.unlinkSync(path.join(AUDIO_DIR, old));
-    }
-
-    return `/audio/${filename}`;
+    return audioUrl;
   } catch (err) {
     console.error("[TTS] Error generating speech:", err);
     // Close before dropping the reference so the WebSocket is actually

@@ -7,6 +7,7 @@ logs/*
 !logs/advancement-progress.csv
 memory.json
 firebase-debug.log
+/overlay/audio/thought-*.mp3
 
 skills/generated/*.js
 memory-*.json
