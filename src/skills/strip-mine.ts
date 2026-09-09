@@ -215,17 +215,20 @@ export const stripMineSkill: Skill = {
     }
 
     const hasIronPick = bot.inventory.items().some((i) => (PICK_TIER[i.name] ?? 0) >= 2);
+    // ARMOUR BEFORE DIAMONDS: a diamond dive to y=-58 sits BELOW the iron band
+    // (iron peaks at y=16, its triangle ends near y=-24), so a deep tunnel
+    // yields ~1 iron — Forge dug 29 blocks at y=-60 for a single raw_iron
+    // while the whole swarm fought naked. The armour pipeline was starving not
+    // for lack of a reflex but because the miners abandoned the iron band the
+    // moment they held an iron pick. So an UNARMOURED miner mines iron at
+    // y=15 (its abundant peak) regardless of pickaxe, and only a fully armoured
+    // one with an iron pick dives for the diamonds the Nether arc still needs.
+    const wornArmour = [5, 6, 7, 8].filter((i) => bot.inventory.slots[i]).length;
     // -58, corrected from -53 after the mechanics research: diamond peaks at
     // y=-58/-59 and the accepted practice is mining the peak band with a
     // water bucket for lava (common at -54 and below) — the kits carry one,
     // and the tunnel already stops at breached fluids.
-    // Depth follows the TOOL alone. This also tested the season-goal text for
-    // "diamond", but that read the singleton chat-goal — the per-role mission
-    // text where the word actually lives never reaches this function, so the
-    // flip could never fire. The tool is the real gate anyway: an iron pick
-    // legally harvests diamond ore, iron shows up on the way down regardless,
-    // and the whole Nether arc is waiting on 3 diamonds.
-    const targetY = hasIronPick ? -58 : TARGET_Y;
+    const targetY = hasIronPick && wornArmour >= 4 ? -58 : TARGET_Y;
 
     // Snap to nearest cardinal direction — but never TOWARD the portal
     // quarry. Bots at the stash face the portal (they commute there), and
