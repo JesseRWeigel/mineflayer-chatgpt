@@ -276,6 +276,17 @@ export class BotBrain {
     }
   }
 
+  /**
+   * How many of the four armor slots (helmet/chest/legs/boots, inventory slots
+   * 5-8) currently hold a piece. Nether expeditions gate on this: a naked bot
+   * dies to the first piglin, so throwing it at the bastion or a fortress is
+   * pure death tax (Mason logged 8 deaths and 0 loot in one run doing exactly
+   * that). Zero means do not depart.
+   */
+  private wornArmorCount(): number {
+    return [5, 6, 7, 8].filter((i) => this.bot.inventory.slots[i]).length;
+  }
+
   /** Start the event-driven brain. Call after spawn safety completes. */
   start(): void {
     this.log.info("Brain", `Starting (idle interval: ${this.IDLE_INTERVAL_MS}ms)`);
@@ -1445,7 +1456,13 @@ export class BotBrain {
         !!spBastion &&
         /overworld/.test(String(this.bot.game.dimension)) &&
         Math.hypot(this.bot.entity.position.x - spBastion.x, this.bot.entity.position.z - spBastion.z) < 40;
-      if (!bastionDone && cooledBastion && nearStashBastion) {
+      // Armor gate: a naked Mason walked into the bastion's piglins 12 times
+      // for 8 deaths and 0 loot. The expedition only makes sense once he can
+      // survive it, so it stands down until at least two armor pieces are worn
+      // — which also makes the run wait on the iron→armor pipeline being fixed
+      // rather than feeding him to the Nether in the meantime.
+      const armoredForBastion = this.wornArmorCount() >= 2;
+      if (!bastionDone && cooledBastion && nearStashBastion && armoredForBastion) {
         this.lastBastionMs = Date.now();
         this.log.info("Brain", "OVERRIDE: the bastion is reachable — marching to loot a chest for Those Were the Days");
         this.events.onThought("The fortress is walled off by lava, but the bastion isn't. Time to raid it.");
@@ -1491,7 +1508,7 @@ export class BotBrain {
       const spFort = this.roleConfig.stashPos;
       const nearStashFort =
         !!spFort && Math.hypot(this.bot.entity.position.x - spFort.x, this.bot.entity.position.z - spFort.z) < 40;
-      if (!fortDone && cooledFort && todFort < 11000 && nearStashFort) {
+      if (!fortDone && cooledFort && todFort < 11000 && nearStashFort && this.wornArmorCount() >= 2) {
         this.lastFortressMs = Date.now();
         this.log.info("Brain", "OVERRIDE: the brewing branch waits on a fortress — running find_fortress");
         this.events.onThought("Somewhere out in that red haze stands a fortress. Today I go look.");
