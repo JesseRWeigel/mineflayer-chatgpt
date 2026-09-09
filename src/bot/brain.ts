@@ -1597,9 +1597,14 @@ export class BotBrain {
         const tz = Math.round(p.z + h[1] * 140);
         this.log.info("Brain", `Biome roam: pushing the frontier toward ${tx},${tz}`);
         this.events.onThought("New horizons. Let's see what biome lies out there.");
+        // Surface-only roaming: plain explorerMoves cannot dig, so it paths
+        // OVER the terrain instead of through it. The old dig-capable roam let
+        // GoalNearXZ route through caves to any depth — Flora kept ending up at
+        // y=-23/-36 underground, dying to zombies and creepers (a 5/hr death
+        // spike) and collecting no new biomes down there. Without digging she
+        // stays on top where the unvisited biomes actually are; if terrain pins
+        // her, the stall-guard below rotates her to the next heading.
         const roamMoves = explorerMoves(this.bot);
-        (roamMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).canDig = true;
-        (roamMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).allow1by1towers = true;
         this.bot.pathfinder.setMovements(roamMoves);
         const marchUntil = Date.now() + 120_000;
         const gap = () => Math.hypot(this.bot.entity.position.x - tx, this.bot.entity.position.z - tz);
