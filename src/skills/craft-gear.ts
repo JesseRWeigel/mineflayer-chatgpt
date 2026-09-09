@@ -314,8 +314,13 @@ export const craftGearSkill: Skill = {
         // minted the pick continue down the tool list and spend the enchanting
         // table's 2-diamond reserve on a diamond SHOVEL. Iron tools serve every
         // other job; diamonds only ever go to the pickaxe and the table.
-        const bestPick = bot.inventory.items().reduce((best, i) => Math.max(best, PICK_PRIORITY[i.name] ?? 0), 0);
-        if (tier.name === "iron" && toolType !== "pickaxe" && bestPick < 2) continue;
+        // Iron is pickaxe-and-armour-only, PERIOD — never an iron axe, sword,
+        // or shovel. The swarm fought naked for days because a bot with a pick
+        // and 3 spare ingots (one short of the 4 a boots costs) spent them on a
+        // redundant iron axe instead of banking them toward armour. Stone tools
+        // do every non-mining job; the scarce iron all goes to the pickaxe and
+        // the armour set, where survival actually depends on it.
+        if (tier.name === "iron" && toolType !== "pickaxe") continue;
         if (tier.name === "diamond" && toolType !== "pickaxe") continue;
         const itemName = `${tier.name}_${toolType}`;
         const mcItem = mcData.itemsByName[itemName];

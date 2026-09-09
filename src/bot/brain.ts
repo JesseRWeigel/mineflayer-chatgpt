@@ -185,6 +185,7 @@ export class BotBrain {
   private biomeRoamIdx = 0;
   private lastTradeMs = 0;
   private lastBastionMs = 0;
+  private lastArmorCraftMs = 0;
   private lastPocketShedMs = 0;
   private lastWalkHomeMs = 0;
 
@@ -2245,6 +2246,44 @@ export class BotBrain {
           result,
           /crafted|iron_pickaxe|complete/i.test(result),
         );
+        return;
+      }
+    }
+
+    // Armour-craft reflex — the whole swarm fought NAKED because the only
+    // craft_gear trigger above is the pickaxe one, which stops firing the
+    // moment a bot owns an iron pick. Iron then flowed to tools and was never
+    // converted to armour, so equipBestArmor had nothing to wear. craft_gear
+    // crafts armour-first (chestplate, then the cheapest affordable piece) and
+    // tops up from the stash, so once a bot has its pick and 4+ spare ingots,
+    // route them to survival gear. This is the missing link between "iron is
+    // mined" and "the swarm survives an expedition".
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.roleConfig.allowedSkills.includes("craft_gear") &&
+      this.wornArmorCount() < 4
+    ) {
+      const hasPick = this.bot.inventory.items().some((i) => i.name.endsWith("_pickaxe"));
+      const cooledArmor = Date.now() - this.lastArmorCraftMs > 300_000;
+      // Invoke blind rather than gating on held iron: strip_mine's pre-mine
+      // deposit banks iron ingots to the stash (they are not on its keep
+      // list), so a naked miner almost never HOLDS iron — it sits in the
+      // chest. craft_gear withdraws up to 33 iron from the stash on entry, so
+      // firing it whenever a bot is unarmoured and has a working pick lets it
+      // pull the accumulated iron and forge a piece. A 5-minute cooldown
+      // bounds the wasted table trip on the runs where the stash is dry.
+      if (hasPick && cooledArmor) {
+        this.lastArmorCraftMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: unarmoured with a pick in hand — running craft_gear to forge armour");
+        this.events.onThought("A pick in hand but nothing on my back. Time to forge some armour.");
+        const result = await this.executeActionUnlessPaused("invoke_skill", {
+          skill: "craft_gear",
+          stashPos: this.roleConfig.stashPos,
+        });
+        this.events.onAction("craft_gear", result);
+        this.lastAction = "craft_gear";
+        this.lastResult = result;
         return;
       }
     }
