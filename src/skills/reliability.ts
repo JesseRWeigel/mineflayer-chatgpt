@@ -41,6 +41,7 @@ const NEVER_RETIRE = new Set([
   "find_fortress",
   "oh_shiny",
   "trade_with_villager",
+  "loot_bastion",
 ]);
 
 const CACHE_TTL_MS = 60_000;

@@ -184,6 +184,7 @@ export class BotBrain {
   private lastBiomeRoamMs = 0;
   private biomeRoamIdx = 0;
   private lastTradeMs = 0;
+  private lastBastionMs = 0;
   private lastPocketShedMs = 0;
   private lastWalkHomeMs = 0;
 
@@ -1417,6 +1418,40 @@ export class BotBrain {
         const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "build_nether_portal" });
         this.events.onAction("build_nether_portal", result);
         this.lastAction = "build_nether_portal";
+        this.lastResult = result;
+        return;
+      }
+    }
+
+    // Bastion-loot reflex (Mason) — takes priority over the fortress hunt
+    // below because it is actually reachable. The server locates the fortress
+    // 622 blocks out in the lava-locked direction (unreachable, pure death
+    // tax), but the bastion sits at nether (320,-304), ~387 blocks the other
+    // way, and we already earned find_bastion by entering it. Opening one of
+    // its loot chests banks Those Were the Days and can drop a saddle (ride a
+    // strider) or crying obsidian (respawn anchor) — two more advancements.
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.bot.username === "Mason" &&
+      this.roleConfig.allowedSkills.includes("loot_bastion")
+    ) {
+      const earnedBastion = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const bastionDone =
+        earnedBastion.has("nether/loot_bastion") || earnedBastion.has("minecraft:nether/loot_bastion");
+      const cooledBastion = Date.now() - this.lastBastionMs > 1_200_000;
+      const spBastion = this.roleConfig.stashPos;
+      const nearStashBastion =
+        !!spBastion &&
+        /overworld/.test(String(this.bot.game.dimension)) &&
+        Math.hypot(this.bot.entity.position.x - spBastion.x, this.bot.entity.position.z - spBastion.z) < 40;
+      if (!bastionDone && cooledBastion && nearStashBastion) {
+        this.lastBastionMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: the bastion is reachable — marching to loot a chest for Those Were the Days");
+        this.events.onThought("The fortress is walled off by lava, but the bastion isn't. Time to raid it.");
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "loot_bastion" });
+        this.events.onAction("loot_bastion", result);
+        this.lastAction = "loot_bastion";
         this.lastResult = result;
         return;
       }

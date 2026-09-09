@@ -258,6 +258,7 @@ export const MASON_CONFIG: BotRoleConfig = {
     // the doorway. The skill self-supplies its bucket and igniter.
     "build_nether_portal",
     "find_fortress",
+    "loot_bastion",
     "setup_enchanting",
   ],
   keepItems: [
