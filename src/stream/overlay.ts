@@ -3,8 +3,10 @@ import { createServer } from "http";
 import { Server as SocketIO } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
+import { AUDIO_RETENTION_MIN_AGE_MS } from "./audio-files.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const AUDIO_QUEUE_MAX_WAIT_MS = AUDIO_RETENTION_MIN_AGE_MS - 60_000;
 
 export interface OverlayState {
   health: number;
@@ -77,7 +79,7 @@ export function startOverlay(port = 3001, botName = "Atlas"): OverlayInstance {
       if (io) io.emit("state", state);
     },
     speakThought(audioUrl: string) {
-      if (io) io.emit("speak", { url: audioUrl });
+      if (io) io.emit("speak", { url: audioUrl, expiresAt: Date.now() + AUDIO_QUEUE_MAX_WAIT_MS });
     },
     addChatMessage(username: string, message: string, tier: string) {
       state.chatMessages.push({ username, message, tier });

@@ -266,8 +266,10 @@
   <div id="chat-panel"></div>
 
   <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const socket = io();
+  <script type="module">
+    import { ExpiringAudioQueue } from "./audio-queue.js";
+
+    const socket = window.io();
 
     const $ = (id) => document.getElementById(id);
 
@@ -334,20 +336,22 @@
       chatPanel.scrollTop = chatPanel.scrollHeight;
     });
 
-    // TTS audio playback
-    let audioQueue = [];
+    // TTS audio playback: keep at most 10 waiting clips and never fetch
+    // one after its server-side retention window has elapsed.
+    const audioQueue = new ExpiringAudioQueue(10);
     let isPlaying = false;
 
     socket.on('speak', (data) => {
-      audioQueue.push(data.url);
+      audioQueue.push(data);
       playNext();
     });
 
     function playNext() {
-      if (isPlaying || audioQueue.length === 0) return;
+      if (isPlaying) return;
+      const clip = audioQueue.shift();
+      if (!clip) return;
       isPlaying = true;
-      const url = audioQueue.shift();
-      const audio = new Audio(url);
+      const audio = new Audio(clip.url);
       audio.volume = 0.85;
       audio.onended = () => { isPlaying = false; playNext(); };
       audio.onerror = () => { isPlaying = false; playNext(); };

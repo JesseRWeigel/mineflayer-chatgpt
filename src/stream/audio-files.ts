@@ -1,11 +1,12 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, open, readdir, stat, unlink } from "node:fs/promises";
+import { link, mkdir, open, readdir, stat, unlink } from "node:fs/promises";
 import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
 import type { Readable } from "node:stream";
 
 export const AUDIO_RETENTION_MAX_FILES = 10;
 export const AUDIO_RETENTION_MAX_AGE_MS = 24 * 60 * 60 * 1_000;
+export const AUDIO_RETENTION_MIN_AGE_MS = 10 * 60 * 1_000;
 
 const MAX_ALLOCATION_ATTEMPTS = 32;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -14,17 +15,19 @@ export interface AudioFileStoreOptions {
   createId?: () => string;
   maxFiles?: number;
   maxAgeMs?: number;
+  minAgeMs?: number;
   now?: () => number;
 }
 
 export class AudioReservation {
   private settled = false;
+  private written = false;
 
   constructor(
     readonly filename: string,
     readonly filepath: string,
+    readonly stagingFilepath: string,
     private readonly handle: FileHandle,
-    private readonly onSettled: () => void,
   ) {}
 
   async write(audio: Buffer): Promise<void> {
@@ -32,25 +35,37 @@ export class AudioReservation {
     await this.handle.truncate(0);
     await this.handle.writeFile(audio);
     await this.handle.sync();
+    this.written = true;
   }
 
-  async release(): Promise<void> {
-    if (this.settled) return;
+  /** Atomically expose the completed clip without replacing an existing path. */
+  async publish(): Promise<void> {
+    if (this.settled) throw new Error("Audio reservation is already closed");
+    if (!this.written) throw new Error("Cannot publish an unwritten audio reservation");
     this.settled = true;
+
+    let closeError: unknown;
     try {
       await this.handle.close();
+    } catch (error) {
+      closeError = error;
+    }
+
+    try {
+      if (closeError) throw closeError;
+      await link(this.stagingFilepath, this.filepath);
     } finally {
-      this.onSettled();
+      await removeIfPresent(this.stagingFilepath);
     }
   }
 
   async discard(): Promise<void> {
     if (this.settled) return;
-    await this.release();
+    this.settled = true;
     try {
-      await unlink(this.filepath);
-    } catch (error) {
-      if (!isMissingFile(error)) throw error;
+      await this.handle.close();
+    } finally {
+      await removeIfPresent(this.stagingFilepath);
     }
   }
 }
@@ -58,16 +73,16 @@ export class AudioReservation {
 /**
  * Allocates generated speech files without deriving the next name from disk.
  *
- * UUID candidates are created with the filesystem's exclusive-create flag, so
- * a collision is retried rather than overwriting an existing clip. Retention
- * uses mtime metadata for both UUID and legacy filenames and skips every file
- * with an active reservation.
+ * UUID staging files use exclusive creation, so concurrent collisions retry.
+ * Completed audio is exposed with an exclusive hard link. Cleanup scans only
+ * published MP3 files, which keeps in-progress writes safe across store
+ * instances and processes. Files are ordered by mtime rather than by name.
  */
 export class AudioFileStore {
-  private readonly activeFiles = new Set<string>();
   private readonly createId: () => string;
   private readonly maxFiles: number;
   private readonly maxAgeMs: number;
+  private readonly minAgeMs: number;
   private readonly now: () => number;
 
   constructor(
@@ -77,6 +92,7 @@ export class AudioFileStore {
     this.createId = options.createId ?? randomUUID;
     this.maxFiles = options.maxFiles ?? AUDIO_RETENTION_MAX_FILES;
     this.maxAgeMs = options.maxAgeMs ?? AUDIO_RETENTION_MAX_AGE_MS;
+    this.minAgeMs = options.minAgeMs ?? AUDIO_RETENTION_MIN_AGE_MS;
     this.now = options.now ?? Date.now;
   }
 
@@ -90,17 +106,23 @@ export class AudioFileStore {
       }
       const filename = "thought-" + id + ".mp3";
       const filepath = path.join(this.directory, filename);
+      const stagingFilepath = path.join(this.directory, "." + filename + ".part");
 
+      let handle: FileHandle;
       try {
-        const handle = await open(filepath, "wx");
-        this.activeFiles.add(filepath);
-        return new AudioReservation(filename, filepath, handle, () => {
-          this.activeFiles.delete(filepath);
-        });
+        handle = await open(stagingFilepath, "wx");
       } catch (error) {
         if (isAlreadyExists(error)) continue;
         throw error;
       }
+
+      if (await fileExists(filepath)) {
+        await handle.close();
+        await removeIfPresent(stagingFilepath);
+        continue;
+      }
+
+      return new AudioReservation(filename, filepath, stagingFilepath, handle);
     }
 
     throw new Error("Could not allocate a unique TTS audio filename");
@@ -128,7 +150,7 @@ export class AudioFileStore {
 
     const removed = new Set<string>();
     const remove = async (filepath: string): Promise<void> => {
-      if (this.activeFiles.has(filepath) || removed.has(filepath)) return;
+      if (removed.has(filepath)) return;
       try {
         await unlink(filepath);
         removed.add(filepath);
@@ -138,14 +160,17 @@ export class AudioFileStore {
       }
     };
 
-    const expiry = this.now() - this.maxAgeMs;
+    const now = this.now();
+    const expiry = now - this.maxAgeMs;
     for (const entry of entries) {
       if (entry.mtimeMs < expiry) await remove(entry.filepath);
     }
 
     let remaining = entries.length - removed.size;
+    const countEligibleBefore = now - this.minAgeMs;
     for (const entry of entries) {
       if (remaining <= this.maxFiles) break;
+      if (entry.mtimeMs > countEligibleBefore) continue;
       const removedBefore = removed.size;
       await remove(entry.filepath);
       if (removed.size > removedBefore) remaining -= 1;
@@ -157,26 +182,43 @@ export class AudioFileStore {
 
 /** Save a provider stream without exposing the live provider in tests. */
 export async function saveAudioStream(stream: Readable, store: AudioFileStore): Promise<string> {
-  const reservation = await store.reserve();
-  let keep = false;
+  const chunks: Buffer[] = [];
+  for await (const chunk of stream) {
+    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  }
 
+  const reservation = await store.reserve();
   try {
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    }
     await reservation.write(Buffer.concat(chunks));
+    await reservation.publish();
     await store.cleanup();
-    keep = true;
     return "/audio/" + reservation.filename;
-  } finally {
-    if (keep) await reservation.release();
-    else await reservation.discard();
+  } catch (error) {
+    await reservation.discard();
+    throw error;
   }
 }
 
 function isGeneratedAudioFilename(filename: string): boolean {
   return filename.startsWith("thought-") && filename.endsWith(".mp3");
+}
+
+async function fileExists(filepath: string): Promise<boolean> {
+  try {
+    await stat(filepath);
+    return true;
+  } catch (error) {
+    if (isMissingFile(error)) return false;
+    throw error;
+  }
+}
+
+async function removeIfPresent(filepath: string): Promise<void> {
+  try {
+    await unlink(filepath);
+  } catch (error) {
+    if (!isMissingFile(error)) throw error;
+  }
 }
 
 function isAlreadyExists(error: unknown): boolean {

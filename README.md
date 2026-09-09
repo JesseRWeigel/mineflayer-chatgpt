@@ -391,7 +391,7 @@ Combat ticks run at 50ms intervals for up to 10 seconds per engagement. If the n
 - **Per-bot 3D viewers** — prismarine-viewer with follow/first-person/orbit camera modes
 - **OBS overlays** — Per-bot WebSocket overlay showing health, food, position, inventory, thought, action
 - **TTS** — Bot thoughts converted to speech and played through overlay
-  - Generated clips use collision-resistant UUID filenames and are ignored by Git. Cleanup uses file modification times for UUID and legacy numeric/scientific filenames: clips older than 24 hours are removed, then the newest 10 are retained. A clip with an active write reservation is never removed.
+  - Generated clips use collision-resistant UUID filenames and are ignored by Git. In-progress files use exclusive staging names outside cleanup, then publish without overwriting an existing path. Cleanup uses file modification times for UUID and legacy numeric/scientific filenames: published clips have a 10-minute grace period for deferred overlay playback, clips older than 24 hours are removed, and clips outside the grace period are trimmed toward a 10-file target. Each overlay queues at most 10 waiting clips and drops a queued URL after nine minutes, before the file-retention grace period expires.
 - **Twitch integration** — Reads Twitch chat; viewers can interact with the bots
 
 ### Survival & Resource Loops
