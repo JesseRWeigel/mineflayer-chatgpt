@@ -180,6 +180,7 @@ export class BotBrain {
   private lastGoldBankMs = 0;
   private lastFortressMs = 0;
   private lastPortalRelightMs = 0;
+  private lastNetherReturnMs = 0;
   private lastPocketShedMs = 0;
   private lastWalkHomeMs = 0;
 
@@ -1326,6 +1327,29 @@ export class BotBrain {
       const shed = await shedJunk(this.bot, 2);
       if (shed > 0) {
         this.log.info("Brain", `Pocket hygiene: shed ${shed} junk stacks — pickups work again`);
+        return;
+      }
+    }
+
+    // NETHER-RETURN reflex — the walk-home reflex is overworld-only (correct:
+    // Nether coords are 1:8), which left a gap: a bot idle in the Nether had
+    // NO way out. Atlas sat stranded at one nether spot for two cycles,
+    // LLM-flailing 1000+ mine/explore/flee actions, because the fortress
+    // reflex only fires near the village and walk-home skips the Nether. Any
+    // idle bot in the Nether now runs return_from_nether (find the portal
+    // within 64, else march to the frame's 1:8 nether-side address and
+    // cross). Gets stranded searchers home, where the fortress cycle resumes.
+    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot)) {
+      const inNether = /the_nether/.test(String(this.bot.game.dimension));
+      const cooledReturn = Date.now() - this.lastNetherReturnMs > 60_000;
+      if (inNether && cooledReturn) {
+        this.lastNetherReturnMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: idle in the Nether — returning to the overworld");
+        this.events.onThought("Nothing more to do down here. Back through the portal.");
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "return_from_nether" });
+        this.events.onAction("return_from_nether", result);
+        this.lastAction = "return_from_nether";
+        this.lastResult = result;
         return;
       }
     }
