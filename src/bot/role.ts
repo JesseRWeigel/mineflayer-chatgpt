@@ -109,7 +109,7 @@ export const ATLAS_CONFIG: BotRoleConfig = {
   // Ore discoveries at X=254-550 confirm this zone is explorable and away from the bare highland.
   safeSpawn: { x: 280, y: 0, z: -320 },
   allowedActions: ["explore", "go_to", "gather_wood", "mine_block", "chat", "eat", "sleep", "flee", "attack"],
-  allowedSkills: [],
+  allowedSkills: ["find_fortress"],
   keepItems: [
     { name: "sapling", minCount: 16 },
     { name: "sword", minCount: 1 },
@@ -256,6 +256,7 @@ export const MASON_CONFIG: BotRoleConfig = {
     // doorway-clearing tool was stranded on a bot who couldn't march it to
     // the doorway. The skill self-supplies its bucket and igniter.
     "build_nether_portal",
+    "find_fortress",
     "setup_enchanting",
   ],
   keepItems: [

@@ -1372,7 +1372,19 @@ export class BotBrain {
     // through it the parked trading advancement). Atlas is the explorer;
     // each daytime departure sweeps one compass heading from the portal and
     // refires compound into a widening search.
-    if (config.bot.allowStrategyOverrides && !isSkillRunning(this.bot) && this.bot.username === "Atlas") {
+    // TWO searchers now, not one: the fortress is THE bottleneck (100s of
+    // sweeps, still zero bricks), and Mason was idle-flailing 300+ explore
+    // actions an hour with no task. He already carries build_nether_portal,
+    // so he can cross. Two bots sharing the module-level heading rotation
+    // naturally split the compass between them, roughly halving expected
+    // time-to-fortress. Both gated below on find_fortress being in the role.
+    const isFortressHunter = this.bot.username === "Atlas" || this.bot.username === "Mason";
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      isFortressHunter &&
+      this.roleConfig.allowedSkills.includes("find_fortress")
+    ) {
       const earnedFort = readTeamEarned(BOT_ROSTER.map((b) => b.name));
       const fortDone = earnedFort.has("nether/find_fortress") || earnedFort.has("minecraft:nether/find_fortress");
       // 15min, down from 45: the fortress gates 5+ advancements and is the
