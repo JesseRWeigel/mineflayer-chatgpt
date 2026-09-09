@@ -1201,9 +1201,22 @@ export async function returnThroughPortal(bot: Bot): Promise<string> {
       `[Portal] ${bot.username}: no portal in sight — marching to the home doorway's nether side at ${target.x},~,${target.z} (${gap().toFixed(0)} away)`,
     );
     const marchDeadline = Date.now() + 240_000;
-    bot.pathfinder.setMovements(baseMoves(bot));
+    // DIG-CAPABLE march, the lesson walk-home paid for: baseMoves cannot dig
+    // or swim, so Nether terrain (walls, lava lakes, ravines) pinned Atlas
+    // 168 blocks from the doorway for two cycles — he only escaped by dying.
+    // A bulldozer profile bores through and bridges, bounded by the standing
+    // searchRadius cap. Waypoint hops keep the goal inside that radius.
+    const digMoves = baseMoves(bot);
+    (digMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).canDig = true;
+    (digMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).allow1by1towers = true;
+    bot.pathfinder.setMovements(digMoves);
     while (Date.now() < marchDeadline && !portal) {
-      await safeGoto(bot, new goals.GoalXZ(target.x, target.z), 45_000, 12_000).catch(() => {});
+      const p = bot.entity.position;
+      const g = Math.hypot(p.x - target.x, p.z - target.z);
+      const frac = Math.min(1, 100 / Math.max(1, g));
+      const wx = Math.round(p.x + (target.x - p.x) * frac);
+      const wz = Math.round(p.z + (target.z - p.z) * frac);
+      await safeGoto(bot, new goals.GoalXZ(wx, wz), 45_000, 12_000).catch(() => {});
       portal = findPortalBlock();
       if (!portal) await new Promise((r) => setTimeout(r, 1500));
     }
