@@ -48,7 +48,14 @@ export const findFortressSkill: Skill = {
     const step = (message: string, progress: number) =>
       onProgress({ skillName: "find_fortress", phase: "Hunt", progress, message, active: true });
     const resumable = (msg: string) => `${msg} invoke_skill {"skill":"find_fortress"} again to continue.`;
-    bot.pathfinder.setMovements(baseMoves(bot));
+    // Dig-capable sweep: the outbound legs now reach 400 blocks per heading,
+    // and cautious moves snagged on Nether walls and lava long before that.
+    // A bulldozer profile actually tiles the wider search disk instead of
+    // stalling on the first ridge. The searchRadius cap bounds it.
+    const sweepMoves = baseMoves(bot);
+    (sweepMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).canDig = true;
+    (sweepMoves as unknown as { canDig: boolean; allow1by1towers: boolean }).allow1by1towers = true;
+    bot.pathfinder.setMovements(sweepMoves);
 
     // --- Cross over (proven routine) ---
     if (!inNether(bot)) {
@@ -64,7 +71,7 @@ export const findFortressSkill: Skill = {
     const homePortal = bot.findBlock({ matching: (b) => b.name === "nether_portal", maxDistance: 32 });
 
     // --- Already visible? ---
-    let bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 96 });
+    let bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 128 });
 
     // --- Sweep one heading, scanning as we go ---
     if (!bricks) {
@@ -72,16 +79,16 @@ export const findFortressSkill: Skill = {
       headingIndex++;
       const start = bot.entity.position.clone();
       step(`No fortress in sight — sweeping ${label}...`, 0.3);
-      const legDeadline = Date.now() + 210_000;
-      for (let leg = 1; leg <= 5 && !bricks && !signal.aborted && Date.now() < legDeadline; leg++) {
+      const legDeadline = Date.now() + 300_000;
+      for (let leg = 1; leg <= 8 && !bricks && !signal.aborted && Date.now() < legDeadline; leg++) {
         await safeGoto(
           bot,
-          new goals.GoalNearXZ(start.x + dx * 45 * leg, start.z + dz * 45 * leg, 8),
+          new goals.GoalNearXZ(start.x + dx * 50 * leg, start.z + dz * 50 * leg, 8),
           45_000,
           12_000,
         ).catch(() => {});
-        bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 96 });
-        step(`Sweeping ${label} — leg ${leg}/5, no bricks yet...`, 0.3 + leg * 0.08);
+        bricks = bot.findBlock({ matching: (b) => b.name === "nether_bricks", maxDistance: 128 });
+        step(`Sweeping ${label} — leg ${leg}/8, no bricks yet...`, 0.3 + leg * 0.08);
       }
     }
 
