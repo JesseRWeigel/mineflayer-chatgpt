@@ -304,12 +304,20 @@ export class BotBrain {
           (e) => e.name === "fireball" && this.bot.entity.position.distanceTo(e.position) < 9,
         );
         if (!fb) return;
-        void this.bot.lookAt(fb.position, true).then(() => {
+        // AIM AT THE GHAST, not the fireball: a batted fireball flies where
+        // the player is LOOKING at the moment of the hit, so to send it back
+        // the bot must face the ghast that fired it. 8 swings last hour all
+        // looked at the fireball itself and none returned to sender. Fall
+        // back to the fireball's own position when no ghast is in view (its
+        // incoming line still points roughly homeward).
+        const ghast = this.bot.nearestEntity((e) => e.name === "ghast");
+        const aimAt = ghast ? ghast.position.offset(0, 0, 0) : fb.position;
+        void this.bot.lookAt(aimAt, true).then(() => {
           try {
             this.bot.attack(fb);
             this.log.info(
               "Deflect",
-              `swung at a ghast fireball ${this.bot.entity.position.distanceTo(fb.position).toFixed(1)} away`,
+              `swung at a fireball ${this.bot.entity.position.distanceTo(fb.position).toFixed(1)} away, aiming at ${ghast ? "the ghast" : "its incoming line"}`,
             );
           } catch {
             /* missed the window */
