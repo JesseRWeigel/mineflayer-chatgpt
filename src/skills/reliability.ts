@@ -40,6 +40,7 @@ const NEVER_RETIRE = new Set([
   "return_from_nether",
   "find_fortress",
   "oh_shiny",
+  "trade_with_villager",
 ]);
 
 const CACHE_TTL_MS = 60_000;

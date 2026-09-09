@@ -183,6 +183,7 @@ export class BotBrain {
   private lastNetherReturnMs = 0;
   private lastBiomeRoamMs = 0;
   private biomeRoamIdx = 0;
+  private lastTradeMs = 0;
   private lastPocketShedMs = 0;
   private lastWalkHomeMs = 0;
 
@@ -1462,6 +1463,45 @@ export class BotBrain {
         const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "find_fortress" });
         this.events.onAction("find_fortress", result);
         this.lastAction = "find_fortress";
+        this.lastResult = result;
+        return;
+      }
+    }
+
+    // Trade reflex (Forge) — What a Deal! wants one villager trade, but there
+    // is no village near our base; the nearest is the plains village ~650
+    // blocks out at (608,-496). Forge is the one bot that reliably carries a
+    // sellable good (coal, which toolsmiths, armorers, weaponsmiths and
+    // fishermen all buy), so he makes the run. Daylight-only and a long
+    // cooldown keep this from re-creating a death spike on the long march;
+    // the skill's own march runs to completion in one firing (walk-home would
+    // otherwise drag him back), and keepInventory means a failed trip is free.
+    if (
+      config.bot.allowStrategyOverrides &&
+      !isSkillRunning(this.bot) &&
+      this.bot.username === "Forge" &&
+      this.roleConfig.allowedSkills.includes("trade_with_villager") &&
+      /overworld/.test(String(this.bot.game.dimension))
+    ) {
+      const earnedTrade = readTeamEarned(BOT_ROSTER.map((b) => b.name));
+      const tradeDone = earnedTrade.has("adventure/trade") || earnedTrade.has("minecraft:adventure/trade");
+      const cooledTrade = Date.now() - this.lastTradeMs > 1_800_000;
+      const todTrade = this.bot.time?.timeOfDay ?? 0;
+      const spTrade = this.roleConfig.stashPos;
+      const nearStashTrade =
+        !!spTrade && Math.hypot(this.bot.entity.position.x - spTrade.x, this.bot.entity.position.z - spTrade.z) < 40;
+      const hasCoal =
+        this.bot.inventory
+          .items()
+          .filter((i) => i.name === "coal")
+          .reduce((s, i) => s + i.count, 0) >= 15;
+      if (!tradeDone && cooledTrade && todTrade < 9000 && nearStashTrade && hasCoal) {
+        this.lastTradeMs = Date.now();
+        this.log.info("Brain", "OVERRIDE: no village nearby — marching to sell coal for What a Deal!");
+        this.events.onThought("Coal in my pack, a village on the horizon. Time to strike a deal.");
+        const result = await this.executeActionUnlessPaused("invoke_skill", { skill: "trade_with_villager" });
+        this.events.onAction("trade_with_villager", result);
+        this.lastAction = "trade_with_villager";
         this.lastResult = result;
         return;
       }
