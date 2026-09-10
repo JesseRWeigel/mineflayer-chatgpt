@@ -1577,25 +1577,34 @@ export class BotBrain {
       const cooledRoam = Date.now() - this.lastBiomeRoamMs > 240_000;
       if (cooledRoam) {
         this.lastBiomeRoamMs = Date.now();
-        // Push the frontier: each roam heads ~250 blocks further out on the
-        // next compass point, so the explored radius keeps growing instead of
-        // circling the base.
-        const HEADINGS: [number, number][] = [
-          [1, 0],
-          [0.7, 0.7],
-          [0, 1],
-          [-0.7, 0.7],
-          [-1, 0],
-          [-0.7, -0.7],
-          [0, -1],
-          [0.7, -0.7],
+        // DIRECTED roam toward the biomes Adventuring Time still needs, not a
+        // blind compass sweep. The server locates every unvisited biome 600+
+        // blocks out (jungle 1546, badlands 3008, ...), so random headings
+        // mostly re-tread visited ground; heading at the nearest missing ones
+        // pushes the frontier where the advancement actually lives and sweeps
+        // new biomes en route. Coordinates from a `locate biome` survey at the
+        // village; roamers rotate through the nearest cluster so they spread
+        // instead of funnelling into one lane.
+        const BIOME_TARGETS: [number, number][] = [
+          [606, 198], // lush_caves ~603
+          [958, -602], // frozen_peaks ~731
+          [1022, -1530], // stony_peaks
+          [926, -1722], // jungle
+          [1086, -1914], // bamboo_jungle
+          [1790, -666], // savanna_plateau
         ];
-        const h = HEADINGS[this.biomeRoamIdx % HEADINGS.length];
+        const target = BIOME_TARGETS[this.biomeRoamIdx % BIOME_TARGETS.length];
         this.biomeRoamIdx++;
         const p = this.bot.entity.position;
-        const tx = Math.round(p.x + h[0] * 140);
-        const tz = Math.round(p.z + h[1] * 140);
-        this.log.info("Brain", `Biome roam: pushing the frontier toward ${tx},${tz}`);
+        const dx = target[0] - p.x;
+        const dz = target[1] - p.z;
+        const dist = Math.hypot(dx, dz) || 1;
+        const tx = Math.round(p.x + (dx / dist) * 140);
+        const tz = Math.round(p.z + (dz / dist) * 140);
+        this.log.info(
+          "Brain",
+          `Biome roam: heading toward missing biome at ${target[0]},${target[1]} (next hop ${tx},${tz})`,
+        );
         this.events.onThought("New horizons. Let's see what biome lies out there.");
         // Surface-only roaming: plain explorerMoves cannot dig, so it paths
         // OVER the terrain instead of through it. The old dig-capable roam let
